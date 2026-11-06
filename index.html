@@ -12,8 +12,8 @@
 <meta name="apple-mobile-web-app-title" content="Чат">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <style>
-:root{--bg:#fff;--fg:#14161a;--mut:#6b7280;--card:#f3f4f6;--line:#e5e7eb;--accent:#4f46e5;--bubble:#4f46e5;--in:#fff;--wall:var(--bg)}
-[data-t=dark]{--bg:#0f1115;--fg:#f1f2f4;--mut:#9aa0a8;--card:#1a1d23;--line:#2a2e36;--in:#222630}
+:root{--bg:#fff;--fg:#14161a;--mut:#6b7280;--card:#f3f4f6;--line:#e5e7eb;--accent:#3e88f7;--bubble:#3e88f7;--in:#fff;--wall:var(--bg)}
+[data-t=dark]{--bg:#000;--fg:#fff;--mut:#8e8e93;--card:#1c1c1e;--line:#2c2c2e;--in:#262628}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;margin:0}
 body{font:16px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--fg);overflow:hidden;overscroll-behavior:none}
@@ -85,6 +85,26 @@ audio{width:220px;max-width:100%;height:36px;display:block}
 .cardh{height:110px;margin:-16px -16px 0;border-radius:20px 20px 0 0}
 .big{margin-top:-46px;margin-left:4px;border:4px solid var(--bg)}
 #toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#111;color:#fff;padding:9px 14px;border-radius:20px;font-size:14px;z-index:9}
+
+.pane{flex:1;display:flex;flex-direction:column;min-height:0}
+.htop{display:flex;align-items:center;justify-content:space-between;padding:calc(12px + env(safe-area-inset-top)) 16px 8px;font-size:20px}
+.sp{width:44px}.rb{width:44px;height:44px;border-radius:50%;background:var(--accent);color:#fff;font-size:20px}
+.sbox input{border-radius:22px;background:var(--card);border-color:transparent}
+.plist{flex:1;overflow-y:auto;padding-bottom:120px}
+.crow{padding:9px 16px;position:relative}
+.crow+.crow::before{content:"";position:absolute;top:0;left:88px;right:0;border-top:1px solid var(--line)}
+.ci b{font-size:17px}.ci small{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:15px}
+#tabs{position:absolute;left:16px;right:16px;bottom:calc(10px + env(safe-area-inset-bottom));display:flex;gap:4px;background:var(--card);border-radius:32px;padding:6px;box-shadow:0 6px 24px rgba(0,0,0,.35);border:1px solid var(--line);z-index:3}
+#tabs button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 0 6px;border-radius:26px;font-size:12px;font-weight:600;color:var(--fg)}
+#tabs button.on{background:var(--line);color:var(--accent)}
+.sp1{text-align:center;padding:calc(18px + env(safe-area-inset-top)) 16px 4px}
+.sp1 .av{margin:0 auto}.sp1 h2{margin:10px 0 2px;font-size:26px}.sp1 small{color:var(--mut);font-size:16px}
+.grp{margin:16px;background:var(--card);border-radius:22px;overflow:hidden}
+.srow{display:flex;align-items:center;gap:14px;padding:12px 16px;font-size:17px}
+.srow+.srow{border-top:1px solid var(--line)}
+.srow span{flex:1}.srow em{color:var(--mut);font-style:normal;font-size:22px}.srow .val{color:var(--mut);font-weight:400}
+.srow.red span{color:#ff453a}
+.ic{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:17px;flex:none}
 </style>
 </head>
 <body>
@@ -102,9 +122,12 @@ audio{width:220px;max-width:100%;height:36px;display:block}
 </div></section>
 
 <section id="home" class="full" hidden>
-<div id="htop"><b>Чаты</b><button id="gear" aria-label="Настройки">⚙️</button></div>
-<div class="sbox"><input id="q" placeholder="Поиск по имени или @юзернейму" autocapitalize="off"></div>
-<div id="clist"></div>
+<div id="pChats" class="pane"><div class="htop"><span class="sp"></span><b>Чаты</b><button class="rb" id="newc" aria-label="Новый чат">✎</button></div>
+<div class="sbox"><input id="q" placeholder="Поиск" autocapitalize="off"></div><div id="clist" class="plist"></div></div>
+<div id="pCont" class="pane" hidden><div class="htop"><span class="sp"></span><b>Контакты</b><span class="sp"></span></div>
+<div class="sbox"><input id="q2" placeholder="Поиск по имени или @юзернейму" autocapitalize="off"></div><div id="ulist" class="plist"></div></div>
+<div id="pSet" class="pane" hidden><div id="sprof"></div><div id="sbody" class="plist"></div></div>
+<nav id="tabs"><button data-t="Cont"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><circle cx="12" cy="8" r="4.2"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>Контакты</button><button data-t="Chats" class="on"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M3 11a8 7 0 0 1 16 0 8 7 0 0 1-8 7 9 9 0 0 1-3-.5L4 20l1.5-3.5A7 7 0 0 1 3 11z"/></svg>Чаты</button><button data-t="Set"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="4" stroke-dasharray="3.14 3.14"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2.6"/></svg>Настройки</button></nav>
 </section>
 
 <section id="chat" class="full" hidden>
@@ -133,12 +156,12 @@ const EM=['👍','❤️','😂','😮','😢','🔥'];
 let sb,me=null,prof=null,other=null,msgs=[],reply=null,editing=null,pend=null,authMode='in',booted=false;
 
 function toast(t){const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,2600)}
-function theme(o){const t={mode:'auto',accent:'#4f46e5',bubble:'#4f46e5',wall:1,...(o||{})};
+function theme(o){const t={mode:'auto',accent:'#3e88f7',bubble:'#3e88f7',wall:1,...(o||{})};
  const dark=t.mode==='dark'||(t.mode==='auto'&&matchMedia('(prefers-color-scheme:dark)').matches);
  const r=document.documentElement;r.dataset.t=dark?'dark':'light';
  r.style.setProperty('--accent',t.accent);r.style.setProperty('--bubble',t.bubble);
  r.style.setProperty('--wall',(WALLS[t.wall]||WALLS[0])[dark?1:0]);
- document.querySelector('meta[name=theme-color]').content=dark?'#0f1115':'#ffffff';
+ document.querySelector('meta[name=theme-color]').content=dark?'#000000':'#ffffff';
  try{localStorage.setItem('th',JSON.stringify(t))}catch(e){}return t}
 try{theme(JSON.parse(localStorage.getItem('th')))}catch(e){theme()}
 matchMedia('(prefers-color-scheme:dark)').addEventListener?.('change',()=>theme(prof?.theme));
@@ -183,11 +206,11 @@ async function boot(){
  if(/iphone|ipad/i.test(navigator.userAgent)&&!navigator.standalone)$('#hint').textContent='Чтобы установить: «Поделиться» → «На экран Домой»'}
 
 /* ---------- Список чатов ---------- */
-async function enter(){theme(prof.theme);P[me.id]=prof;show('home');await loadAll();
+async function enter(){theme(prof.theme);P[me.id]=prof;show('home');await loadAll();sets();loadContacts();
  sb.channel('room')
  .on('postgres_changes',{event:'*',schema:'public',table:'messages'},onMsg)
  .on('postgres_changes',{event:'INSERT',schema:'public',table:'chats'},()=>loadAll())
- .on('postgres_changes',{event:'*',schema:'public',table:'profiles'},p=>{const n=p.new;if(!n||!n.id)return;P[n.id]=n;if(n.id===me.id){prof=n;return}cur?head():home()}).subscribe();
+ .on('postgres_changes',{event:'*',schema:'public',table:'profiles'},p=>{const n=p.new;if(!n||!n.id)return;P[n.id]=n;if(n.id===me.id){prof=n;return}if(p.eventType==='INSERT'){CT.push(n);ulist()}cur?head():home()}).subscribe();
  const ping=()=>{if(!document.hidden)sb.from('profiles').update({last_seen:new Date().toISOString()}).eq('id',me.id)};
  ping();setInterval(ping,30000);setInterval(()=>{if(cur)head()},30000);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden){ping();loadAll()}})}
@@ -202,21 +225,36 @@ function onMsg(p){const n=p.new;
  else{if(!chats.some(c=>c.id===n.chat_id)){loadAll();return}
   const a=M[n.chat_id]=M[n.chat_id]||[],i=a.findIndex(m=>m.id===n.id);if(i>-1)a[i]=n;else a.push(n)}
  if(cur){render(p.eventType==='INSERT'&&n.chat_id===cur);markRead()}else home()}
-function home(){if($('#q').value.trim())return;
- const rows=chats.map(c=>{const a=M[c.id]||[],l=a[a.length-1];return{c,p:peer(c),l,u:a.filter(m=>m.sender!==me.id&&!m.read).length,t:l?l.created_at:c.created_at}}).sort((x,y)=>new Date(y.t)-new Date(x.t));
- $('#clist').innerHTML=rows.length?rows.map(r=>`<div class="crow" data-c="${r.c.id}">${av(r.p,52)}<div class="ci"><b>${esc(r.p?.name||'…')} ${esc(r.p?.status_emoji||'')}</b><small>${r.l?(r.l.sender===me.id?'Вы: ':'')+esc(r.l.body):'Нет сообщений'}</small></div><div class="cm">${r.l?tm(r.l.created_at):''}${r.u?`<br><span class="badge">${r.u}</span>`:''}</div></div>`).join('')
- :'<div class="empty">Чатов пока нет.<br>Найдите человека по @юзернейму в поиске выше.</div>'}
-let qT;$('#q').oninput=()=>{clearTimeout(qT);qT=setTimeout(search,300)};
-async function search(){const q=$('#q').value.trim().replace(/^@/,'').replace(/[^\p{L}\p{N}_ ]/gu,'');
- if(!q){home();return}
- const {data}=await sb.from('profiles').select('*').or(`username.ilike.%${q}%,name.ilike.%${q}%`).neq('id',me.id).limit(20);
- (data||[]).forEach(p=>P[p.id]=p);
- $('#clist').innerHTML=(data||[]).length?data.map(p=>`<div class="crow" data-u="${p.id}">${av(p,52)}<div class="ci"><b>${esc(p.name)} ${esc(p.status_emoji)}</b><small>@${esc(p.username)}</small></div></div>`).join(''):'<div class="empty">Никого не нашли</div>'}
-$('#clist').onclick=e=>{const r=e.target.closest('.crow');if(!r)return;if(r.dataset.c)openChat(+r.dataset.c);else startWith(r.dataset.u)};
+function home(){const f=$('#q').value.trim().toLowerCase();
+ const rows=chats.map(c=>{const a=M[c.id]||[],l=a[a.length-1];return{c,p:peer(c),l,u:a.filter(m=>m.sender!==me.id&&!m.read).length,t:l?l.created_at:c.created_at}}).filter(r=>!f||((r.p?.name||'')+' '+(r.p?.username||'')).toLowerCase().includes(f)).sort((x,y)=>new Date(y.t)-new Date(x.t));
+ $('#clist').innerHTML=rows.length?rows.map(r=>`<div class="crow" data-c="${r.c.id}">${av(r.p,60)}<div class="ci"><b>${esc(r.p?.name||'…')} ${esc(r.p?.status_emoji||'')}</b><small>${r.l?(r.l.sender===me.id?'Вы: ':'')+esc(r.l.body):'Нет сообщений'}</small></div><div class="cm">${r.l?tm(r.l.created_at):''}${r.u?`<br><span class="badge">${r.u}</span>`:''}</div></div>`).join('')
+ :'<div class="empty">Чатов пока нет.<br>Откройте «Контакты», чтобы начать переписку.</div>'}
+$('#q').oninput=home;
+let CT=[];
+async function loadContacts(){const {data}=await sb.from('profiles').select('*').neq('id',me.id).order('name').limit(300);CT=data||[];CT.forEach(p=>P[p.id]=p);ulist()}
+function stat(p){return Date.now()-new Date(p.last_seen)<70000?'в сети':'был(а) '+tm(p.last_seen)}
+function ulist(){const f=$('#q2').value.trim().toLowerCase().replace(/^@/,'');
+ const r=CT.filter(p=>!f||((p.name||'')+' '+(p.username||'')).toLowerCase().includes(f));
+ $('#ulist').innerHTML=r.length?r.map(p=>`<div class="crow" data-u="${p.id}">${av(p,52)}<div class="ci"><b>${esc(p.name)} ${esc(p.status_emoji)}</b><small>@${esc(p.username)}, ${stat(p)}</small></div></div>`).join(''):'<div class="empty">Пока никого нет. Люди появятся здесь после регистрации.</div>'}
+$('#q2').oninput=ulist;
+const rowClick=e=>{const r=e.target.closest('.crow');if(!r)return;if(r.dataset.c)openChat(+r.dataset.c);else startWith(r.dataset.u)};
+$('#clist').onclick=$('#ulist').onclick=rowClick;
+function tab(n){['Chats','Cont','Set'].forEach(k=>$('#p'+k).hidden=k!==n);document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===n));if(n==='Cont')ulist()}
+$('#tabs').onclick=e=>{const b=e.target.closest('button');if(b)tab(b.dataset.t)};
+$('#newc').onclick=()=>tab('Cont');
+function sets(){const md={auto:'Авто',light:'Светлая',dark:'Тёмная'}[(prof.theme||{}).mode||'auto'];
+ $('#sprof').innerHTML=`<div class="sp1">${av(prof,100)}<h2>${esc(prof.name)} ${esc(prof.status_emoji)}</h2><small>@${esc(prof.username)}</small></div>`;
+ $('#sbody').innerHTML=`<div class="grp"><div class="srow" data-s="ed"><i class="ic" style="background:#ef5b4f">👤</i><span>Мой профиль</span><em>›</em></div></div>
+ <div class="grp"><div class="srow" data-s="ed"><i class="ic" style="background:#3e88f7">🎨</i><span>Оформление</span><em>›</em></div>
+ <div class="srow" data-s="mode"><i class="ic" style="background:#8e5cf0">🌓</i><span>Тема</span><b class="val">${md}</b><em>›</em></div></div>
+ <div class="grp"><div class="srow red" data-s="out"><i class="ic" style="background:#8e8e93">↩</i><span>Выйти из аккаунта</span></div></div>`}
+$('#sbody').onclick=e=>{const r=e.target.closest('[data-s]');if(!r)return;const k=r.dataset.s;
+ if(k==='ed')editor(false);if(k==='mode')cycleMode();if(k==='out'&&confirm('Выйти из аккаунта?'))sb.auth.signOut()};
+async function cycleMode(){const o=['auto','light','dark'],t={...(prof.theme||{})};t.mode=o[(o.indexOf(t.mode||'auto')+1)%3];
+ theme(t);prof.theme=t;P[me.id]=prof;sets();await sb.from('profiles').update({theme:t}).eq('id',me.id)}
 async function startWith(uid){let c=chats.find(c=>c.user1===uid||c.user2===uid);
  if(!c){const {data,error}=await sb.from('chats').insert({user1:me.id,user2:uid}).select().single();if(error){toast(error.message);return}c=data;if(!chats.some(x=>x.id===c.id))chats.push(c)}
  $('#q').value='';openChat(c.id)}
-$('#gear').onclick=()=>editor(false);
 
 /* ---------- Чат ---------- */
 function openChat(id){cur=id;unbar();$('#inp').value='';fit();show('chat');head();render(true);markRead()}
@@ -306,8 +344,8 @@ function card(p){const S=$('#sheet');
 function shrink(f,n=320){return new Promise(r=>{const i=new Image();i.onload=()=>{const s=Math.min(i.width,i.height),c=document.createElement('canvas');c.width=c.height=n;
  c.getContext('2d').drawImage(i,(i.width-s)/2,(i.height-s)/2,s,s,0,0,n,n);c.toBlob(r,'image/jpeg',.85)};i.src=URL.createObjectURL(f)})}
 function editor(first){const S=$('#sheet');pend=null;
- const p=prof||{name:'',username:'',bio:'',status_emoji:'',color:'#4f46e5',avatar_url:'',theme:{}};
- let t={mode:'auto',accent:'#4f46e5',bubble:'#4f46e5',wall:1,...p.theme};
+ const p=prof||{name:'',username:'',bio:'',status_emoji:'',color:'#3e88f7',avatar_url:'',theme:{}};
+ let t={mode:'auto',accent:'#3e88f7',bubble:'#3e88f7',wall:1,...p.theme};
  S.innerHTML=`<div class="sh"><h2>${first?'Создайте профиль':'Профиль и оформление'}</h2>
  <div class="pav"><div id="pv">${av(p,72)}</div><label class="btn sec" style="width:auto;display:block;color:var(--fg);font-size:15px">Фото<input id="file" type="file" accept="image/*" hidden></label></div>
  <label>Имя<input id="f_name" maxlength="30" value="${esc(p.name)}"></label>
@@ -343,7 +381,7 @@ function editor(first){const S=$('#sheet');pend=null;
   const {data,error}=await q.select().single();$('#f_save').disabled=false;
   if(error){err.textContent=error.code==='23505'?'Этот юзернейм занят':error.message;return}
   const was=!!prof;prof=data;P[me.id]=data;S.hidden=true;theme(prof.theme);
-  if(!was)enter();else{toast('Сохранено');if(cur)render();else home()}}}
+  if(!was)enter();else{toast('Сохранено');sets();if(cur)render();else home()}}}
 
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 boot();
