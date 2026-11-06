@@ -195,6 +195,7 @@ body,#head,#comp,#tabs,.grp,input,textarea,.b,.sh{transition:background-color .3
 .gr{display:flex;gap:10px;justify-content:center;font-size:14px;margin:2px 0}.gr span{opacity:.75;width:70px;text-align:right}.gr em{font-style:normal;font-weight:600;width:110px;text-align:left}
 .gbtn{margin-top:12px;background:rgba(255,255,255,.22);border-radius:18px;padding:10px;font-weight:600}
 .rib{position:absolute;top:16px;right:-32px;background:rgba(255,255,255,.28);padding:2px 36px;transform:rotate(45deg);font-size:11px;font-style:normal}
+html.kb #comp{padding-bottom:8px!important}
 </style>
 </head>
 <body>
@@ -317,8 +318,9 @@ async function enter(){theme(prof.theme);P[me.id]=prof;show('home');await loadAl
  .on('postgres_changes',{event:'INSERT',schema:'public',table:'chats'},()=>loadAll())
  .on('postgres_changes',{event:'*',schema:'public',table:'profiles'},p=>{const n=p.new;if(!n||!n.id)return;P[n.id]=n;if(n.id===me.id){prof=n;return}cur?head():home()}).subscribe();
  const ping=()=>{if(!document.hidden)sb.from('profiles').update({last_seen:new Date().toISOString()}).eq('id',me.id)};
- ping();setInterval(ping,30000);setInterval(()=>{if(cur)head()},30000);
- document.addEventListener('visibilitychange',()=>{if(!document.hidden){ping();loadAll()}})}
+ const peers=async()=>{if(document.hidden||!chats.length)return;const ids=[...new Set(chats.map(c=>c.user1===me.id?c.user2:c.user1))];const r=await sb.from('profiles').select('*').in('id',ids);(r.data||[]).forEach(q=>P[q.id]=q);if(cur)head();else home()};
+ ping();setInterval(()=>{ping();peers()},20000);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden){ping();loadAll()}});addEventListener('focus',ping);addEventListener('pageshow',ping)}
 async function loadAll(){const r=await sb.from('chats').select('*');chats=r.data||[];
  const ids=[...new Set(chats.map(c=>c.user1===me.id?c.user2:c.user1))];
  if(ids.length){const pr=await sb.from('profiles').select('*').in('id',ids);(pr.data||[]).forEach(p=>P[p.id]=p)}
@@ -626,7 +628,7 @@ function editor(first){const S=$('#sheet');pend=null;let pendUrl='';
 
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 new ResizeObserver(()=>document.documentElement.style.setProperty('--cwh',$('#cw').offsetHeight+'px')).observe($('#cw'));
-if(window.visualViewport){const vv=visualViewport,c=$('#chat'),f=()=>{c.style.height=vv.height+'px';c.style.top=vv.offsetTop+'px';c.style.bottom='auto'};vv.addEventListener('resize',f);vv.addEventListener('scroll',f)}
+if(window.visualViewport){const vv=visualViewport,c=$('#chat'),f=()=>{const kb=innerHeight-vv.height>120;document.documentElement.classList.toggle('kb',kb);c.style.height=vv.height+'px';c.style.top=vv.offsetTop+'px';c.style.bottom='auto';if(kb){scrollTo(0,0);const l=$('#list');if(l)l.scrollTop=l.scrollHeight}};vv.addEventListener('resize',f);vv.addEventListener('scroll',f);addEventListener('focusin',()=>setTimeout(f,50));addEventListener('focusout',()=>setTimeout(()=>{scrollTo(0,0);f()},50))}
 boot();
 </script>
 </body>
