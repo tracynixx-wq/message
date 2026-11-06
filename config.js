@@ -1,5 +1,5 @@
-// Вставьте свои значения из Supabase: Project Settings -> API
 window.CFG = {
-  url: "ВСТАВЬТЕ_PROJECT_URL",
-  key: "ВСТАВЬТЕ_ANON_PUBLIC_KEY"
+  url: "https://wvxqazbylxttjrvyussq.supabase.co/rest/v1/",
+  key: "sb_publishable_grPFr8_QXQMaRkIxJ_NNwg_pMs98Caz"
 };
+
