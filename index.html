@@ -37,6 +37,22 @@ section.full{position:fixed;inset:0;display:flex;flex-direction:column}
 #who b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #who small{color:var(--mut)}
 #gear{font-size:22px;padding:6px}
+#htop{display:flex;align-items:center;justify-content:space-between;padding:calc(12px + env(safe-area-inset-top)) 16px 8px;font-size:24px}
+.sbox{padding:4px 14px 8px}
+#clist{flex:1;overflow-y:auto}
+.crow{display:flex;gap:12px;align-items:center;padding:10px 14px;cursor:pointer}
+.crow:active{background:var(--card)}
+.ci{flex:1;min-width:0}.ci b,.ci small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ci small{color:var(--mut)}
+.cm{text-align:right;font-size:12px;color:var(--mut)}
+.badge{display:inline-block;background:var(--accent);color:#fff;border-radius:10px;padding:0 7px;margin-top:4px;font-size:12px}
+#att,#mic{height:44px;min-width:40px;font-size:22px;flex:none}
+#mic.rec{color:#dc2626;font-size:15px;font-weight:700}
+.mi{max-width:100%;max-height:320px;border-radius:12px;display:block;margin-bottom:2px}
+audio{width:220px;max-width:100%;height:36px;display:block}
+#viewer img{max-width:100%;max-height:100%}
+#back{font-size:32px;padding:0 6px;color:var(--accent);line-height:1}
+.empty{text-align:center;color:var(--mut);padding:40px 24px}
 #list{flex:1;overflow-y:auto;padding:10px 12px;background:var(--wall);-webkit-overflow-scrolling:touch}
 .day{text-align:center;margin:10px 0;font-size:13px;color:var(--mut)}
 .day::before{content:"";}
@@ -85,15 +101,22 @@ section.full{position:fixed;inset:0;display:flex;flex-direction:column}
 <p id="hint"></p>
 </div></section>
 
+<section id="home" class="full" hidden>
+<div id="htop"><b>Чаты</b><button id="gear" aria-label="Настройки">⚙️</button></div>
+<div class="sbox"><input id="q" placeholder="Поиск по имени или @юзернейму" autocapitalize="off"></div>
+<div id="clist"></div>
+</section>
+
 <section id="chat" class="full" hidden>
-<div id="head"><div id="hav"></div><div id="who"></div><button id="gear" aria-label="Настройки">⚙️</button></div>
+<div id="head"><button id="back" aria-label="Назад">‹</button><div id="hav"></div><div id="who"></div></div>
 <div id="list"></div>
 <div id="bar" hidden><span id="bt"></span><button id="bx" aria-label="Отмена">✕</button></div>
-<div id="comp"><textarea id="inp" rows="1" placeholder="Сообщение"></textarea><button id="sendb" aria-label="Отправить">➤</button></div>
+<div id="comp"><button id="att" aria-label="Фото">📎</button><input id="fileIn" type="file" accept="image/*" hidden><textarea id="inp" rows="1" placeholder="Сообщение"></textarea><button id="mic" aria-label="Голосовое">🎤</button><button id="sendb" aria-label="Отправить">➤</button></div>
 </section>
 
 <div id="sheet" class="over" hidden></div>
 <div id="menu" class="over" hidden></div>
+<div id="viewer" class="over" style="align-items:center" hidden></div>
 <div id="toast" hidden></div>
 
 <script src="config.js"></script>
@@ -109,7 +132,6 @@ const WALLS=[['var(--bg)','var(--bg)'],
 const EM=['👍','❤️','😂','😮','😢','🔥'];
 let sb,me=null,prof=null,other=null,msgs=[],reply=null,editing=null,pend=null,authMode='in',booted=false;
 
-function show(id){['load','auth','chat'].forEach(k=>$('#'+k).hidden=k!==id)}
 function toast(t){const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,2600)}
 function theme(o){const t={mode:'auto',accent:'#4f46e5',bubble:'#4f46e5',wall:1,...(o||{})};
  const dark=t.mode==='dark'||(t.mode==='auto'&&matchMedia('(prefers-color-scheme:dark)').matches);
@@ -141,12 +163,16 @@ $('#go').onclick=async()=>{const email=$('#em').value.trim(),password=$('#pw').v
 $('#pw').onkeydown=e=>{if(e.key==='Enter')$('#go').click()};
 
 /* ---------- Старт ---------- */
+let P={},chats=[],M={},cur=null;
+const cm=()=>M[cur]||[];
+const peer=c=>P[c.user1===me.id?c.user2:c.user1];
+const tm=d=>new Date(d).toDateString()===new Date().toDateString()?hm(d):new Date(d).toLocaleDateString('ru',{day:'numeric',month:'short'});
+function show(id){['load','auth','home','chat'].forEach(k=>$('#'+k).hidden=k!==id)}
 async function start(s){if(me)return;me=s.user;show('load');
- const {data,error}=await sb.from('profiles').select('*');
- if(error){$('#load').innerHTML='<div class="box"><p>Ошибка базы: '+esc(error.message)+'</p><p>Проверьте, что вы выполнили setup.sql</p></div>';return}
- prof=data.find(p=>p.id===me.id);other=data.find(p=>p.id!==me.id)||null;
- if(!prof){if(data.length>=2){$('#load').innerHTML='<div class="box"><p>В этом чате уже есть два человека.</p><button class="btn sec" onclick="sb.auth.signOut()">Выйти</button></div>';return}
-  show('chat');theme(prof?.theme);editor(true);return}
+ const {data,error}=await sb.from('profiles').select('*').eq('id',me.id);
+ if(error){$('#load').innerHTML='<div class="box"><p>Ошибка базы: '+esc(error.message)+'</p><p>Выполните setup.sql в Supabase</p></div>';return}
+ prof=data[0];
+ if(!prof){show('home');editor(true);return}
  enter()}
 async function boot(){
  if(!window.CFG||CFG.url.startsWith('ВСТАВЬТЕ')){$('#load').innerHTML='<div class="box"><p>Откройте config.js и вставьте URL и ключ Supabase</p></div>';return}
@@ -156,29 +182,50 @@ async function boot(){
  if(data.session)start(data.session);else{authUI();show('auth')}
  if(/iphone|ipad/i.test(navigator.userAgent)&&!navigator.standalone)$('#hint').textContent='Чтобы установить: «Поделиться» → «На экран Домой»'}
 
-/* ---------- Чат ---------- */
-async function enter(){show('chat');theme(prof.theme);head();await load();
+/* ---------- Список чатов ---------- */
+async function enter(){theme(prof.theme);P[me.id]=prof;show('home');await loadAll();
  sb.channel('room')
- .on('postgres_changes',{event:'*',schema:'public',table:'messages'},p=>{
-  if(p.eventType==='INSERT'){if(!msgs.some(m=>m.id===p.new.id))msgs.push(p.new)}
-  else if(p.eventType==='UPDATE'){const i=msgs.findIndex(m=>m.id===p.new.id);if(i>-1)msgs[i]=p.new;else msgs.push(p.new)}
-  else if(p.eventType==='DELETE')msgs=msgs.filter(m=>m.id!==p.old.id);
-  render(p.eventType==='INSERT');markRead()})
- .on('postgres_changes',{event:'*',schema:'public',table:'profiles'},p=>{const n=p.new;if(!n||!n.id)return;
-  if(n.id===me.id){prof=n;return}other=n;head();render()}).subscribe();
+ .on('postgres_changes',{event:'*',schema:'public',table:'messages'},onMsg)
+ .on('postgres_changes',{event:'INSERT',schema:'public',table:'chats'},()=>loadAll())
+ .on('postgres_changes',{event:'*',schema:'public',table:'profiles'},p=>{const n=p.new;if(!n||!n.id)return;P[n.id]=n;if(n.id===me.id){prof=n;return}cur?head():home()}).subscribe();
  const ping=()=>{if(!document.hidden)sb.from('profiles').update({last_seen:new Date().toISOString()}).eq('id',me.id)};
- ping();setInterval(ping,30000);setInterval(head,30000);
- document.addEventListener('visibilitychange',()=>{if(!document.hidden){ping();load()}})}
-async function load(){const {data}=await sb.from('messages').select('*').order('id',{ascending:false}).limit(200);
- if(data){msgs=data.reverse();render(true);markRead()}}
-function head(){$('#hav').innerHTML=av(other,42);
- let st='Ждём второго человека…';
- if(other){st=Date.now()-new Date(other.last_seen)<70000?'в сети':'был(а) '+(new Date(other.last_seen).toDateString()===new Date().toDateString()?'в '+hm(other.last_seen):new Date(other.last_seen).toLocaleDateString('ru',{day:'numeric',month:'short'}))}
- $('#who').innerHTML=`<b>${other?esc(other.name)+' '+esc(other.status_emoji):'Чат'}</b><small>${st}</small>`}
-$('#hav').onclick=$('#who').onclick=()=>{if(other)card(other)};
+ ping();setInterval(ping,30000);setInterval(()=>{if(cur)head()},30000);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden){ping();loadAll()}})}
+async function loadAll(){const r=await sb.from('chats').select('*');chats=r.data||[];
+ const ids=[...new Set(chats.map(c=>c.user1===me.id?c.user2:c.user1))];
+ if(ids.length){const pr=await sb.from('profiles').select('*').in('id',ids);(pr.data||[]).forEach(p=>P[p.id]=p)}
+ const m=await sb.from('messages').select('*').order('id',{ascending:false}).limit(500);
+ M={};(m.data||[]).reverse().forEach(x=>(M[x.chat_id]=M[x.chat_id]||[]).push(x));
+ if(cur){render();head();markRead()}else home()}
+function onMsg(p){const n=p.new;
+ if(p.eventType==='DELETE'){for(const k in M)M[k]=M[k].filter(m=>m.id!==p.old.id)}
+ else{if(!chats.some(c=>c.id===n.chat_id)){loadAll();return}
+  const a=M[n.chat_id]=M[n.chat_id]||[],i=a.findIndex(m=>m.id===n.id);if(i>-1)a[i]=n;else a.push(n)}
+ if(cur){render(p.eventType==='INSERT'&&n.chat_id===cur);markRead()}else home()}
+function home(){if($('#q').value.trim())return;
+ const rows=chats.map(c=>{const a=M[c.id]||[],l=a[a.length-1];return{c,p:peer(c),l,u:a.filter(m=>m.sender!==me.id&&!m.read).length,t:l?l.created_at:c.created_at}}).sort((x,y)=>new Date(y.t)-new Date(x.t));
+ $('#clist').innerHTML=rows.length?rows.map(r=>`<div class="crow" data-c="${r.c.id}">${av(r.p,52)}<div class="ci"><b>${esc(r.p?.name||'…')} ${esc(r.p?.status_emoji||'')}</b><small>${r.l?(r.l.sender===me.id?'Вы: ':'')+esc(r.l.body):'Нет сообщений'}</small></div><div class="cm">${r.l?tm(r.l.created_at):''}${r.u?`<br><span class="badge">${r.u}</span>`:''}</div></div>`).join('')
+ :'<div class="empty">Чатов пока нет.<br>Найдите человека по @юзернейму в поиске выше.</div>'}
+let qT;$('#q').oninput=()=>{clearTimeout(qT);qT=setTimeout(search,300)};
+async function search(){const q=$('#q').value.trim().replace(/^@/,'').replace(/[^\p{L}\p{N}_ ]/gu,'');
+ if(!q){home();return}
+ const {data}=await sb.from('profiles').select('*').or(`username.ilike.%${q}%,name.ilike.%${q}%`).neq('id',me.id).limit(20);
+ (data||[]).forEach(p=>P[p.id]=p);
+ $('#clist').innerHTML=(data||[]).length?data.map(p=>`<div class="crow" data-u="${p.id}">${av(p,52)}<div class="ci"><b>${esc(p.name)} ${esc(p.status_emoji)}</b><small>@${esc(p.username)}</small></div></div>`).join(''):'<div class="empty">Никого не нашли</div>'}
+$('#clist').onclick=e=>{const r=e.target.closest('.crow');if(!r)return;if(r.dataset.c)openChat(+r.dataset.c);else startWith(r.dataset.u)};
+async function startWith(uid){let c=chats.find(c=>c.user1===uid||c.user2===uid);
+ if(!c){const {data,error}=await sb.from('chats').insert({user1:me.id,user2:uid}).select().single();if(error){toast(error.message);return}c=data;if(!chats.some(x=>x.id===c.id))chats.push(c)}
+ $('#q').value='';openChat(c.id)}
 $('#gear').onclick=()=>editor(false);
 
-function render(sc){const box=$('#list');const near=box.scrollHeight-box.scrollTop-box.clientHeight<140;
+/* ---------- Чат ---------- */
+function openChat(id){cur=id;unbar();$('#inp').value='';fit();show('chat');head();render(true);markRead()}
+$('#back').onclick=()=>{cur=null;unbar();show('home');home()};
+function head(){const c=chats.find(x=>x.id===cur);if(!c)return;const o=peer(c);$('#hav').innerHTML=av(o,42);
+ let st='';if(o){st=Date.now()-new Date(o.last_seen)<70000?'в сети':'был(а) '+(new Date(o.last_seen).toDateString()===new Date().toDateString()?'в '+hm(o.last_seen):new Date(o.last_seen).toLocaleDateString('ru',{day:'numeric',month:'short'}))}
+ $('#who').innerHTML=`<b>${o?esc(o.name)+' '+esc(o.status_emoji):'Чат'}</b><small>${st}</small>`}
+$('#hav').onclick=$('#who').onclick=()=>{const c=chats.find(x=>x.id===cur);if(c&&peer(c))card(peer(c))};
+function render(sc){const msgs=cm(),box=$('#list');const near=box.scrollHeight-box.scrollTop-box.clientHeight<140;
  let last='',h='';
  if(!msgs.length)h='<div class="day">Напишите первое сообщение</div>';
  for(const m of msgs){const day=new Date(m.created_at).toLocaleDateString('ru',{day:'numeric',month:'long'});
@@ -186,42 +233,67 @@ function render(sc){const box=$('#list');const near=box.scrollHeight-box.scrollT
   const mine=m.sender===me.id,rp=m.reply_to&&msgs.find(x=>x.id===m.reply_to);
   const g={};Object.values(m.reactions||{}).forEach(e=>g[e]=(g[e]||0)+1);
   const chips=Object.keys(g).map(e=>`<span class="chip ${(m.reactions||{})[me.id]===e?'on':''}" data-id="${m.id}" data-e="${e}">${e}${g[e]>1?' '+g[e]:''}</span>`).join('');
-  h+=`<div class="row ${mine?'me':''}"><div class="b" data-id="${m.id}">${rp?`<div class="rp">${esc(rp.body)}</div>`:''}${esc(m.body)}<i class="t">${m.edited?'изм. ':''}${hm(m.created_at)}${mine?(m.read?' ✓✓':' ✓'):''}</i>${chips?`<div class="chips">${chips}</div>`:''}</div></div>`}
+  h+=`<div class="row ${mine?'me':''}"><div class="b" data-id="${m.id}">${rp?`<div class="rp">${esc(rp.body)}</div>`:''}${m.kind==='image'?`<img class="mi" src="${esc(m.media_url)}" alt="">`:m.kind==='voice'?`<audio controls preload="none" src="${esc(m.media_url)}"></audio>`:esc(m.body)}<i class="t">${m.edited?'изм. ':''}${hm(m.created_at)}${mine?(m.read?' ✓✓':' ✓'):''}</i>${chips?`<div class="chips">${chips}</div>`:''}</div></div>`}
  box.innerHTML=h;if(sc||near)box.scrollTop=box.scrollHeight}
-$('#list').onclick=e=>{const c=e.target.closest('.chip');if(c){react(msgs.find(m=>m.id==c.dataset.id),c.dataset.e);return}
+$('#list').onclick=e=>{if(e.target.closest('audio'))return;
+ if(e.target.matches('img.mi')){const V=$('#viewer');V.innerHTML=`<img src="${esc(e.target.src)}" alt="">`;V.hidden=false;V.onclick=()=>V.hidden=true;return}
+ const c=e.target.closest('.chip');if(c){react(cm().find(m=>m.id==c.dataset.id),c.dataset.e);return}
  const b=e.target.closest('.b');if(b)menu(+b.dataset.id)};
-let mrT;function markRead(){clearTimeout(mrT);mrT=setTimeout(async()=>{if(document.hidden)return;
- const ids=msgs.filter(m=>m.sender!==me.id&&!m.read).map(m=>m.id);if(!ids.length)return;
- msgs.forEach(m=>{if(ids.includes(m.id))m.read=true});await sb.from('messages').update({read:true}).in('id',ids)},400)}
-
+let mrT;function markRead(){clearTimeout(mrT);mrT=setTimeout(async()=>{if(document.hidden||!cur)return;
+ const ids=cm().filter(m=>m.sender!==me.id&&!m.read).map(m=>m.id);if(!ids.length)return;
+ cm().forEach(m=>{if(ids.includes(m.id))m.read=true});await sb.from('messages').update({read:true}).in('id',ids)},400)}
 async function react(m,e){if(!m)return;const r={...(m.reactions||{})};if(r[me.id]===e)delete r[me.id];else r[me.id]=e;
  m.reactions=r;render();await sb.from('messages').update({reactions:r}).eq('id',m.id)}
-function menu(id){const m=msgs.find(x=>x.id===id);if(!m)return;const mine=m.sender===me.id,M=$('#menu');
- M.innerHTML=`<div class="sh"><div class="rxs">${EM.map(e=>`<b data-r="${e}">${e}</b>`).join('')}</div>
- <button class="a" data-a="reply">Ответить</button><button class="a" data-a="copy">Копировать</button>
- ${mine?'<button class="a" data-a="edit">Изменить</button><button class="a red" data-a="del">Удалить</button>':''}</div>`;
- M.hidden=false;
- M.onclick=async e=>{const r=e.target.closest('[data-r]'),a=e.target.closest('[data-a]');
-  if(!r&&!a){if(e.target===M)M.hidden=true;return}M.hidden=true;
+function menu(id){const m=cm().find(x=>x.id===id);if(!m)return;const mine=m.sender===me.id,Mn=$('#menu'),tx=!m.kind||m.kind==='text';
+ Mn.innerHTML=`<div class="sh"><div class="rxs">${EM.map(e=>`<b data-r="${e}">${e}</b>`).join('')}</div>
+ <button class="a" data-a="reply">Ответить</button>${tx?'<button class="a" data-a="copy">Копировать</button>':''}
+ ${mine&&tx?'<button class="a" data-a="edit">Изменить</button>':''}${mine?'<button class="a red" data-a="del">Удалить</button>':''}</div>`;
+ Mn.hidden=false;
+ Mn.onclick=async e=>{const r=e.target.closest('[data-r]'),a=e.target.closest('[data-a]');
+  if(!r&&!a){if(e.target===Mn)Mn.hidden=true;return}Mn.hidden=true;
   if(r)return react(m,r.dataset.r);
   const k=a.dataset.a;
-  if(k==='reply'){bar('reply',m)}
+  if(k==='reply')bar('reply',m);
   if(k==='edit'){bar('edit',m);$('#inp').value=m.body;fit()}
   if(k==='copy'){try{await navigator.clipboard.writeText(m.body);toast('Скопировано')}catch(e){}}
-  if(k==='del'&&confirm('Удалить сообщение?')){msgs=msgs.filter(x=>x.id!==m.id);render();await sb.from('messages').delete().eq('id',m.id)}}}
+  if(k==='del'&&confirm('Удалить сообщение?')){M[cur]=cm().filter(x=>x.id!==m.id);render();await sb.from('messages').delete().eq('id',m.id)}}}
 function bar(kind,m){reply=kind==='reply'?m:null;editing=kind==='edit'?m:null;
  $('#bar').hidden=false;$('#bt').textContent=(kind==='reply'?'Ответ: ':'Изменить: ')+m.body;$('#inp').focus()}
 function unbar(){reply=editing=null;$('#bar').hidden=true}
 $('#bx').onclick=()=>{unbar();$('#inp').value='';fit()};
 const inp=$('#inp');function fit(){inp.style.height='44px';inp.style.height=Math.min(inp.scrollHeight+2,120)+'px'}
 inp.oninput=fit;
-async function send(){const t=inp.value.trim();if(!t)return;inp.value='';
+async function send(){const t=inp.value.trim();if(!t||!cur)return;inp.value='';const id=cur;
  if(editing){const m=editing;unbar();fit();m.body=t;m.edited=true;render();await sb.from('messages').update({body:t,edited:true}).eq('id',m.id);return}
- const row={body:t};if(reply)row.reply_to=reply.id;unbar();fit();
+ const row={chat_id:id,body:t};if(reply)row.reply_to=reply.id;unbar();fit();
  const {data,error}=await sb.from('messages').insert(row).select().single();
  if(error){toast('Не отправлено: '+error.message);inp.value=t;fit();return}
- if(!msgs.some(m=>m.id===data.id)){msgs.push(data);render(true)}}
+ const a=M[id]=M[id]||[];if(!a.some(m=>m.id===data.id)){a.push(data);if(cur===id)render(true)}}
 $('#sendb').onclick=send;
+function scale(f,n=1280){return new Promise(r=>{const i=new Image();i.onload=()=>{const k=Math.min(1,n/Math.max(i.width,i.height)),c=document.createElement('canvas');c.width=i.width*k;c.height=i.height*k;
+ c.getContext('2d').drawImage(i,0,0,c.width,c.height);c.toBlob(r,'image/jpeg',.82)};i.src=URL.createObjectURL(f)})}
+async function sendMedia(blob,kind,ext,type){const id=cur;if(!id)return;toast('Отправка…');
+ const path=`${me.id}/${Date.now()}.${ext}`;const up=await sb.storage.from('media').upload(path,blob,{contentType:type});
+ if(up.error){toast('Не загрузилось: '+up.error.message);return}
+ const row={chat_id:id,kind,media_url:sb.storage.from('media').getPublicUrl(path).data.publicUrl,body:kind==='image'?'📷 Фото':'🎤 Голосовое'};
+ if(reply)row.reply_to=reply.id;unbar();
+ const {data,error}=await sb.from('messages').insert(row).select().single();
+ if(error){toast('Не отправлено: '+error.message);return}
+ const a=M[id]=M[id]||[];if(!a.some(m=>m.id===data.id)){a.push(data);if(cur===id)render(true)}}
+$('#att').onclick=()=>$('#fileIn').click();
+$('#fileIn').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;sendMedia(await scale(f),'image','jpg','image/jpeg')};
+let rec=null,chunks=[],rt,t0;
+$('#mic').onclick=async()=>{if(rec){rec.stop();return}
+ try{const st=await navigator.mediaDevices.getUserMedia({audio:true});
+  const mt=['audio/mp4','audio/webm;codecs=opus','audio/webm'].find(t=>MediaRecorder.isTypeSupported(t))||'';
+  rec=new MediaRecorder(st,mt?{mimeType:mt}:{});chunks=[];t0=Date.now();
+  rec.ondataavailable=e=>chunks.push(e.data);
+  rec.onstop=()=>{st.getTracks().forEach(t=>t.stop());clearInterval(rt);const b=$('#mic');b.classList.remove('rec');b.textContent='🎤';
+   const type=(rec.mimeType||mt||'audio/mp4').split(';')[0],dur=Date.now()-t0;rec=null;
+   if(dur<1000)return;sendMedia(new Blob(chunks,{type}),'voice',type.includes('webm')?'webm':'m4a',type)};
+  rec.start();const b=$('#mic');b.classList.add('rec');b.textContent='⏹ 0';
+  rt=setInterval(()=>{b.textContent='⏹ '+Math.round((Date.now()-t0)/1000)},500)
+ }catch(err){rec=null;toast('Нет доступа к микрофону')}};
 
 /* ---------- Карточка собеседника ---------- */
 function card(p){const S=$('#sheet');
@@ -239,7 +311,7 @@ function editor(first){const S=$('#sheet');pend=null;
  S.innerHTML=`<div class="sh"><h2>${first?'Создайте профиль':'Профиль и оформление'}</h2>
  <div class="pav"><div id="pv">${av(p,72)}</div><label class="btn sec" style="width:auto;display:block;color:var(--fg);font-size:15px">Фото<input id="file" type="file" accept="image/*" hidden></label></div>
  <label>Имя<input id="f_name" maxlength="30" value="${esc(p.name)}"></label>
- <label>Юзернейм<input id="f_user" maxlength="24" autocapitalize="off" value="${esc(p.username||'')}" placeholder="latin_letters"></label>
+ <label>Юзернейм (по нему вас найдут)<input id="f_user" maxlength="24" autocapitalize="off" value="${esc(p.username||'')}" placeholder="например anna_2024"></label>
  <label>О себе<textarea id="f_bio" rows="2" maxlength="160">${esc(p.bio)}</textarea></label>
  <label>Эмодзи-статус<input id="f_emo" maxlength="8" value="${esc(p.status_emoji)}" placeholder="😎"></label>
  <div class="two"><label>Цвет профиля<input id="f_col" type="color" value="${esc(p.color)}"></label>
@@ -260,7 +332,8 @@ function editor(first){const S=$('#sheet');pend=null;
  if(!first){$('#f_close').onclick=()=>{S.hidden=true;theme(prof.theme)};$('#f_out').onclick=()=>sb.auth.signOut()}
  $('#f_save').onclick=async()=>{const err=$('#f_err');err.textContent='';
   const name=$('#f_name').value.trim();if(!name){err.textContent='Введите имя';return}
-  let username=$('#f_user').value.trim().toLowerCase().replace(/[^a-z0-9_]/g,'')||null;
+  const username=$('#f_user').value.trim().toLowerCase().replace(/^@/,'');
+  if(!/^[a-z0-9_]{3,24}$/.test(username)){err.textContent='Юзернейм: 3–24 символа, латиница, цифры и _';return}
   $('#f_save').disabled=true;let url=p.avatar_url||'';
   if(pend){const path=`${me.id}/${Date.now()}.jpg`;const up=await sb.storage.from('avatars').upload(path,pend,{contentType:'image/jpeg'});
    if(up.error){err.textContent='Фото не загрузилось: '+up.error.message;$('#f_save').disabled=false;return}
@@ -269,8 +342,8 @@ function editor(first){const S=$('#sheet');pend=null;
   const q=prof?sb.from('profiles').update(v).eq('id',me.id):sb.from('profiles').insert({id:me.id,...v});
   const {data,error}=await q.select().single();$('#f_save').disabled=false;
   if(error){err.textContent=error.code==='23505'?'Этот юзернейм занят':error.message;return}
-  const was=!!prof;prof=data;S.hidden=true;theme(prof.theme);
-  if(!was){const r=await sb.from('profiles').select('*');other=(r.data||[]).find(x=>x.id!==me.id)||null;enter()}else toast('Сохранено')}}
+  const was=!!prof;prof=data;P[me.id]=data;S.hidden=true;theme(prof.theme);
+  if(!was)enter();else{toast('Сохранено');if(cur)render();else home()}}}
 
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 boot();
