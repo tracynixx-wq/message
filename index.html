@@ -174,6 +174,16 @@ body,#head,#comp,#tabs,.grp,input,textarea,.b,.sh{transition:background-color .3
 .mg{display:grid;grid-template-columns:repeat(3,1fr);gap:3px}.mg img,.mg video{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;display:block}
 .tbl{border:1px solid var(--line);border-radius:16px;overflow:hidden}.tbl div{display:flex;border-top:1px solid var(--line)}.tbl div:first-child{border-top:0}
 .tbl b,.tbl span{padding:11px 14px}.tbl b{width:38%;font-weight:600;border-right:1px solid var(--line)}
+
+.tk{display:inline-block;vertical-align:-1px;margin-left:3px}
+#inp{height:50px;min-height:50px;font-size:17px;padding:13px 16px;line-height:22px;border-radius:25px}
+#att,#mic,#sendb{width:50px;height:50px}
+.gift img{width:72%;height:72%;object-fit:contain}
+.pg{position:absolute;transform:translate(-50%,-50%);font-size:36px;line-height:1;z-index:1;filter:drop-shadow(0 2px 6px rgba(0,0,0,.35));animation:fl 3.6s ease-in-out infinite}
+.pg img{width:44px;height:44px;object-fit:contain;display:block}
+.pg:nth-child(odd){animation-delay:-1.8s}
+@keyframes fl{50%{transform:translate(-50%,-62%)}}
+.ph .av{z-index:2}
 </style>
 </head>
 <body>
@@ -348,6 +358,7 @@ function head(){const c=chats.find(x=>x.id===cur);if(!c)return;const o=peer(c);$
  let st='';if(o){st=Date.now()-new Date(o.last_seen)<70000?'в сети':'был(а) '+(new Date(o.last_seen).toDateString()===new Date().toDateString()?'в '+hm(o.last_seen):new Date(o.last_seen).toLocaleDateString('ru',{day:'numeric',month:'short'}))}
  $('#who').innerHTML=`<b>${o?esc(o.name)+' '+esc(o.status_emoji):'Чат'}</b><small>${st}</small>`}
 $('#hav').onclick=$('#who').onclick=()=>{const c=chats.find(x=>x.id===cur);if(c&&peer(c))card(peer(c))};
+const tick=r=>r?'<svg class="tk" viewBox="0 0 18 11" width="17" height="11"><path d="M1 6l3.2 3.2L10.5 1.5M7.2 8.2l1 1L15 1.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>':'<svg class="tk" viewBox="0 0 18 11" width="17" height="11"><path d="M3.5 6l3.2 3.2L13 1.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 function bodyHtml(m){const u=esc(m.media_url||'');
  if(m.kind==='image')return`<img class="mi" src="${u}" alt="">`;
  if(m.kind==='voice')return`<audio controls preload="none" src="${u}"></audio>`;
@@ -364,7 +375,7 @@ function render(sc){const msgs=cm(),box=$('#list');const near=box.scrollHeight-b
   const mine=m.sender===me.id,rp=m.reply_to&&msgs.find(x=>x.id===m.reply_to);
   const g={};Object.values(m.reactions||{}).forEach(e=>g[e]=(g[e]||0)+1);
   const chips=Object.keys(g).map(e=>`<span class="chip ${(m.reactions||{})[me.id]===e?'on':''}" data-id="${m.id}" data-e="${e}">${e}${g[e]>1?' '+g[e]:''}</span>`).join('');
-  h+=`<div class="row ${mine?'me':''}${isNew?' in':''}${gap?' gap':''}"><div class="b${lastm?' last':''}" data-id="${m.id}">${rp?`<div class="rp">${esc(rp.body)}</div>`:''}${bodyHtml(m)}<i class="t">${m.edited?'изм. ':''}${hm(m.created_at)}${mine?(m.read?' ✓✓':' ✓'):''}</i>${chips?`<div class="chips">${chips}</div>`:''}</div></div>`}
+  h+=`<div class="row ${mine?'me':''}${isNew?' in':''}${gap?' gap':''}"><div class="b${lastm?' last':''}" data-id="${m.id}">${rp?`<div class="rp">${esc(rp.body)}</div>`:''}${bodyHtml(m)}<i class="t">${m.edited?'изм. ':''}${hm(m.created_at)}${mine?tick(m.read):''}</i>${chips?`<div class="chips">${chips}</div>`:''}</div></div>`}
  box.innerHTML=h;if(sc||near)box.scrollTop=box.scrollHeight}
 $('#list').onclick=e=>{if(e.target.closest('audio,video.mv'))return;
  if(e.target.matches('video.mc')){const v=e.target;if(v.paused){v.muted=false;v.play()}else v.pause();return}
@@ -393,7 +404,7 @@ function bar(kind,m){reply=kind==='reply'?m:null;editing=kind==='edit'?m:null;
  $('#bar').hidden=false;$('#bt').textContent=(kind==='reply'?'Ответ: ':'Изменить: ')+m.body;$('#inp').focus()}
 function unbar(){reply=editing=null;$('#bar').hidden=true}
 $('#bx').onclick=()=>{unbar();$('#inp').value='';fit()};
-const inp=$('#inp');function fit(){inp.style.height='44px';inp.style.height=Math.min(inp.scrollHeight+2,120)+'px';const has=!!inp.value.trim();$('#sendb').hidden=!has;if(!rec)$('#mic').hidden=has}
+const inp=$('#inp');function fit(){inp.style.height='auto';inp.style.height=Math.max(50,Math.min(inp.scrollHeight,130))+'px';const has=!!inp.value.trim();$('#sendb').hidden=!has;if(!rec)$('#mic').hidden=has}
 inp.oninput=fit;
 async function send(){const t=inp.value.trim();if(!t||!cur)return;inp.value='';const id=cur;
  if(editing){const m=editing;unbar();fit();m.body=t;m.edited=true;render();await sb.from('messages').update({body:t,edited:true}).eq('id',m.id);return}
@@ -440,11 +451,15 @@ $('#mic').onclick=async()=>{if(rec){rec.stop();return}
  }catch(err){rec=null;toast('Нет доступа к микрофону')}};
 
 /* ---------- Карточка собеседника ---------- */
+const PIN_POS=[[22,14],[78,14],[10,38],[90,38],[16,64],[84,64]];
+function pinsHtml(p){return ((p.theme||{}).pins||[]).slice(0,6).map((g,i)=>{const [x,y]=PIN_POS[i];
+ const c=g.u&&/^https:\/\/[^"'<>\s]+$/.test(g.u)?`<img src="${g.u}" alt="">`:g.e?esc(g.e):'';
+ return c?`<span class="pg" style="left:${x}%;top:${y}%">${c}</span>`:''}).join('')}
 function hdr(p,st){const [a,b]=pc(p.color),e=(p.theme||{}).bge||'';
  const pe=p.avatar_url?p:{...p,color:'#8fd3f2,#4a8de0'};
- return `<div class="ph" style="background:radial-gradient(circle at 50% 38%,rgba(255,255,255,.25),transparent 62%),linear-gradient(160deg,${a},${b})">${e?POS.map(([x,y])=>`<span class="e" style="left:${x}%;top:${y}%">${e}</span>`).join(''):''}${av(pe,92)}<div class="nm">${esc(p.name||'Имя')} ${esc(p.status_emoji||'')}</div><small>${st??stat(p)}</small></div>`}
+ return `<div class="ph" style="background:radial-gradient(circle at 50% 38%,rgba(255,255,255,.25),transparent 62%),linear-gradient(160deg,${a},${b})">${e?POS.map(([x,y])=>`<span class="e" style="left:${x}%;top:${y}%">${e}</span>`).join(''):''}${pinsHtml(p)}${av(pe,92)}<div class="nm">${esc(p.name||'Имя')} ${esc(p.status_emoji||'')}</div><small>${st??stat(p)}</small></div>`}
 const GIFTS=[['Сердце','❤️','🌸',['#ff6b81','#c2185b'],'Rose'],['Звезда','⭐','✨',['#ffd54f','#ff9800'],'Amber'],['Корона','👑','💎',['#ffe082','#8d6e63'],'Gold'],['Ракета','🚀','☁️',['#64b5f6','#3949ab'],'Ocean'],['Котик','🐱','🐾',['#ffcc80','#8d6e63'],'Sand'],['Огонь','🔥','🔥',['#ff8a65','#bf360c'],'Ember'],['Радуга','🌈','☁️',['#81d4fa','#ce93d8'],'Sky'],['Призрак','👻','🍂',['#b0bec5','#37474f'],'Slate'],['Алмаз','💎','❄️',['#80deea','#1565c0'],'Ice'],['Клевер','🍀','🌿',['#a5d6a7','#1b5e20'],'Moss'],['Торт','🎂','🎉',['#f48fb1','#6a1b9a'],'Berry'],['Мишка','🧸','🎀',['#bcaaa4','#4e342e'],'Cocoa']];
-const giftTile=(g,i)=>{const k=GIFTS[g.kind]||GIFTS[0];return`<div class="gift" data-g="${i}" style="background:linear-gradient(160deg,${k[3][0]},${k[3][1]})">${k[1]}<small>#${g.id}</small></div>`};
+const giftTile=(g,i)=>{if(g.img)return`<div class="gift" data-g="${i}" style="background:linear-gradient(160deg,#2b2f3a,#14161c)"><img src="${esc(g.img)}" alt=""><small>#${g.id}</small></div>`;const k=GIFTS[g.kind]||GIFTS[0];return`<div class="gift" data-g="${i}" style="background:linear-gradient(160deg,${k[3][0]},${k[3][1]})">${k[1]}<small>#${g.id}</small></div>`};
 async function card(p,tabk='g'){const S=$('#sheet'),isMe=p.id===me.id,c=chats.find(x=>x.user1===p.id||x.user2===p.id);
  S.innerHTML=`<div class="sh">${hdr(p)}
  <div class="acts">${isMe?'':'<button data-x="chat"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M3 11a8 7 0 0 1 16 0 8 7 0 0 1-8 7 9 9 0 0 1-3-.5L4 20l1.5-3.5A7 7 0 0 1 3 11z"/></svg>чат</button><button data-x="gift"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><rect x="3" y="10" width="18" height="11" rx="2"/><rect x="2" y="6" width="20" height="5" rx="1.5"/><path d="M12 6c-3-4-6-1-4 0zm0 0c3-4 6-1 4 0z"/></svg>подарок</button>'}</div>
@@ -463,18 +478,40 @@ async function card(p,tabk='g'){const S=$('#sheet'),isMe=p.id===me.id,c=chats.fi
   B.innerHTML=card.G.length?`<div class="gg">${card.G.map(giftTile).join('')}</div>`:`<div class="empty">Подарков пока нет${isMe?'':'. Подарите первый!'}</div>`}
  else{const ms=(c?M[c.id]||[]:[]).filter(m=>['image','video','circle'].includes(m.kind)).reverse();
   B.innerHTML=ms.length?`<div class="mg">${ms.map(m=>m.kind==='image'?`<img src="${esc(m.media_url)}" alt="">`:`<video src="${esc(m.media_url)}#t=0.1" preload="metadata" playsinline></video>`).join('')}</div>`:'<div class="empty">Общих фото и видео пока нет</div>'}}
-function giftPick(p){const S=$('#sheet');
- S.innerHTML=`<div class="sh"><h2>Подарок для ${esc(p.name)}</h2><div class="gg">${GIFTS.map((k,i)=>`<div class="gift" data-k="${i}" style="background:linear-gradient(160deg,${k[3][0]},${k[3][1]})">${k[1]}<small>${k[0]}</small></div>`).join('')}</div><button class="a" id="gb" style="text-align:center">Назад</button></div>`;
- S.onclick=async e=>{if(e.target===S){S.hidden=true;return}if(e.target.closest('#gb')){card(p);return}
-  const k=e.target.closest('[data-k]');if(!k)return;
-  const {error}=await sb.from('gifts').insert({to_user:p.id,kind:+k.dataset.k});
-  if(error){toast(/gifts/i.test(error.message)?'В Supabase не выполнен setup3.sql':error.message,7000);return}
-  toast('Подарок отправлен');card(p)}}
-function giftInfo(g,p){const S=$('#sheet'),k=GIFTS[g.kind]||GIFTS[0],f=P[g.from_user];
- S.innerHTML=`<div class="sh"><div class="ph" style="background:radial-gradient(circle at 50% 45%,rgba(255,255,255,.3),transparent 60%),linear-gradient(160deg,${k[3][0]},${k[3][1]})">${POS.map(([x,y])=>`<span class="e" style="left:${x}%;top:${y}%">${k[2]}</span>`).join('')}<div style="font-size:84px;position:relative;line-height:1.2">${k[1]}</div><div class="nm">${k[0]} <small style="opacity:.7">#${g.id}</small></div></div>
- <div class="tbl"><div><b>Владелец</b><span>${esc(p.name)}</span></div><div><b>От кого</b><span>${esc(f?f.name:'неизвестно')}</span></div><div><b>Модель</b><span>${k[0]}</span></div><div><b>Узор</b><span>${k[2]}</span></div><div><b>Фон</b><span>${k[4]}</span></div><div><b>Дата</b><span>${new Date(g.created_at).toLocaleDateString('ru',{day:'numeric',month:'long',year:'numeric'})}</span></div></div>
+async function giftPick(p){const S=$('#sheet');
+ const my=await sb.from('gifts').select('img,title').eq('from_user',me.id).not('img','is',null).order('id',{ascending:false}).limit(60);
+ const seen=new Set(),mine=(my.data||[]).filter(x=>!seen.has(x.img)&&seen.add(x.img));
+ S.innerHTML=`<div class="sh"><h2>Подарок для ${esc(p.name)}</h2><div class="gg">
+ <div class="gift" id="gown" style="background:var(--card);color:var(--accent)">＋<small style="color:var(--fg)">Свой</small></div>
+ ${GIFTS.map((k,i)=>`<div class="gift" data-k="${i}" style="background:linear-gradient(160deg,${k[3][0]},${k[3][1]})">${k[1]}<small>${k[0]}</small></div>`).join('')}
+ ${mine.map(x=>`<div class="gift" data-i="${esc(x.img)}" data-t="${esc(x.title||'')}" style="background:linear-gradient(160deg,#2b2f3a,#14161c)"><img src="${esc(x.img)}" alt=""><small>${esc(x.title||'Мой')}</small></div>`).join('')}</div>
+ <input id="gfile" type="file" accept="image/png,image/webp,image/gif,image/jpeg" hidden><button class="a" id="gb" style="text-align:center">Назад</button></div>`;
+ const send=async row=>{const {error}=await sb.from('gifts').insert({to_user:p.id,...row});
+  if(error){toast(/gifts|column|img/i.test(error.message)?'В Supabase не выполнен setup_all.sql':error.message,7000);return}
+  toast('Подарок отправлен');card(p)};
+ $('#gfile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+  if(f.size>1.5*1024*1024){toast('Файл больше 1,5 МБ',6000);return}
+  toast('Загрузка…',60000);const ext=(f.type.split('/')[1]||'png').replace('jpeg','jpg'),path=`gifts/${me.id}/${Date.now()}.${ext}`;
+  const up=await sb.storage.from('media').upload(path,f,{contentType:f.type});
+  if(up.error){toast(/bucket/i.test(up.error.message)?'В Supabase не выполнен setup_all.sql':up.error.message,8000);return}
+  send({kind:0,img:sb.storage.from('media').getPublicUrl(path).data.publicUrl,title:f.name.replace(/\.[^.]+$/,'').slice(0,30)})};
+ S.onclick=e=>{if(e.target===S){S.hidden=true;return}if(e.target.closest('#gb')){card(p);return}
+  if(e.target.closest('#gown')){$('#gfile').click();return}
+  const k=e.target.closest('[data-k]'),i=e.target.closest('[data-i]');
+  if(k)send({kind:+k.dataset.k});if(i)send({kind:0,img:i.dataset.i,title:i.dataset.t||null})}}
+function giftInfo(g,p){const S=$('#sheet'),k=GIFTS[g.kind]||GIFTS[0],f=P[g.from_user],cu=!!g.img;
+ const tok=cu?{u:g.img}:{e:k[1]},pins=((prof.theme||{}).pins)||[],pi=pins.findIndex(x=>(x.u&&x.u===tok.u)||(x.e&&x.e===tok.e));
+ const bg=cu?'#2b2f3a,#14161c':`${k[3][0]},${k[3][1]}`;
+ S.innerHTML=`<div class="sh"><div class="ph" style="background:radial-gradient(circle at 50% 45%,rgba(255,255,255,.28),transparent 60%),linear-gradient(160deg,${bg})">${cu?'':POS.map(([x,y])=>`<span class="e" style="left:${x}%;top:${y}%">${k[2]}</span>`).join('')}
+ ${cu?`<img src="${esc(g.img)}" style="width:120px;height:120px;object-fit:contain;position:relative" alt="">`:`<div style="font-size:84px;position:relative;line-height:1.2">${k[1]}</div>`}
+ <div class="nm">${esc(cu?(g.title||'Свой подарок'):k[0])} <small style="opacity:.7">#${g.id}</small></div></div>
+ <div class="tbl"><div><b>Владелец</b><span>${esc(p.name)}</span></div><div><b>От кого</b><span>${esc(f?f.name:'неизвестно')}</span></div><div><b>Модель</b><span>${esc(cu?(g.title||'Свой подарок'):k[0])}</span></div>${cu?'':`<div><b>Узор</b><span>${k[2]}</span></div><div><b>Фон</b><span>${k[4]}</span></div>`}<div><b>Дата</b><span>${new Date(g.created_at).toLocaleDateString('ru',{day:'numeric',month:'long',year:'numeric'})}</span></div></div>
+ ${p.id===me.id?`<button class="btn sec" id="gpin" style="color:var(--accent)">${pi>-1?'Убрать из шапки профиля':'Показать в шапке профиля'}</button>`:''}
  <button class="btn" id="gok">OK</button></div>`;
- S.onclick=e=>{if(e.target===S||e.target.id==='gok')card(p)}}
+ S.onclick=async e=>{if(e.target===S||e.target.id==='gok'){card(p);return}
+  if(e.target.id==='gpin'){const t={...(prof.theme||{})},arr=[...(t.pins||[])];
+   if(pi>-1)arr.splice(pi,1);else{if(arr.length>=6){toast('Максимум 6 подарков в шапке');return}arr.push(tok)}
+   t.pins=arr;prof.theme=t;P[me.id]=prof;await sb.from('profiles').update({theme:t}).eq('id',me.id);sets();toast(pi>-1?'Убрано из шапки':'Добавлено в шапку');card(p)}}}
 
 /* ---------- Редактор профиля и оформления ---------- */
 function shrink(f,n=320){return new Promise(r=>{const i=new Image();i.onload=()=>{const s=Math.min(i.width,i.height),c=document.createElement('canvas');c.width=c.height=n;
