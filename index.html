@@ -141,6 +141,26 @@ body[data-list=compact] .crow{padding:6px 14px}
 body[data-list=compact] .crow .av{width:42px!important;height:42px!important;font-size:18px!important}
 .sw i{display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-size:13px;font-weight:700;color:var(--mut)}
 textarea#pb{resize:none}
+
+/* Telegram-inspired profile editor */
+.profile-editor{display:grid;gap:14px;margin:-16px -16px 0;padding:0 0 max(18px,env(safe-area-inset-bottom));overflow-x:hidden}
+.profile-editor-head{position:relative;padding:0 18px 18px;text-align:center}
+.profile-editor-head .pcov{height:174px;margin:0 -18px;border-radius:0 0 22px 22px;background-position:center!important;background-size:cover!important}
+.profile-editor-head .pav{width:112px;height:112px;margin:-58px auto 10px;position:relative;border:5px solid var(--bg);border-radius:50%;box-shadow:0 5px 22px #0002}
+.profile-editor-head .pav .av{width:100%!important;height:100%!important;font-size:42px!important}
+.profile-editor-head h3{font-size:23px;margin:5px 0 2px}
+.profile-editor-head .handle{color:var(--mut);font-size:14px}
+.profile-editor-head .edit-actions{display:flex;justify-content:center;gap:9px;margin-top:14px}
+.profile-editor-head .edit-actions button{background:var(--card);padding:9px 13px;border-radius:20px;color:var(--accent);font-size:13px;font-weight:650}
+.profile-section{margin:0 16px;background:var(--card);border-radius:17px;padding:13px 14px;display:grid;gap:11px}
+.profile-section-title{font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--mut);padding:0 3px}
+.profile-field{display:grid;gap:5px}.profile-field label{font-size:12px;color:var(--mut);padding-left:3px}
+.profile-field input,.profile-field textarea{background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:11px 12px}
+.profile-field textarea{min-height:74px;resize:vertical}.profile-field small{font-size:11px;color:var(--mut);padding-left:3px}
+.profile-editor .sw{gap:10px;justify-content:flex-start}.profile-editor .sw i{width:34px;height:34px}
+.profile-editor .profile-save,.profile-editor .profile-cancel{margin:0 16px;width:calc(100% - 32px);border-radius:14px;min-height:48px}
+.profile-editor .msg{padding:0 16px}
+
 </style>
 </head>
 <body>
@@ -663,40 +683,18 @@ function sets(){const t=prof.theme||{},md=t.mode||'auto';const perm='Notificatio
   if(md2||ac){const n={...(prof.theme||{})};if(md2)n.mode=md2;if(ac)n.accent=ac;prof.theme=applyTheme(n);await sb.from('profiles').update({theme:prof.theme}).eq('id',me.id);sets();return}
   if(a==='cd'){chatDesign();return}if(a==='ed')editor(false);if(a==='push')enablePush();if(a==='test')testPush();
   if(a==='out'&&confirm('Выйти из аккаунта?'))sb.auth.signOut()})}
-function editor(first){return new Promise(res=>{const T0=prof?.theme||{};let color=prof?.color||GR[0].join(','),cov=T0.cov??null,covUrl=T0.covUrl||'',pend=null,pendCov=null;
- const s=sheet(`<h3>${first?'Создайте профиль':'Профиль'}</h3><div id="pv"></div>
-  <div style="display:flex;gap:22px;justify-content:center"><button class="link" id="pch">Выбрать фото</button><button class="link" id="cch">Своя обложка</button></div>
-  <input type="file" id="pf" accept="image/*" hidden><input type="file" id="cf" accept="image/*" hidden>
-  <input id="pn" placeholder="Имя" maxlength="40" value="${esc(prof?.name||'')}">
-  <input id="pu" placeholder="Имя пользователя (латиницей)" maxlength="24" autocapitalize="off" value="${esc(prof?.username||'')}">
-  <textarea id="pb" rows="2" maxlength="160" placeholder="О себе">${esc(prof?.bio||'')}</textarea>
-  <input id="pe" placeholder="Эмодзи-статус, например 🔥" maxlength="4" value="${esc(prof?.status_emoji||'')}">
-  <div class="lbl">Градиент аватара</div><div class="sw" id="pc">${GR.map(g=>`<i data-c="${g.join(',')}" style="background:linear-gradient(135deg,${g[0]},${g[1]||g[0]})"></i>`).join('')}</div>
-  <div class="lbl">Обложка профиля</div><div class="sw" id="pcv"><i data-v="" style="background:var(--card)">A</i>${CV.map((g,i)=>`<i data-v="${i}" style="background:linear-gradient(135deg,${g[0]},${g[1]})"></i>`).join('')}</div>
-  <div id="pm" class="msg"></div><button class="btn" id="ps">Сохранить</button>${first?'':'<button class="btn sec" id="px">Отмена</button>'}`,s=>{
-  const q=x=>s.querySelector(x);
-  const redraw=()=>{q('#pv').innerHTML=cardHtml({...(prof||{}),id:me.id,name:q('#pn').value||'Имя',username:q('#pu').value||'username',bio:q('#pb').value,status_emoji:q('#pe').value,color,avatar_url:pend?URL.createObjectURL(pend):prof?.avatar_url,theme:{...T0,cov,covUrl:pendCov?URL.createObjectURL(pendCov):covUrl}},'в сети');
-   q('#pc').querySelectorAll('i').forEach(i=>i.classList.toggle('on',i.dataset.c===color));
-   q('#pcv').querySelectorAll('i').forEach(i=>i.classList.toggle('on',!covUrl&&!pendCov&&(i.dataset.v===''?cov==null:cov===+i.dataset.v)))};
-  q('#pch').onclick=()=>q('#pf').click();q('#cch').onclick=()=>q('#cf').click();
-  q('#pf').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{pend=await shrink(f,512);redraw()}catch(_){toast('Не удалось прочитать фото')}};
-  q('#cf').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{pendCov=await scaleImg(f,1000);covUrl='';redraw()}catch(_){toast('Не удалось прочитать фото')}};
-  q('#pc').onclick=e=>{if(e.target.dataset.c){color=e.target.dataset.c;redraw()}};
-  q('#pcv').onclick=e=>{const v=e.target.dataset.v;if(v===undefined)return;cov=v===''?null:+v;covUrl='';pendCov=null;redraw()};
-  ['#pn','#pu','#pb','#pe'].forEach(x=>q(x).oninput=redraw);redraw();
-  if(!first)q('#px').onclick=()=>{closeSheet();res()};
-  q('#ps').onclick=async()=>{const name=q('#pn').value.trim(),un=q('#pu').value.trim().replace(/^@/,''),pm=q('#pm');
-   if(!name){pm.textContent='Введите имя';return}if(!/^[A-Za-z0-9_]{3,24}$/.test(un)){pm.textContent='Имя пользователя: 3–24 символа, латиница, цифры, _';return}
-   q('#ps').disabled=true;pm.textContent='…';
-   const up=async(b,n)=>{const path=`${me.id}/${n}${Date.now()}.jpg`,u=await sb.storage.from('avatars').upload(path,b,{contentType:'image/jpeg'});
-    if(u.error)throw new Error(u.error.message);return sb.storage.from('avatars').getPublicUrl(path).data.publicUrl};
-   try{let url=prof?.avatar_url||null;if(pend)url=await up(pend,'');if(pendCov)covUrl=await up(pendCov,'cover-');
-    const theme={...T0,cov,covUrl};
-    const r=await sb.from('profiles').upsert({id:me.id,name,username:un,bio:q('#pb').value.trim(),status_emoji:q('#pe').value.trim(),color,avatar_url:url,theme}).select().single();
-    q('#ps').disabled=false;
-    if(r.error){pm.textContent=/duplicate|unique/i.test(r.error.message)?'Это имя пользователя занято':/bio|column/i.test(r.error.message)?'В Supabase не выполнен design.sql':r.error.message;return}
-    prof=r.data;P[me.id]=prof;closeSheet();toast('Сохранено');if(!first){cur?head():home()}res()}
-   catch(err){q('#ps').disabled=false;pm.textContent='Фото: '+err.message}}})})}
+function editor(first){return new Promise(res=>{
+ const T0=prof?.theme||{};let color=prof?.color||GR[0].join(','),cov=T0.cov??null,covUrl=T0.covUrl||'',pend=null,pendCov=null;
+ sheet(`<div class="profile-editor"><div class="profile-editor-head"><div class="pcov" id="pcover" style="background:${cover(prof||{})}"></div><div class="pav" id="pavatar">${av(prof,112)}</div><h3 id="pname">${esc(prof?.name||'Ваше имя')}</h3><div class="handle" id="phandle">@${esc(prof?.username||'username')}</div><div class="edit-actions"><button id="pch">Изменить фото</button><button id="cch">Обложка профиля</button></div></div>
+ <input type="file" id="pf" accept="image/*" hidden><input type="file" id="cf" accept="image/*" hidden>
+ <div class="profile-section"><div class="profile-section-title">Информация</div><div class="profile-field"><label for="pn">Имя</label><input id="pn" placeholder="Ваше имя" maxlength="40" value="${esc(prof?.name||'')}"></div><div class="profile-field"><label for="pu">Имя пользователя</label><input id="pu" placeholder="username" maxlength="24" autocapitalize="off" value="${esc(prof?.username||'')}"><small>Ссылка на ваш профиль будет доступна по имени пользователя</small></div><div class="profile-field"><label for="pb">О себе</label><textarea id="pb" maxlength="160" placeholder="Расскажите немного о себе">${esc(prof?.bio||'')}</textarea><small>До 160 символов</small></div><div class="profile-field"><label for="pe">Эмодзи-статус</label><input id="pe" placeholder="Например, 🔥" maxlength="4" value="${esc(prof?.status_emoji||'')}"></div></div>
+ <div class="profile-section"><div class="profile-section-title">Цвет профиля</div><div class="lbl">Градиент аватара</div><div class="sw" id="pc">${GR.map(g=>`<i data-c="${g.join(',')}" style="background:linear-gradient(135deg,${g[0]},${g[1]||g[0]})"></i>`).join('')}</div><div class="lbl">Обложка</div><div class="sw" id="pcv"><i data-v="" style="background:var(--bg)">A</i>${CV.map((g,i)=>`<i data-v="${i}" style="background:linear-gradient(135deg,${g[0]},${g[1]})"></i>`).join('')}</div></div>
+ <div id="pm" class="msg"></div><button class="btn profile-save" id="ps">Сохранить изменения</button>${first?'':'<button class="btn sec profile-cancel" id="px">Отмена</button>'}</div>`,root=>{
+ const q=x=>root.querySelector(x);const preview=()=>{const nm=q('#pn').value.trim()||'Ваше имя',un=q('#pu').value.trim().replace(/^@/,'')||'username';q('#pname').textContent=nm+' '+q('#pe').value;q('#phandle').textContent='@'+un;q('#pavatar').innerHTML=av({...prof,id:me.id,name:nm,color,avatar_url:pend?URL.createObjectURL(pend):prof?.avatar_url},112);q('#pcover').style.background=pendCov?`url("${URL.createObjectURL(pendCov)}") center/cover`:cover({...prof,theme:{...T0,cov,covUrl}});q('#pc').querySelectorAll('i').forEach(i=>i.classList.toggle('on',i.dataset.c===color));q('#pcv').querySelectorAll('i').forEach(i=>i.classList.toggle('on',!covUrl&&!pendCov&&(i.dataset.v===''?cov==null:cov===+i.dataset.v)))};
+ q('#pch').onclick=()=>q('#pf').click();q('#cch').onclick=()=>q('#cf').click();q('#pf').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{pend=await shrink(f,512);preview()}catch(_){toast('Не удалось прочитать фото')}};q('#cf').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{pendCov=await scaleImg(f,1000);covUrl='';preview()}catch(_){toast('Не удалось прочитать обложку')}};q('#pc').onclick=e=>{if(e.target.dataset.c){color=e.target.dataset.c;preview()}};q('#pcv').onclick=e=>{const v=e.target.dataset.v;if(v===undefined)return;cov=v===''?null:+v;covUrl='';pendCov=null;preview()};['#pn','#pu','#pb','#pe'].forEach(x=>q(x).oninput=preview);preview();if(!first)q('#px').onclick=()=>{closeSheet();res()};
+ q('#ps').onclick=async()=>{const name=q('#pn').value.trim(),un=q('#pu').value.trim().replace(/^@/,''),pm=q('#pm');if(!name){pm.textContent='Введите имя';return}if(!/^[A-Za-z0-9_]{3,24}$/.test(un)){pm.textContent='Имя пользователя: 3–24 символа, латиница, цифры, _';return}q('#ps').disabled=true;pm.textContent='Сохранение…';const up=async(b,n)=>{const fp=`${me.id}/${n}${Date.now()}.jpg`,u=await sb.storage.from('avatars').upload(fp,b,{contentType:'image/jpeg'});if(u.error)throw new Error(u.error.message);return sb.storage.from('avatars').getPublicUrl(fp).data.publicUrl};try{let url=prof?.avatar_url||null;if(pend)url=await up(pend,'');if(pendCov)covUrl=await up(pendCov,'cover-');const theme={...T0,cov,covUrl};const r=await sb.from('profiles').upsert({id:me.id,name,username:un,bio:q('#pb').value.trim(),status_emoji:q('#pe').value.trim(),color,avatar_url:url,theme}).select().single();q('#ps').disabled=false;if(r.error){pm.textContent=/duplicate|unique/i.test(r.error.message)?'Это имя пользователя занято':/bio|column/i.test(r.error.message)?'В Supabase не выполнен design.sql':r.error.message;return}prof=r.data;P[me.id]=prof;closeSheet();toast('Профиль обновлён');if(!first){cur?head():home()}res()}catch(err){q('#ps').disabled=false;pm.textContent='Не удалось сохранить: '+err.message}};
+ });
+})}
 
 function chatDesign(){let t=applyTheme(prof.theme);const dk=document.documentElement.dataset.t==='dark'?1:0;
  const sw=(arr,k,cur)=>arr.map(c=>`<i data-${k}="${c}" class="${c===cur?'on':''}" style="background:${c||'var(--card)'}">${c?'':'A'}</i>`).join('');
