@@ -197,6 +197,26 @@ button:focus-visible,.crow:focus-visible,.srow:focus-visible{outline:3px solid c
 #who .creator-badge{width:16px;height:16px}
 .creator-badge{animation:creator-in .55s cubic-bezier(.16,1,.3,1) both}
 @keyframes creator-in{0%{opacity:0;transform:scale(.55) rotate(-18deg)}70%{opacity:1;transform:scale(1.13) rotate(4deg)}100%{transform:scale(1) rotate(0)}}
+
+.avw{position:relative;flex:none}.dot{position:absolute;right:0;bottom:1px;width:15px;height:15px;border-radius:50%;background:#34c759;border:3px solid var(--bg)}
+.badge.mute{background:var(--mut)}.crow .nm{display:flex;gap:5px;align-items:center}.crow .nm span.t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crow.arch .av{background:var(--card);color:var(--fg);font-size:24px}
+
+/* v4: seal badge, cover fix, perf */
+.creator-badge{width:18px!important;height:18px!important;margin-left:8px!important;background:none!important;box-shadow:none!important;border-radius:0!important;animation:none!important;top:-1px}
+.creator-badge svg{width:100%!important;height:100%!important;stroke:none!important;fill:none!important;stroke-width:0!important}
+.creator-badge .seal{fill:#2f8cf5!important;stroke:none!important}
+.creator-badge .tick{fill:none!important;stroke:#fff!important;stroke-width:1.9!important;stroke-linecap:round;stroke-linejoin:round}
+.pcard h3 .creator-badge{width:21px!important;height:21px!important}
+#who .creator-badge{width:17px!important;height:17px!important}
+.profile-editor-head .pcov{width:auto!important;margin:0 -18px!important;max-width:none!important}
+*{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+html,#list,#clist{scroll-behavior:auto!important}
+:root{--glass:rgba(255,255,255,.96)}[data-t=dark]{--glass:rgba(13,20,31,.97)}
+#ctx{background:rgba(0,0,0,.55)}.over{background:rgba(5,10,20,.6)}
+#list{-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.kb .top{min-height:0;padding-top:6px;padding-bottom:6px}
+.kb #comp{padding:6px 10px 6px!important}.kb #bar{margin-top:4px}
 </style>
 </head>
 <body>
@@ -293,7 +313,7 @@ const CR={
 
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function creatorBadge(p){return String(p?.username||'').replace(/^@/,'').toLowerCase()==='durov'?'<span class="creator-badge" title="Создатель PinBox · подтверждённый профиль" aria-label="Создатель PinBox"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 10.2l3.1 3.1L15.3 6.5"/></svg></span>':''}
+function creatorBadge(p){return p&&p.id&&window.CFG&&CFG.creator&&p.id===CFG.creator?'<span class="creator-badge" title="Создатель PinBox · подтверждённый профиль" aria-label="Создатель PinBox"><svg viewBox="0 0 20 20" aria-hidden="true"><path class="seal" d="M10.00 0.00 L10.64 0.17 L11.23 0.63 L11.74 1.27 L12.16 1.93 L12.55 2.47 L12.98 2.79 L13.52 2.87 L14.17 2.77 L14.94 2.60 L15.75 2.50 L16.50 2.59 L17.07 2.93 L17.41 3.50 L17.50 4.25 L17.40 5.06 L17.23 5.82 L17.13 6.48 L17.21 7.02 L17.53 7.45 L18.07 7.84 L18.73 8.26 L19.37 8.77 L19.83 9.36 L20.00 10.00 L19.83 10.64 L19.37 11.23 L18.73 11.74 L18.07 12.16 L17.53 12.55 L17.21 12.98 L17.13 13.52 L17.23 14.17 L17.40 14.94 L17.50 15.75 L17.41 16.50 L17.07 17.07 L16.50 17.41 L15.75 17.50 L14.94 17.40 L14.17 17.23 L13.52 17.13 L12.98 17.21 L12.55 17.53 L12.16 18.07 L11.74 18.73 L11.23 19.37 L10.64 19.83 L10.00 20.00 L9.36 19.83 L8.77 19.37 L8.26 18.73 L7.84 18.07 L7.45 17.53 L7.02 17.21 L6.48 17.13 L5.83 17.23 L5.06 17.40 L4.25 17.50 L3.50 17.41 L2.93 17.07 L2.59 16.50 L2.50 15.75 L2.60 14.94 L2.77 14.18 L2.87 13.52 L2.79 12.98 L2.47 12.55 L1.93 12.16 L1.27 11.74 L0.63 11.23 L0.17 10.64 L0.00 10.00 L0.17 9.36 L0.63 8.77 L1.27 8.26 L1.93 7.84 L2.47 7.45 L2.79 7.02 L2.87 6.48 L2.77 5.82 L2.60 5.06 L2.50 4.25 L2.59 3.50 L2.93 2.93 L3.50 2.59 L4.25 2.50 L5.06 2.60 L5.82 2.77 L6.48 2.87 L7.02 2.79 L7.45 2.47 L7.84 1.93 L8.26 1.27 L8.77 0.63 L9.36 0.17Z"/><path class="tick" d="M6 10.3l2.8 2.8L14.2 7.4"/></svg></span>':''}
 function displayName(p,name){return esc(name??p?.name??'')+creatorBadge(p)}
 
 const COL=['#4a7ec2','#569c3a','#b8763a','#ae5148','#8654c8','#56a1ad','#a84d7e','#7d8896'];
@@ -302,6 +322,7 @@ const GR=[['#4a7ec2'],['#569c3a'],['#b8763a'],['#ae5148'],['#8654c8'],['#56a1ad'
 const CV=[['#667eea','#764ba2'],['#f093fb','#f5576c'],['#4facfe','#00c6d7'],['#43e97b','#1fb89a'],['#fa709a','#f7b733'],['#30cfd0','#4b3a8f'],['#a18cd1','#e8a0c8'],['#2c3e50','#4b5563']];
 const WALLS={none:['var(--bg)','var(--bg)'],mist:['linear-gradient(180deg,#eef2f7,#dfe7f1)','linear-gradient(180deg,#0d1118,#111b2b)'],mint:['linear-gradient(180deg,#eef6f1,#dcece2)','linear-gradient(180deg,#0b1412,#0f2219)'],dusk:['linear-gradient(180deg,#f2eff8,#e5dff2)','linear-gradient(180deg,#120e1a,#1d1530)'],sand:['linear-gradient(180deg,#f6f3ec,#ebe5d6)','linear-gradient(180deg,#15120d,#241d12)'],rose:['linear-gradient(180deg,#fbeff2,#f3dbe3)','linear-gradient(180deg,#1a0e12,#2b1319)']};
 const OUTC=['','#3e88f7','#34a853','#e8710a','#e5483c','#8e55d9','#13a3b8','#d6407f','#4a4e57'],INC=['','#e9ecf1','#fff1d6','#e3f6e8','#fde4ec','#2a2d35','#1d3b2f'];
+const okStore=u=>{if(typeof u!=='string'||!u.trim())return false;try{const x=new URL(u,location.href);return x.protocol==='blob:'||(x.origin===new URL(CFG.url).origin&&x.pathname.startsWith('/storage/v1/object/public/'))}catch(_){return false}};
 const okUrl=u=>{if(typeof u!=='string'||!u.trim())return false;try{const x=new URL(u,location.href);return ['https:','http:','blob:'].includes(x.protocol)}catch(_){return false}};
 const pc=c=>String(c||'').split(',').map(x=>x.trim()).filter(x=>/^#[0-9a-f]{6}$/i.test(x));
 const grad=(id,c)=>{let a=pc(c);if(!a.length)a=[COL[Math.abs(hash(id))%COL.length]];if(a.length<2)a=[a[0],a[0]];return`linear-gradient(135deg,${a[0]},${a[1]})`};
@@ -310,7 +331,7 @@ function cover(p){
  const raw=p?.theme;let t=raw&&typeof raw==='object'?raw:{};
  if(typeof raw==='string'){try{t=JSON.parse(raw)||{}}catch(_){t={}}}
  const image=t.covUrl||t.coverUrl||p?.cover_url||'';
- if(okUrl(image))return `url("${String(image).replace(/\\/g,'\\\\').replace(/"/g,'%22')}") center center / cover no-repeat`;
+ if(okStore(image))return `url('${encodeURI(String(image)).replace(/'/g,'%27')}') center center / cover no-repeat`;
  const g=CV[t.cov];if(g)return`linear-gradient(150deg,${g[0]},${g[1]})`;
  const a=pc(p?.color),x=a[0]||COL[Math.abs(hash(p?.id||''))%COL.length];return`linear-gradient(150deg,${x},${a[1]||x})`;
 }
@@ -328,7 +349,7 @@ const tm=d=>sameDay(d,Date.now())?hm(d):new Date(d).toLocaleDateString('ru',{day
 const hash=s=>[...String(s)].reduce((a,c)=>(a*31+c.charCodeAt(0))|0,7);
 const colorOf=(id,c)=>c&&/^#[0-9a-f]{6}$/i.test(c)?c:COL[Math.abs(hash(id))%COL.length];
 function av(o,s=40){if(!o)return`<div class="av" style="width:${s}px;height:${s}px;background:#9ca3af"></div>`;
- if(o.avatar_url)return`<img class="av" style="width:${s}px;height:${s}px" src="${esc(o.avatar_url)}" alt="">`;
+ if(okStore(o.avatar_url))return`<img class="av" style="width:${s}px;height:${s}px" src="${esc(o.avatar_url)}" alt="">`;
  return`<div class="av" style="width:${s}px;height:${s}px;background:${grad(o.id,o.color)};font-size:${s*.42}px">${esc(((o.name||o.title||o.username||'?').trim()[0]||'?').toUpperCase())}</div>`}
 function applyTheme(t){t={mode:'auto',accent:'#3e88f7',out:'',inb:'',shape:'r',wall:'none',wallUrl:'',list:'plain',...(t||{})};
  const dark=t.mode==='dark'||(t.mode==='auto'&&matchMedia('(prefers-color-scheme:dark)').matches),hx=/^#[0-9a-f]{6}$/i,r=document.documentElement;
@@ -336,7 +357,7 @@ function applyTheme(t){t={mode:'auto',accent:'#3e88f7',out:'',inb:'',shape:'r',w
  r.style.setProperty('--out',hx.test(t.out)?t.out:'var(--accent)');
  if(hx.test(t.inb)){r.style.setProperty('--in',t.inb);r.style.setProperty('--intx',lum(t.inb)>.6?'#14161a':'#fff')}else{r.style.removeProperty('--in');r.style.removeProperty('--intx')}
  r.style.setProperty('--br',{r:'18px',m:'12px',s:'5px'}[t.shape]||'18px');
- r.style.setProperty('--wall',t.wall==='custom'&&okUrl(t.wallUrl)?`url("${t.wallUrl}") center/cover`:(WALLS[t.wall]||WALLS.none)[dark?1:0]);
+ r.style.setProperty('--wall',t.wall==='custom'&&okStore(t.wallUrl)?`url("${t.wallUrl}") center/cover`:(WALLS[t.wall]||WALLS.none)[dark?1:0]);
  document.body.dataset.list=t.list;
  document.querySelector('meta[name=theme-color]').content=dark?'#000000':'#ffffff';
  try{localStorage.setItem('th',JSON.stringify(t))}catch(e){}return t}
@@ -458,15 +479,36 @@ function presence(){
 const lastOf=c=>{const a=M[c.id]||[];return a[a.length-1]};
 function preview(m){const p=m.p||{};return p.k==='img'?'📷 Фото':p.k==='vid'?'🎞 Видео':p.k==='aud'?'🎤 Голосовое':p.k==='file'?'📎 '+(p.n||'Файл'):(p.t||'')}
 const unread=c=>(M[c.id]||[]).filter(m=>m.sender!==me.id&&c.my&&m.created_at>c.my.last_read_at).length;
+let showArch=false;
 function home(){if(!me)return;const f=$('#q').value.trim().toLowerCase();
- const rows=Object.values(C).map(c=>({c,l:lastOf(c),u:unread(c)})).filter(r=>!f||title(r.c).toLowerCase().includes(f))
-  .sort((a,b)=>new Date(b.l?b.l.created_at:b.c.created_at)-new Date(a.l?a.l.created_at:a.c.created_at));
- $('#clist').innerHTML=rows.length?rows.map(({c,l,u})=>{const o=c.kind==='dm'?peerOf(c):c;
+ const all=Object.values(C),inArch=all.filter(c=>c.my?.archived);
+ const rows=all.filter(c=>!!c.my?.archived===showArch).map(c=>({c,l:lastOf(c),u:unread(c)})).filter(r=>!f||title(r.c).toLowerCase().includes(f))
+  .sort((a,b)=>(b.c.my?.pinned?1:0)-(a.c.my?.pinned?1:0)||new Date(b.l?b.l.created_at:b.c.created_at)-new Date(a.l?a.l.created_at:a.c.created_at));
+ const au=inArch.reduce((n,c)=>n+(c.my.muted?0:unread(c)),0);let h='';
+ if(!f&&!showArch&&inArch.length)h+=`<div class="crow arch" data-arch="1"><div class="av" style="width:56px;height:56px">📦</div><div class="ci"><b>Архив</b><small>Чатов: ${inArch.length}</small></div>${au?`<div class="cm"><span class="badge">${au}</span></div>`:''}</div>`;
+ if(showArch)h+=`<div class="crow arch" data-arch="0"><div class="av" style="width:56px;height:56px">←</div><div class="ci"><b>Архив</b><small>Назад к чатам</small></div></div>`;
+ h+=rows.length?rows.map(({c,l,u})=>{const o=c.kind==='dm'?peerOf(c):c,mu=c.my?.muted;
   const who=l?(l.sender===me.id?'Вы: ':(c.kind==='group'&&P[l.sender]?esc(P[l.sender].name||'')+': ':'')):'';
-  return`<div class="crow" data-c="${c.id}">${av(o,56)}<div class="ci"><b>${c.kind==='channel'?'📢 ':c.kind==='group'?'👥 ':''}${c.kind==='dm'?displayName(o,title(c)):esc(title(c))} ${c.kind==='dm'?esc(o?.status_emoji||''):''}</b><small>${l?who+esc(preview(l)):'Нет сообщений'}</small></div><div class="cm">${l?tm(l.created_at):''}${u?`<br><span class="badge">${u}</span>`:''}</div></div>`}).join('')
-  :'<div class="empty">Пока нет чатов.<br>Нажмите «+», чтобы написать кому-нибудь.</div>'}
+  return`<div class="crow" data-c="${c.id}"><div class="avw">${av(o,56)}${c.kind==='dm'&&online(o)?'<i class="dot"></i>':''}</div><div class="ci"><b class="nm"><span class="t">${c.kind==='channel'?'📢 ':c.kind==='group'?'👥 ':''}${c.kind==='dm'?displayName(o,title(c)):esc(title(c))} ${c.kind==='dm'?esc(o?.status_emoji||''):''}</span>${mu?'<span>🔇</span>':''}</b><small>${l?who+esc(preview(l)):'Нет сообщений'}</small></div><div class="cm">${l?tm(l.created_at):''}<br>${u?`<span class="badge${mu?' mute':''}">${u}</span>`:c.my?.pinned?'📌':''}</div></div>`}).join('')
+  :(showArch?'<div class="empty">В архиве пусто</div>':'<div class="empty">Пока нет чатов.<br>Нажмите «+», чтобы написать кому-нибудь.</div>');
+ $('#clist').innerHTML=h}
 $('#q').oninput=home;
-$('#clist').onclick=e=>{const r=e.target.closest('.crow');if(r)openChat(r.dataset.c)};
+let clLP=0,clT=null,clXY=null;const CL=$('#clist');
+CL.onclick=e=>{if(Date.now()-clLP<700)return;const a=e.target.closest('[data-arch]');if(a){showArch=a.dataset.arch==='1';home();return}const r=e.target.closest('.crow[data-c]');if(r)openChat(r.dataset.c)};
+CL.addEventListener('pointerdown',e=>{if(e.button>0)return;const r=e.target.closest('.crow[data-c]');if(!r)return;clXY=[e.clientX,e.clientY];
+ clT=setTimeout(()=>{clT=null;clLP=Date.now();navigator.vibrate?.(12);chatMenu(C[r.dataset.c])},450)});
+CL.addEventListener('pointermove',e=>{if(clT&&clXY&&Math.hypot(e.clientX-clXY[0],e.clientY-clXY[1])>9){clearTimeout(clT);clT=null}});
+['pointerup','pointercancel','pointerleave'].forEach(t=>CL.addEventListener(t,()=>{clearTimeout(clT);clT=null}));
+CL.addEventListener('contextmenu',e=>{const r=e.target.closest('.crow[data-c]');if(r){e.preventDefault();clLP=Date.now();chatMenu(C[r.dataset.c])}});
+function chatMenu(c){const m=c&&c.my;if(!m)return;
+ sheet(`<h3>${esc(title(c))}</h3><div class="srow" data-f="pinned">📌 ${m.pinned?'Открепить':'Закрепить вверху'}</div>
+  <div class="srow" data-f="muted">${m.muted?'🔔 Включить уведомления':'🔇 Отключить уведомления'}</div>
+  <div class="srow" data-f="archived">📦 ${m.archived?'Достать из архива':'В архив'}</div><div class="srow" data-a="open">💬 Открыть</div>`,
+  s=>s.onclick=async e=>{const f=e.target.closest('[data-f]')?.dataset.f,a=e.target.closest('[data-a]')?.dataset.a;
+   if(f){closeSheet();await flag(c,f,!m[f])}if(a==='open'){closeSheet();openChat(c.id)}})}
+async function flag(c,f,v){const r=await sb.rpc('member_flag',{c:c.id,f,v});
+ if(r.error){toast(/member_flag|function/i.test(r.error.message)?'Выполните design2.sql в Supabase':r.error.message);return}
+ c.my[f]=v;if(f==='archived'&&v){toast('Чат в архиве');if(cur===c.id){cur=null;show('home')}}home()}
 
 /* ---------- чат ---------- */
 const online=p=>p&&p.last_seen&&Date.now()-new Date(p.last_seen)<70000;
