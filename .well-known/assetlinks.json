@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "io.github.tracynixx_wq.twa",
+        "sha256_cert_fingerprints": ["3C:84:8D:2B:9F:A4:8A:FE:42:D0:5F:69:72:D9:6D:03:CA:B2:25:6A:97:53:10:BD:19:F1:CB:01:3E:BF:80:B9"]
+      }
+    }]
