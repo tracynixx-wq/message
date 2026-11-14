@@ -534,7 +534,7 @@ async function loadMedia(el){const m=Object.values(M).flat().find(x=>String(x.id
    const raw=await CR.openB(K[c.id],c.id,new Uint8Array(await r.arrayBuffer()));url=BLOB[p.p]=URL.createObjectURL(new Blob([raw],{type:p.y||'application/octet-stream'}))}
   if(!el.isConnected)return;
   if(p.k==='img'){el.outerHTML=`<img class="mi" src="${url}" alt="">`;const img=el.previousElementSibling;if(img?.decode)await img.decode().catch(()=>{})}
-  else if(p.k==='vid'){el.outerHTML=`<video src="${url}" controls playsinline preload="metadata"></video>`;const video=el.previousElementSibling;if(video&&video.readyState<1)await new Promise(resolve=>video.addEventListener('loadedmetadata',resolve,{once:true}))}
+  else if(p.k==='vid'){el.outerHTML=`<video src="${url}" controls playsinline preload="metadata"></video>`;const video=el.previousElementSibling;if(video&&video.readyState<1)await new Promise(resolve=>{let done=false;const finish=()=>{if(done)return;done=true;resolve()};video.addEventListener('loadedmetadata',finish,{once:true});video.addEventListener('error',finish,{once:true});setTimeout(finish,2000)})}
   else if(p.k==='aud'){el.outerHTML=audHtml(url)}
   else{el.href=url;el.download=p.n||'file'}
  }catch(e){if(el.isConnected&&el.classList.contains('ph'))el.textContent='⚠️ не загрузилось'}}
