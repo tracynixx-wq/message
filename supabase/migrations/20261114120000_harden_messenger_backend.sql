@@ -11,6 +11,8 @@ create table if not exists public.member_key_history (
 );
 create index if not exists member_key_history_user_conv_idx
  on public.member_key_history(user_id,conv_id,created_at desc);
+create index if not exists member_key_history_conv_idx on public.member_key_history(conv_id);
+create index if not exists member_key_history_wrapped_by_idx on public.member_key_history(wrapped_by);
 alter table public.member_key_history enable row level security;
 drop policy if exists member_key_history_read_own on public.member_key_history;
 create policy member_key_history_read_own on public.member_key_history
