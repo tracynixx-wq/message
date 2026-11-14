@@ -378,6 +378,10 @@ function home(){if(!me)return;pruneSecret();const f=$('#q').value.trim().toLower
  $('#clist').innerHTML=h}
 $('#q').oninput=home;
 let clLP=0,clT=null,clXY=null;const CL=$('#clist');
+ let storyPull=null;
+ CL.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse')return;storyPull={x:e.clientX,y:e.clientY}});
+ CL.addEventListener('pointermove',e=>{if(!storyPull)return;const dx=e.clientX-storyPull.x,dy=e.clientY-storyPull.y;if(dy>12&&dy>Math.abs(dx)*1.15)CL.querySelector('.story-strip')?.classList.add('pull-grow')});
+ ['pointerup','pointercancel','pointerleave'].forEach(t=>CL.addEventListener(t,()=>{storyPull=null;CL.querySelector('.story-strip')?.classList.remove('pull-grow')}));
 CL.onclick=e=>{if(Date.now()-clLP<700)return;if(e.target.closest('[data-find]')){$('#newb').click();return}const so=e.target.closest('[data-sopen]');if(so){openStory(so.dataset.sopen);return}if(e.target.closest('[data-sadd]')){newStory();return}const a=e.target.closest('[data-arch]');if(a){showArch=a.dataset.arch==='1';home();return}const r=e.target.closest('.crow[data-c]');if(r)openChat(r.dataset.c)};
 CL.addEventListener('pointerdown',e=>{if(e.button>0)return;const r=e.target.closest('.crow[data-c]');if(!r)return;clXY=[e.clientX,e.clientY];
  clT=setTimeout(()=>{clT=null;clLP=Date.now();navigator.vibrate?.(12);chatMenu(C[r.dataset.c])},450)});
