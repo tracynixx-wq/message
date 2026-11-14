@@ -348,7 +348,7 @@ html.tt *,html.tt{transition:background-color .35s ease,color .35s ease,border-c
 
 
 /* Settings accessibility controls */
-#app{zoom:var(--ui-scale,1)}
+#app{zoom:1;font-size:calc(16px * var(--ui-scale,1))}
 .reduce-motion *, .reduce-motion *::before, .reduce-motion *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}
 .high-contrast{--mut:#b8bec8;--line:#747b86;--card:#25282d}
 .high-contrast[data-t=light]{--fg:#000;--mut:#343a40;--line:#555;--card:#eceff2}
