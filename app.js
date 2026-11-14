@@ -481,7 +481,7 @@ $('#sendb').onclick=async()=>{const t=inp.value.trim(),c=C[cur];if(!t||!c)return
  if(editing){const m=editing;unbar();inp.value='';fit();const np={...m.p,t};
   const r=await sb.from('msgs').update({data:await CR.seal(K[c.id],c.id,np),edited_at:new Date().toISOString()}).eq('id',m.id).select().single();
   if(r.error){toast(r.error.message);return}Object.assign(m,r.data);m.p=np;render();return}
- const pl={t};if(reply)pl.r=reply.id;unbar();inp.value='';fit();await sendPayload(c,pl)};
+ const pl={t};if(reply)pl.r=reply.id;unbar();inp.value='';fit();const sent=await sendPayload(c,pl);if(!sent&&!inp.value.trim()){inp.value=t;fit()}};
 inp.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&matchMedia('(hover:hover)').matches){e.preventDefault();$('#sendb').click()}};
 
 /* ---------- файлы ---------- */
