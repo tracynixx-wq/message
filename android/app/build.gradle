@@ -8,6 +8,17 @@ dependencies {
 }
 
 android {
+    signingConfigs {
+        debug {
+            storeFile file(System.getProperty('user.home') + '/.android/debug.keystore')
+            storePassword 'message-debug'
+            keyAlias 'message'
+            keyPassword 'message-debug'
+        }
+    }
+    buildTypes {
+        debug { signingConfig signingConfigs.debug }
+    }
     namespace 'com.message.app'
     compileSdk 35
 

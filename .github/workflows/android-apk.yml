@@ -53,6 +53,17 @@ jobs:
           test -n "$SHA256"
           echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
 
+      - name: Verify previous APK signing identity
+        run: |
+          set -e
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)
+          curl -fsSL https://github.com/tracynixx-wq/message/releases/download/android-v1.2.0/app-debug.apk -o /tmp/message-previous.apk
+          PREVIOUS=$("$APKSIGNER" verify --print-certs /tmp/message-previous.apk | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')
+          CURRENT=$(keytool -list -v -keystore ~/.android/debug.keystore -storepass message-debug -alias message | sed -n 's/.*SHA256: //p' | head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')
+          echo "Previous APK signer: $PREVIOUS"
+          echo "Current key signer: $CURRENT"
+          test -n "$PREVIOUS" && test "$PREVIOUS" = "$CURRENT"
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -61,6 +72,17 @@ jobs:
       - name: Build debug APK
         working-directory: android
         run: gradle --no-daemon assembleDebug
+
+      - name: Verify new APK signing certificate
+        id: apkcert
+        run: |
+          set -e
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          APK_SHA=$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1 | tr -d ':' | tr '[:lower:]' 'upper')
+          KEY_SHA=$(keytool -list -v -keystore ~/.android/debug.keystore -storepass message-debug -alias message | sed -n 's/.*SHA256: //p' | head -n 1 | tr -d ':' | tr '[:lower:]' 'upper')
+          test -n "$APK_SHA" && test "$APK_SHA" = "$KEY_SHA"
+          echo "sha256=$APK_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Publish APK artifact
         uses: actions/upload-artifact@v4
@@ -77,6 +99,6 @@ jobs:
           name: Message Android 1.3.0
           body: |
             Message Android 1.3.0 — Chrome Trusted Web Activity.
-            Signing certificate SHA-256: ${{ steps.cert.outputs.sha256 }}
+            Signing certificate SHA-256 (hex, no colons): ${{ steps.apkcert.outputs.sha256 }}
           files: android/app/build/outputs/apk/debug/app-debug.apk
           make_latest: true
