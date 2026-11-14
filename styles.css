@@ -468,3 +468,15 @@ html{overflow:hidden;overscroll-behavior:none}
 .account-switch-row i{font-style:normal;color:var(--accent);font-size:12px;flex:none}
 .account-switch-section .btn{margin-top:5px}
 #nav button{min-width:0}
+
+
+/* Animated profile covers: GIF remains animated; video loops silently */
+.pcov,.profile-cover{position:relative;overflow:hidden;background:#17171f}
+.pcov{isolation:isolate}
+.cover-media,.cover-gradient{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover;object-position:center}
+.profile-cover{width:100%;height:clamp(132px,34vw,210px);border-radius:20px;isolation:isolate}
+.profile-editor-head .pcov{height:174px;margin:0 -18px;border-radius:0 0 22px 22px}
+.profile-editor-head .pcov .cover-media,.profile-editor-head .pcov .cover-gradient{border-radius:inherit}
+.profile-cover .cover-media{border-radius:inherit}
+.pcard .pcov .cover-media{border-radius:inherit}
+.profile-editor-head .pcov{background:#17171f}
