@@ -46,24 +46,6 @@ jobs:
             keytool -genkeypair -v -keystore ~/.android/debug.keystore -storepass message-debug -alias message -keypass message-debug -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Message Debug,O=Message,C=LV"
           fi
 
-      - name: Read Android signing certificate
-        id: cert
-        run: |
-          SHA256=$(keytool -list -v -keystore ~/.android/debug.keystore -storepass message-debug -alias message | sed -n 's/.*SHA256: //p' | head -n 1)
-          test -n "$SHA256"
-          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
-
-      - name: Verify previous APK signing identity
-        run: |
-          set -e
-          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)
-          curl -fsSL https://github.com/tracynixx-wq/message/releases/download/android-v1.2.0/app-debug.apk -o /tmp/message-previous.apk
-          PREVIOUS=$("$APKSIGNER" verify --print-certs /tmp/message-previous.apk | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')
-          CURRENT=$(keytool -list -v -keystore ~/.android/debug.keystore -storepass message-debug -alias message | sed -n 's/.*SHA256: //p' | head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')
-          echo "Previous APK signer: $PREVIOUS"
-          echo "Current key signer: $CURRENT"
-          test -n "$PREVIOUS" && test "$PREVIOUS" = "$CURRENT"
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:

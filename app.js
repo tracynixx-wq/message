@@ -1090,7 +1090,7 @@ async function checkAndroidUpdate(){
   if(cmp(latest,current)<=0)return;
   let banner=$('#appUpdate');
   if(!banner){banner=document.createElement('aside');banner.id='appUpdate';banner.setAttribute('role','status');banner.setAttribute('aria-live','polite');document.body.appendChild(banner)}
-  banner.innerHTML='<div class="app-update-copy"><b>Доступно обновление Message '+esc(latest)+'</b><span>Есть новая версия приложения</span></div><button type="button" id="appUpdateInstall">Обновить</button><button type="button" id="appUpdateClose" aria-label="Закрыть">×</button>';
+  const migration=cmp(current,'1.3.0')<0;banner.innerHTML='<div class="app-update-copy"><b>Доступно обновление Message '+esc(latest)+'</b><span>'+(migration?'Первая Chrome-версия установится отдельно. Старое приложение пока не удаляйте.':'Есть новая версия приложения')+'</span></div><button type="button" id="appUpdateInstall">Обновить</button><button type="button" id="appUpdateClose" aria-label="Закрыть">×</button>';
   banner.hidden=false;
   banner.querySelector('#appUpdateInstall').onclick=()=>{if(native&&typeof native.downloadAndInstall==='function')native.downloadAndInstall(asset.browser_download_url);else location.href=asset.browser_download_url};
   banner.querySelector('#appUpdateClose').onclick=()=>{banner.hidden=true};
