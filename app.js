@@ -485,7 +485,7 @@ $('#sendb').onclick=async()=>{const t=inp.value.trim(),c=C[cur];if(!t||!c)return
 inp.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&matchMedia('(hover:hover)').matches){e.preventDefault();$('#sendb').click()}};
 
 /* ---------- файлы ---------- */
-async function loadMedia(el){const m=(M[cur]||[]).find(x=>String(x.id)===String(el.dataset.m));if(!m||!m.p||!m.p.p)return;const p=m.p,c=C[m.conv_id];
+async function loadMedia(el){const m=Object.values(M).flat().find(x=>String(x.id)===String(el.dataset.m));if(!m||!m.p||!m.p.p)return;const p=m.p,c=C[m.conv_id];if(!c||!K[c.id]){if(el.isConnected)el.textContent='🔒 нет доступа';return}
  try{let url=BLOB[p.p];
   if(!url){const r=await fetch(sb.storage.from('media').getPublicUrl(p.p).data.publicUrl);if(!r.ok)throw 0;
    const raw=await CR.openB(K[c.id],c.id,new Uint8Array(await r.arrayBuffer()));url=BLOB[p.p]=URL.createObjectURL(new Blob([raw],{type:p.y||'application/octet-stream'}))}
@@ -499,7 +499,7 @@ async function upload(c,bytes,kind,name,mime,extra){
  const sealed=await CR.sealB(K[c.id],c.id,bytes),path=`${c.id}/${crypto.randomUUID()}`;
  const r=await sb.storage.from('media').upload(path,new Blob([sealed]),{contentType:'application/octet-stream'});
  if(r.error){toast('Не загрузилось: '+r.error.message);return}
- const pl={k:kind,p:path,n:name,y:mime,s:bytes.length,...extra};if(reply){pl.r=reply.id;unbar()}return sendPayload(c,pl)}
+ const pl={k:kind,p:path,n:name,y:mime,s:bytes.length,...extra};if(reply){pl.r=reply.id;unbar()}const sent=await sendPayload(c,pl);if(!sent){const cleanup=await sb.storage.from('media').remove([path]);if(cleanup.error)console.warn('[media] orphan cleanup failed',cleanup.error);return null}return sent}
 function shrink(file,max=1600){return new Promise((res,rej)=>{const im=new Image(),u=URL.createObjectURL(file);let done=false;
  const finish=(fn,v)=>{if(done)return;done=true;URL.revokeObjectURL(u);fn(v)};
  im.onload=()=>{try{if(!im.naturalWidth||!im.naturalHeight)throw new Error('Некорректное изображение');
