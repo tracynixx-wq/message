@@ -11,7 +11,7 @@ android {
     compileSdk 35
 
     defaultConfig {
-        applicationId 'com.message.app'
+        applicationId 'com.message.mobile'
         minSdk 23
         targetSdk 35
         versionCode 3
