@@ -546,7 +546,7 @@ async function finishRecording(r,stream,c){
   const sent=await upload(c,new Uint8Array(await blob.arrayBuffer()),'aud','voice',type.split(';')[0],{d:Math.round(duration/1000)});
   if(sent)toast('Голосовое отправлено');
  }catch(e){toast('Не удалось отправить голосовое: '+(e?.message||'ошибка'))}
- finally{stream.getTracks().forEach(t=>t.stop());chunks=[];recCleanup();$('#toast').hidden=false}
+ finally{stream.getTracks().forEach(t=>t.stop());chunks=[];recCleanup()}
 }
 $('#mic').onclick=async()=>{
  const c=C[cur];if(!c)return;
