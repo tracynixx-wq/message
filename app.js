@@ -292,12 +292,13 @@ CH.addEventListener('pointerdown',e=>{const b=e.target.closest('[data-fl^="f:"]'
 let ST={},SV=new Set(),STERR='',STLOADED=false,stCleaned=false;
 const SBG=[['#2b2d33','#0b0c0e'],['#4b6cb7','#182848'],['#c33764','#1d2671'],['#11998e','#38ef7d'],['#f12711','#f5af19'],['#7f00ff','#e100ff']];
 const stPath=x=>x?.signed_url||'';
+async function signStory(x){if(!x?.path)throw new Error('У истории нет файла');const r=await sb.storage.from('stories').createSignedUrl(x.path,3600);if(r.error)throw new Error(r.error.message);x.signed_url=r.data.signedUrl;return x.signed_url;}
 const ago=d=>{const m=Math.max(0,Math.round((Date.now()-new Date(d))/60000));return m<1?'только что':m<60?m+' мин назад':Math.floor(m/60)+' ч назад'};
 async function loadStories(){
  const r=await sb.from('stories').select('*').gt('expires_at',new Date().toISOString()).order('created_at',{ascending:true});
  if(r.error){STERR=/stories|relation|does not exist|schema/i.test(r.error.message)?'Выполните stories.sql в Supabase (SQL Editor)':r.error.message;STLOADED=true;if(TAB==='stories')home();return}
  STERR='';ST={};(r.data||[]).forEach(x=>(ST[x.user_id]=ST[x.user_id]||[]).push(x));
- await Promise.all((r.data||[]).filter(x=>x.kind==='img'&&x.path).map(async x=>{try{const q=await sb.storage.from('stories').createSignedUrl(x.path,3600);if(!q.error)x.signed_url=q.data.signedUrl}catch(e){}}));
+ await Promise.all((r.data||[]).filter(x=>x.kind==='img'&&x.path).map(async x=>{try{await signStory(x)}catch(e){console.warn('[stories] signed URL failed',e)}}));
  const need=Object.keys(ST).filter(u=>!P[u]);if(need.length){const q=await sb.from('profiles').select('*').in('id',need);(q.data||[]).forEach(x=>P[x.id]=x)}
  const v=await sb.from('story_views').select('story_id').eq('viewer_id',me.id);SV=new Set((v.data||[]).map(x=>x.story_id));STLOADED=true;if(TAB==='stories'&&SHOWN==='home')home();
  if(!stCleaned){stCleaned=true;const old=await sb.from('stories').select('id,path').eq('user_id',me.id).lt('expires_at',new Date().toISOString());
@@ -318,10 +319,11 @@ function closeStory(){if(SVQ)clearTimeout(SVQ.t);SVQ=null;$('#sv').hidden=true;$
 function showStory(){const q=SVQ;if(!q)return;clearTimeout(q.t);const x=q.L[q.i],o=P[q.uid],mineS=q.uid===me.id;
  const bars=q.L.map((_,j)=>`<i class="${j<q.i?'full':j===q.i?'run':''}"></i>`).join('');
  let body='';
- if(x.kind==='img'){const u=stPath(x.path);body=`<div class="svimg"><img src="${u}" alt="">${x.caption?`<div class="svcap">${esc(x.caption)}</div>`:''}</div>`}
+ if(x.kind==='img'){const u=stPath(x);body=`<div class="svimg"><div class="svloading" id="svloading">Загрузка фото…</div><img id="svphoto" ${u?`src="${u}"`:''} alt="" ${u?'':'hidden'}>${x.caption?`<div class="svcap">${esc(x.caption)}</div>`:''}</div>`}
  else{const g=SBG[x.bg]||SBG[0];body=`<div class="svtxt" style="background:linear-gradient(160deg,${g[0]},${g[1]})"><div>${esc(x.caption||'')}</div></div>`}
  $('#sv').innerHTML=`<div class="svbars">${bars}</div><div class="svhead">${av(o,36)}<div><b>${displayName(o,o?.name||'…')}</b><small>${ago(x.created_at)}</small></div><button id="svx" aria-label="Закрыть">✕</button></div>${body}<div class="svl" id="svl"></div><div class="svr" id="svr"></div>${mineS?`<div class="svfoot"><span id="svv">👁 …</span><button id="svd">🗑 Удалить</button></div>`:''}`;
  $('#svx').onclick=closeStory;$('#svl').onclick=()=>{if(q.i>0){q.i--;showStory()}else showStory()};$('#svr').onclick=nextStory;
+ if(x.kind==='img'){const im=$('#svphoto'),msg=$('#svloading');let retried=false;const load=async()=>{try{const url=await signStory(x);if(SVQ!==q)return;im.src=url;im.hidden=false;if(msg)msg.hidden=true}catch(e){if(msg)msg.textContent='Не удалось загрузить фото. Проверьте доступ к хранилищу.'}};if(im){im.onerror=()=>{if(retried){if(msg)msg.textContent='Не удалось загрузить фото.';return}retried=true;x.signed_url='';im.hidden=true;load()};if(!stPath(x))load()}}
  if(mineS){$('#svd').onclick=async()=>{if(!confirm('Удалить эту историю?'))return;clearTimeout(q.t);const r=await sb.from('stories').delete().eq('id',x.id);if(r.error){toast(r.error.message);return}if(x.path)sb.storage.from('stories').remove([x.path]).then(()=>{});
    ST[me.id]=(ST[me.id]||[]).filter(y=>y.id!==x.id);if(!ST[me.id].length)delete ST[me.id];q.L=ST[me.id]||[];if(!q.L.length){closeStory();return}q.i=Math.min(q.i,q.L.length-1);showStory()};
   sb.from('story_views').select('viewer_id').eq('story_id',x.id).then(r=>{if(SVQ===q&&q.L[q.i]===x&&$('#svv'))$('#svv').textContent='👁 '+((r.data||[]).filter(v=>v.viewer_id!==me.id).length)})}
@@ -341,7 +343,7 @@ function storyCompose(kind,blob){let bg=1;const prev=blob?URL.createObjectURL(bl
    const btn=sh.querySelector('#svgo');btn.disabled=true;sh.querySelector('#svm').textContent='Публикация…';
    try{let path=null;if(kind==='img'){path=`${me.id}/story-${Date.now()}-${Math.random().toString(36).slice(2,8)}.jpg`;const u=await sb.storage.from('stories').upload(path,blob,{contentType:'image/jpeg',cacheControl:'3600',upsert:false});if(u.error)throw new Error(u.error.message)}
     const r=await sb.from('stories').insert({kind,path,caption:cap||null,bg:kind==='txt'?bg:0}).select().single();if(r.error){if(path){const rm=await sb.storage.from('stories').remove([path]);if(rm.error)console.warn('[stories] orphan cleanup failed',rm.error)}throw new Error(/stories|relation/i.test(r.error.message)?'Выполните stories.sql в Supabase':r.error.message)}
-    (ST[me.id]=ST[me.id]||[]).push(r.data);closeSheet();toast('История опубликована');if(TAB==='stories')home()}catch(err){btn.disabled=false;sh.querySelector('#svm').textContent=err.message}}})}
+    if(kind==='img'){try{await signStory(r.data)}catch(e){console.warn('[stories] newly published photo URL failed',e)}}(ST[me.id]=ST[me.id]||[]).push(r.data);closeSheet();toast('История опубликована');if(TAB==='stories')home()}catch(err){btn.disabled=false;sh.querySelector('#svm').textContent=err.message}}})}
 function contactsList(f){const seen=new Set(),L=[];Object.values(C).forEach(c=>{if(c.kind!=='dm'||c.secret_ttl)return;const o=peerOf(c);if(!o||seen.has(o.id))return;seen.add(o.id);L.push({c,o})});
  const rows=L.filter(({o})=>!f||(o.name||'').toLowerCase().includes(f)||(o.username||'').toLowerCase().includes(f)).sort((a,b)=>(online(b.o)?1:0)-(online(a.o)?1:0)||(a.o.name||'').localeCompare(b.o.name||'','ru'));
  let h=`<div class="crow" data-find="1"><div class="av" style="width:50px;height:50px;font-size:24px">+</div><div class="ci"><b>Найти пользователя</b><small>Написать новому человеку</small></div></div>`;
