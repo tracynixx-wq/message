@@ -75,14 +75,14 @@ function coverMedia(p,extra=''){
  if(typeof raw==='string'){try{t=JSON.parse(raw)||{}}catch(_){t={}}}
  const src=t.covUrl||t.coverUrl||p?.cover_url||'',type=String(t.covType||'').toLowerCase();
  if(src&&okUrl(src)){
-  const video=type.startsWith('video/')||/\\.(mp4|webm|mov)(?:[?#]|$)/i.test(src);
+  const video=type.startsWith('video/')||/\.(mp4|webm|mov)(?:[?#]|$)/i.test(src);
   return video?`<video class="cover-media" ${extra} src="${esc(src)}" autoplay muted loop playsinline webkit-playsinline preload="metadata"></video>`:`<img class="cover-media" ${extra} src="${esc(src)}" alt="" loading="lazy">`;
  }
  const g=CV[t.cov];if(g)return `<div class="cover-gradient" style="background:linear-gradient(150deg,${g[0]},${g[1]})"></div>`;
  const a=pc(p?.color),x=a[0]||COL[Math.abs(hash(p?.id||''))%COL.length];
  return `<div class="cover-gradient" style="background:linear-gradient(150deg,${x},${a[1]||x})"></div>`;
 }
-function cardHtml(p,st){p=p||{};return`<div class="pcard"><div class="pcov">${coverMedia(p)}</div><div class="pav">${av(p,92)}</div><h3>${displayName(p)} ${esc(p.status_emoji||'')}</h3><div class="msg unm" data-un="${esc(p.username||'')}">@${esc(p.username||'')}${st?' · '+st:''}</div>${p.bio?`<div class="pbio">${esc(p.bio)}</div>`:''}</div>`}
+function cardHtml(p,st){p=p||{};const onlineNow=st==='в сети';return`<div class="pcard"><div class="pcov pcard-cover">${coverMedia(p)}<div class="pcard-shade"></div><div class="pcard-identity"><div class="pav">${av(p,82)}</div><div class="pcard-copy"><h3>${displayName(p)} ${esc(p.status_emoji||'')}</h3><div class="msg unm" data-un="${esc(p.username||'')}">@${esc(p.username||'')}</div><span class="pcard-status ${onlineNow?'is-online':'is-offline'}"><i></i>${esc(st||'не в сети')}</span></div></div></div>${p.bio?`<div class="pbio">${esc(p.bio)}</div>`:''}</div>`}
 function scaleImg(f,n=1280){return new Promise((res,rej)=>{const i=new Image(),u=URL.createObjectURL(f);let done=false;const finish=(fn,v)=>{if(done)return;done=true;URL.revokeObjectURL(u);fn(v)};i.onload=()=>{try{if(!i.naturalWidth||!i.naturalHeight)throw new Error('Некорректное изображение');const k=Math.min(1,n/Math.max(i.naturalWidth,i.naturalHeight)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(i.naturalWidth*k));c.height=Math.max(1,Math.round(i.naturalHeight*k));const x=c.getContext('2d');if(!x)throw new Error('Canvas недоступен');x.drawImage(i,0,0,c.width,c.height);c.toBlob(b=>b?finish(res,b):finish(rej,new Error('Не удалось обработать изображение')),'image/jpeg',.88)}catch(e){finish(rej,e)}};i.onerror=()=>finish(rej,new Error('Формат изображения не поддерживается браузером'));i.src=u})}
 const EM=['👍','❤️','😂','😮','😢','🔥'];
 const BLOB={};

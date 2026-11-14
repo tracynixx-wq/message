@@ -493,3 +493,20 @@ html{overflow:hidden;overscroll-behavior:none}
 .profile-banner-identity .profile-status{color:rgba(255,255,255,.88);font-size:12px}
 .profile-banner-identity .profile-status i{background:#45d49a;box-shadow:0 0 0 3px rgba(69,212,154,.18)}
 @media(max-width:380px){.profile-banner-identity{left:13px;bottom:14px;gap:11px}.profile-banner-identity>.av{width:70px!important;height:70px!important}.profile-banner-identity .profile-identity h2{font-size:19px}}
+
+/* Consistent profile sheet: avatar and identity stay anchored on the cover */
+.pcard{display:block;justify-items:initial;gap:0;margin:-21px -17px 8px;overflow:hidden}
+.pcard .pcard-cover{height:clamp(190px,55vw,245px);min-height:190px;border-radius:0 0 22px 22px;position:relative;overflow:hidden;isolation:isolate}
+.pcard-cover .cover-media,.pcard-cover .cover-gradient{z-index:0}
+.pcard-shade{position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(0,0,0,.02) 20%,rgba(0,0,0,.76) 100%);pointer-events:none}
+.pcard .pcard-identity{position:absolute;z-index:2;left:17px;right:14px;bottom:17px;display:flex;align-items:center;gap:13px;color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.3);min-width:0}
+.pcard .pcard-cover .pav{position:relative;flex:none;width:82px;height:82px;margin:0;border:3px solid rgba(255,255,255,.94);border-radius:50%;background:transparent;box-shadow:0 4px 18px rgba(0,0,0,.25);overflow:hidden}
+.pcard .pcard-cover .pav .av{width:100%!important;height:100%!important;font-size:34px!important}
+.pcard .pcard-copy{display:grid;gap:5px;min-width:0}
+.pcard .pcard-copy h3{margin:0;color:#fff;font-size:clamp(19px,5vw,23px);line-height:1.15;letter-spacing:-.025em;overflow-wrap:anywhere}
+.pcard .pcard-copy .unm{margin:0;padding:0;color:rgba(255,255,255,.82);font-size:12px;text-align:left}
+.pcard .pcard-status{display:flex;align-items:center;gap:6px;color:rgba(255,255,255,.88);font-size:11px}
+.pcard .pcard-status i{width:7px;height:7px;border-radius:50%;background:#9ba3b1}
+.pcard .pcard-status.is-online i{background:#45d49a;box-shadow:0 0 0 3px rgba(69,212,154,.18)}
+.pcard .pbio{margin:12px 16px 4px;padding:12px 14px;border:1px solid var(--line);border-radius:15px;background:var(--card);color:var(--fg);text-align:left;overflow-wrap:anywhere}
+@media(max-width:380px){.pcard .pcard-identity{left:13px;bottom:14px;gap:10px}.pcard .pcard-cover .pav{width:70px;height:70px}.pcard .pcard-copy h3{font-size:19px}}
