@@ -46,6 +46,13 @@ jobs:
             keytool -genkeypair -v -keystore ~/.android/debug.keystore -storepass message-debug -alias message -keypass message-debug -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Message Debug,O=Message,C=LV"
           fi
 
+      - name: Read Android signing certificate
+        id: cert
+        run: |
+          SHA256=$(keytool -list -v -keystore ~/.android/debug.keystore -storepass message-debug -alias message | sed -n 's/.*SHA256: //p' | head -n 1)
+          test -n "$SHA256"
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -66,8 +73,10 @@ jobs:
       - name: Publish versioned Android release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: android-v1.2.0
-          name: Message Android 1.2.0
-          body: Android update for Message 1.2.0
+          tag_name: android-v1.3.0
+          name: Message Android 1.3.0
+          body: |
+            Message Android 1.3.0 — Chrome Trusted Web Activity.
+            Signing certificate SHA-256: ${{ steps.cert.outputs.sha256 }}
           files: android/app/build/outputs/apk/debug/app-debug.apk
           make_latest: true

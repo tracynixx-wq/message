@@ -86,7 +86,9 @@ function cardHtml(p,st){p=p||{};const onlineNow=st==='в сети';return`<div c
 function scaleImg(f,n=1280){return new Promise((res,rej)=>{const i=new Image(),u=URL.createObjectURL(f);let done=false;const finish=(fn,v)=>{if(done)return;done=true;URL.revokeObjectURL(u);fn(v)};i.onload=()=>{try{if(!i.naturalWidth||!i.naturalHeight)throw new Error('Некорректное изображение');const k=Math.min(1,n/Math.max(i.naturalWidth,i.naturalHeight)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(i.naturalWidth*k));c.height=Math.max(1,Math.round(i.naturalHeight*k));const x=c.getContext('2d');if(!x)throw new Error('Canvas недоступен');x.drawImage(i,0,0,c.width,c.height);c.toBlob(b=>b?finish(res,b):finish(rej,new Error('Не удалось обработать изображение')),'image/jpeg',.88)}catch(e){finish(rej,e)}};i.onerror=()=>finish(rej,new Error('Формат изображения не поддерживается браузером'));i.src=u})}
 const EM=['👍','❤️','😂','😮','😢','🔥'];
 const BLOB={};
-let sb,me=null,prof=null,ID=null,P={},C={},K={},KH={},H={},M={},cur=null,reply=null,editing=null,booted=false,authMode='in';
+let sb,me=null,prof=null,ID=null,P={},C={},K={},KH={},H={},M={},MORE={},OLDER_LOADING={},cur=null,reply=null,editing=null,booted=false,authMode='in';
+const messageIndex=new Map();
+if(/Android/i.test(navigator.userAgent))document.documentElement.classList.add('android-perf');
 
 /* ---------- утилиты ---------- */
 function toast(t,ms=2800){const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,ms)}
@@ -225,7 +227,7 @@ async function loadAllImpl(){
  const mr=await sb.from('members').select('*').eq('user_id',me.id);
  if(mr.error){toast('Не удалось загрузить список чатов: '+mr.error.message);return}
  const ids=(mr.data||[]).map(x=>x.conv_id);
- if(!ids.length){C={};M={};K={};KH={};H={};cur=null;SEL=null;if(SHOWN==='chat')show('home');home();return}
+ if(!ids.length){C={};M={};MORE={};messageIndex.clear();K={};KH={};H={};cur=null;SEL=null;if(SHOWN==='chat')show('home');home();return}
  const [cv,mm]=await Promise.all([sb.from('convs').select('*').in('id',ids),sb.from('members').select('*').in('conv_id',ids)]);
  if(cv.error||mm.error){toast('Не удалось загрузить данные чатов: '+(cv.error||mm.error).message);return}
  const kh=await sb.from('member_key_history').select('conv_id,user_id,wrapped_by,wrapped_key,created_at').eq('user_id',me.id).in('conv_id',ids);
@@ -239,15 +241,16 @@ async function loadAllImpl(){
  C=nc;for(const id of Object.keys(K))if(!nc[id])delete K[id];if(cur&&!nc[cur]){cur=null;if(SHOWN==='chat')show('home')}if(!cur)home();
  await Promise.all(Object.values(C).map(unwrap));
  // Load each conversation independently so a busy chat cannot hide history from other chats.
- const lists=[];
+ const lists=[];MORE={};messageIndex.clear();
  for(let i=0;i<ids.length;i+=8){
-  const part=await Promise.all(ids.slice(i,i+8).map(id=>sb.from('msgs').select('*').eq('conv_id',id).order('id',{ascending:false}).limit(600)));
+  const batch=ids.slice(i,i+8);
+  const part=await Promise.all(batch.map(id=>sb.from('msgs').select('*').eq('conv_id',id).order('id',{ascending:false}).limit(120)));
   const failed=part.find(x=>x.error);if(failed){toast('Не удалось загрузить сообщения: '+failed.error.message);return}
-  lists.push(...part.map(x=>(x.data||[]).reverse()));
+  part.forEach((x,j)=>{const rows=x.data||[];MORE[batch[j]]=rows.length===120;lists.push(rows.reverse())});
  }
  const list=lists.flat();
- for(let i=0;i<list.length;i+=60)await Promise.all(list.slice(i,i+60).map(dc));
- const nm={};for(const m of list)(nm[m.conv_id]=nm[m.conv_id]||[]).push(m);M=nm;
+ for(let i=0;i<list.length;i+=24)await Promise.all(list.slice(i,i+24).map(dc));
+ const nm={};for(const m of list){(nm[m.conv_id]=nm[m.conv_id]||[]).push(m);messageIndex.set(String(m.id),m)}M=nm;
  if(cur&&!C[cur])cur=null;
  if(cur){render();head();markRead()}else home()}
 async function enter(){applyTheme(prof.theme);P[me.id]=prof;show('home');await loadAll();
@@ -262,12 +265,12 @@ function realtime(){
  .on('postgres_changes',{event:'UPDATE',schema:'public',table:'profiles'},p=>{if(P[p.new.id]){P[p.new.id]=p.new;cur?head():home()}})
  .subscribe();callInit()}
 async function onMsg(p){const n=p.new;let affectsOpen=false;
- if(p.eventType==='DELETE'){const deleted=M[p.old.conv_id]?.some(x=>x.id===p.old.id);for(const k in M)M[k]=M[k].filter(x=>x.id!==p.old.id);affectsOpen=!!deleted&&p.old.conv_id===cur}
- else{if(!n)return;if(!C[n.conv_id]){await loadAll();return}await dc(n);const a=M[n.conv_id]=M[n.conv_id]||[],i=a.findIndex(x=>x.id===n.id);if(i>-1)a[i]=n;else a.push(n);affectsOpen=n.conv_id===cur}
+ if(p.eventType==='DELETE'){const arr=M[p.old.conv_id]||[],deleted=arr.some(x=>x.id===p.old.id);if(deleted)M[p.old.conv_id]=arr.filter(x=>x.id!==p.old.id);messageIndex.delete(String(p.old.id));affectsOpen=deleted&&p.old.conv_id===cur}
+ else{if(!n)return;if(!C[n.conv_id]){await loadAll();return}await dc(n);const a=M[n.conv_id]=M[n.conv_id]||[],i=a.findIndex(x=>x.id===n.id);if(i>-1)a[i]=n;else a.push(n);messageIndex.set(String(n.id),n);affectsOpen=n.conv_id===cur}
  if(cur){if(affectsOpen)render(p.eventType==='INSERT'&&n?.conv_id===cur);markRead()}else home()}
 function onMem(p){const x=p.new,o=p.old;
  if(p.eventType==='INSERT'){if(x.user_id===me.id||!C[x.conv_id])loadAll();else loadAll();return}
- if(p.eventType==='DELETE'){if(o.user_id===me.id){delete C[o.conv_id];delete K[o.conv_id];delete M[o.conv_id];if(cur===o.conv_id){cur=null;show('home')}home()}else loadAll();return}
+ if(p.eventType==='DELETE'){if(o.user_id===me.id){delete C[o.conv_id];delete K[o.conv_id];delete M[o.conv_id];(M[o.conv_id]||[]).forEach(m=>messageIndex.delete(String(m.id)));if(cur===o.conv_id){cur=null;show('home')}home()}else loadAll();return}
  const c=C[x.conv_id];if(!c)return;const i=c.members.findIndex(m=>m.user_id===x.user_id);if(i>-1)c.members[i]=x;if(x.user_id===me.id)c.my=x;if(cur===x.conv_id)render()}
 function presence(){
  const ping=(force)=>{if(force===true||!document.hidden)sb.from('profiles').update({last_seen:new Date().toISOString()}).eq('id',me.id).then(()=>{})};
@@ -454,35 +457,44 @@ function scrollChatBottom(id=cur,revision=chatScrollRevision,behavior='auto'){
   box.scrollTo({top:box.scrollHeight,behavior});
  });
 }
+let mediaObserver=null;
+function watchChatMedia(box){
+ if(!('IntersectionObserver' in window)){box.querySelectorAll('[data-m]').forEach(el=>loadMedia(el));return}
+ if(!mediaObserver)mediaObserver=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting){mediaObserver.unobserve(entry.target);loadMedia(entry.target)}}),{root:box,rootMargin:'480px 0px'});
+ box.querySelectorAll('[data-m]').forEach(el=>mediaObserver.observe(el));
+}
 function render(sc,behavior='auto'){
  const c=C[cur];if(!c)return;pruneSecret();
  const box=$('#list'),near=box.scrollHeight-box.scrollTop-box.clientHeight<180;
  const stick=!!sc||near||pendingChatBottom===cur;
  const anchor=!stick?(()=>{const br=box.getBoundingClientRect();return [...box.querySelectorAll('.b[data-id]')].map(el=>({id:el.dataset.id,top:el.getBoundingClientRect().top-br.top})).filter(x=>x.top>-80).slice(0,4)})():null;
  if(sc)pendingChatBottom=cur;
- const revision=stick?++chatScrollRevision:chatScrollRevision;
- const opening=cur;
- const a=M[cur]||[];let h='',pd=null;
+ const revision=stick?++chatScrollRevision:chatScrollRevision,opening=cur,a=M[cur]||[];
+ const canAppend=!!sc&&a.length>0&&box.dataset.convId===String(cur)&&Number(box.dataset.renderedCount||0)===a.length-1;
+ if(canAppend){
+  const prev=a[a.length-2],last=a[a.length-1];let tail='';
+  if(!prev||!sameDay(prev.created_at,last.created_at))tail+=`<div class="day">${sameDay(last.created_at,Date.now())?'Сегодня':new Date(last.created_at).toLocaleDateString('ru',{day:'numeric',month:'long'})}</div>`;
+  tail+=bubble(last,c);box.insertAdjacentHTML('beforeend',tail);
+  const added=box.querySelector(`.b[data-id="${last.id}"]`);
+  if(added&&RL[cur]!==undefined&&+last.id>+RL[cur])added.parentElement.classList.add('new');
+  RL[cur]=last.id;box.dataset.renderedCount=String(a.length);watchChatMedia(box);
+  if(stick){box.scrollTo({top:box.scrollHeight,behavior});pendingChatBottom=null}
+  return;
+ }
+ let h='',pd=null;
  for(const m of a){
   if(!pd||!sameDay(pd,m.created_at))h+=`<div class="day">${sameDay(m.created_at,Date.now())?'Сегодня':new Date(m.created_at).toLocaleDateString('ru',{day:'numeric',month:'long'})}</div>`;
   pd=m.created_at;h+=bubble(m,c);
  }
  const nextHtml=h||'<div class="empty">🔒 Сообщения защищены сквозным шифрованием.<br>Напишите первым.</div>';
-  if(box.innerHTML===nextHtml){if(stick){scrollChatBottom(opening,revision,behavior);pendingChatBottom=null}return}
-  box.innerHTML=nextHtml;
+ if(box.innerHTML===nextHtml){box.dataset.convId=String(cur);box.dataset.renderedCount=String(a.length);if(stick){scrollChatBottom(opening,revision,behavior);pendingChatBottom=null}return}
+ if(mediaObserver)mediaObserver.disconnect();
+ box.innerHTML=nextHtml;box.dataset.convId=String(cur);box.dataset.renderedCount=String(a.length);
  const seen=RL[cur],maxId=a.length?a[a.length-1].id:0;
  if(seen!==undefined)box.querySelectorAll('.b').forEach(b=>{if(+b.dataset.id>seen)b.parentElement.classList.add('new')});
- RL[cur]=maxId;
- const mediaLoads=[...box.querySelectorAll('[data-m]')].map(el=>loadMedia(el));
- // Set the opening position before the browser paints the rebuilt history.
- // Media decoding must never trigger a second forced jump to the bottom.
- if(stick){
-  box.scrollTo({top:box.scrollHeight,behavior});
-  pendingChatBottom=null;
- }else if(anchor?.length){
-  const br=box.getBoundingClientRect();
-  for(const point of anchor){const el=box.querySelector(`.b[data-id="${point.id}"]`);if(el){box.scrollTop+=el.getBoundingClientRect().top-br.top-point.top;break}}
- }
+ RL[cur]=maxId;watchChatMedia(box);
+ if(stick){box.scrollTo({top:box.scrollHeight,behavior});pendingChatBottom=null}
+ else if(anchor?.length){const br=box.getBoundingClientRect();for(const point of anchor){const el=box.querySelector(`.b[data-id="${point.id}"]`);if(el){box.scrollTop+=el.getBoundingClientRect().top-br.top-point.top;break}}}
 }
 $('#list').onclick=e=>{
  const rx=e.target.closest('.rx span');if(rx){react(+rx.dataset.id,rx.dataset.e);return}
@@ -508,6 +520,7 @@ const IC={reply:'<path d="M10 9V5l-7 7 7 7v-4c5 0 8 1 11 5-1-6-4-11-11-11z"/>',
  fwd:'<path d="M14 9V5l7 7-7 7v-4c-5 0-8 1-11 5 1-6 4-11 11-11z"/>',del:'<path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/>',
  sel:'<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>'};
 const ico=n=>`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${IC[n]}</svg>`;
+LST.addEventListener('scroll',()=>{if(cur&&!$('#chat').hidden&&LST.scrollTop<90)loadOlderMessages(cur)},{passive:true});
 const QR=['👍','❤️','😂','😮','😢','🔥','👀'];
 const ALLR=['👍','👎','❤️','🔥','🥰','👏','😁','🤔','🤯','😱','😢','🎉','🤩','💩','🙏','👌','🕊','🤡','🥱','🥴','😍','🐳','🌚','💯','🤣','⚡','🍌','🏆','💔','🤨','😐','🍓','🍾','💋','😈','😴','😭','🤓','👻','🎃','🙈','😇','😨','🤝','🤗','🫡','🎅','🎄','☃️','💅','🤪','🗿','🆒','💘','🦄','😘','😎','👾'];
 let ctxAt=0;
@@ -544,7 +557,7 @@ async function act(a,m){const c=C[cur],p=m.p||{};
  if(a==='pin'){const un=c.pinned_id===m.id,r=await sb.rpc('pin_msg',{c:c.id,mid:un?null:m.id});
   if(r.error)toast(/pin_msg|function/i.test(r.error.message)?'Выполните update2.sql в Supabase':r.error.message);else{c.pinned_id=un?null:m.id;head();toast(un?'Откреплено':'Закреплено')}}
  if(a==='fwd')pickChat(t=>{closeSheet();forward([m],t)});
- if(a==='del'&&confirm('Удалить сообщение?')){const r=await sb.from('msgs').delete().eq('id',m.id);if(r.error)toast(r.error.message);else{M[cur]=M[cur].filter(x=>x.id!==m.id);render()}}
+ if(a==='del'&&confirm('Удалить сообщение?')){const r=await sb.from('msgs').delete().eq('id',m.id);if(r.error)toast(r.error.message);else{M[cur]=M[cur].filter(x=>x.id!==m.id);messageIndex.delete(String(m.id));render()}}
  if(a==='sel')startSel(m.id)}
 
 /* ---------- выбор нескольких, пересылка ---------- */
@@ -561,7 +574,7 @@ $('#sc').onclick=()=>{const t=selMsgs().map(m=>m.p?.t).filter(Boolean).join('\n'
 $('#sf').onclick=()=>{const ms=selMsgs();pickChat(async t=>{closeSheet();endSel();await forward(ms,t)})};
 $('#sd').onclick=async()=>{const ms=selMsgs();if(!ms.length||!confirm('Удалить сообщений: '+ms.length+'?'))return;
  const r=await sb.from('msgs').delete().in('id',ms.map(m=>m.id)).select('id');if(r.error){toast(r.error.message);return}
- const gone=new Set((r.data||[]).map(x=>x.id));M[cur]=(M[cur]||[]).filter(x=>!gone.has(x.id));if(gone.size<ms.length)toast('Часть сообщений удалить нельзя');endSel()};
+ const gone=new Set((r.data||[]).map(x=>x.id));M[cur]=(M[cur]||[]).filter(x=>!gone.has(x.id));gone.forEach(id=>messageIndex.delete(String(id)));if(gone.size<ms.length)toast('Часть сообщений удалить нельзя');endSel()};
 function pickChat(cb){const rows=Object.values(C).filter(canPost);
  sheet(`<h3>Переслать в…</h3>${rows.map(c=>`<div class="mrow" data-c="${c.id}" style="cursor:pointer">${av(c.kind==='dm'?peerOf(c):c,44)}<div class="ci"><b>${esc(title(c))}</b><small>${c.kind==='dm'?'Личный чат':c.kind==='group'?'Группа':'Канал'}</small></div></div>`).join('')||'<p class="msg">Нет доступных чатов</p>'}`,
  s=>s.onclick=e=>{const r=e.target.closest('[data-c]');if(r)cb(C[r.dataset.c])})}
@@ -581,19 +594,21 @@ $('#bx').onclick=()=>{if(editing)$('#inp').value='';unbar();fit()};
 const inp=$('#inp');
 function fit(){inp.style.height='auto';inp.style.height=Math.max(44,Math.min(inp.scrollHeight,130))+'px';const has=!!inp.value.trim();$('#sendb').hidden=!has;if(!rec)$('#mic').hidden=has}
 inp.oninput=fit;
+$('#sendb').addEventListener('mousedown',e=>e.preventDefault());
+function keepComposerFocused(){if(cur&&!$('#chat').hidden&&document.visibilityState==='visible'){try{inp.focus({preventScroll:true})}catch(_){inp.focus()}}}
 async function sendPayload(c,payload){if(!K[c.id]){toast('Нет ключа этого чата');return null}
  const r=await sb.from('msgs').insert({conv_id:c.id,sender:me.id,data:await CR.seal(K[c.id],c.id,payload)}).select().single();
  if(r.error){toast(r.error.message);return null}
- await dc(r.data);const a=M[c.id]=M[c.id]||[];if(!a.some(x=>x.id===r.data.id))a.push(r.data);if(cur===c.id){pendingChatBottom=c.id;render(true,'smooth')}else home();return r.data}
+ await dc(r.data);const a=M[c.id]=M[c.id]||[];if(!a.some(x=>x.id===r.data.id))a.push(r.data);messageIndex.set(String(r.data.id),r.data);if(cur===c.id){pendingChatBottom=c.id;render(true,'smooth')}else home();return r.data}
 $('#sendb').onclick=async()=>{const t=inp.value.trim(),c=C[cur];if(!t||!c)return;
  if(editing){const m=editing;unbar();inp.value='';fit();const np={...m.p,t};
   const r=await sb.from('msgs').update({data:await CR.seal(K[c.id],c.id,np),edited_at:new Date().toISOString()}).eq('id',m.id).select().single();
-  if(r.error){toast(r.error.message);return}Object.assign(m,r.data);m.p=np;render();return}
- const pl={t};if(reply)pl.r=reply.id;unbar();inp.value='';fit();const sent=await sendPayload(c,pl);if(!sent&&!inp.value.trim()){inp.value=t;fit()}};
+  if(r.error){toast(r.error.message);keepComposerFocused();return}Object.assign(m,r.data);m.p=np;render();keepComposerFocused();return}
+ const pl={t};if(reply)pl.r=reply.id;unbar();inp.value='';fit();keepComposerFocused();const sent=await sendPayload(c,pl);if(!sent&&!inp.value.trim()){inp.value=t;fit()}keepComposerFocused()};
 inp.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&matchMedia('(hover:hover)').matches){e.preventDefault();$('#sendb').click()}};
 
 /* ---------- файлы ---------- */
-async function loadMedia(el){const m=Object.values(M).flat().find(x=>String(x.id)===String(el.dataset.m));if(!m||!m.p||!m.p.p)return;const p=m.p,c=C[m.conv_id];if(!c||!K[c.id]){if(el.isConnected)el.textContent='🔒 нет доступа';return}
+async function loadMedia(el){const m=messageIndex.get(String(el.dataset.m));if(!m||!m.p||!m.p.p)return;const p=m.p,c=C[m.conv_id];if(!c||!K[c.id]){if(el.isConnected)el.textContent='🔒 нет доступа';return}
  try{let url=BLOB[p.p];
   if(!url){const r=await fetch(sb.storage.from('media').getPublicUrl(p.p).data.publicUrl);if(!r.ok)throw 0;
    const raw=await CR.openB(K[c.id],c.id,new Uint8Array(await r.arrayBuffer()));url=BLOB[p.p]=URL.createObjectURL(new Blob([raw],{type:p.y||'application/octet-stream'}))}
@@ -603,6 +618,20 @@ async function loadMedia(el){const m=Object.values(M).flat().find(x=>String(x.id
   else if(p.k==='aud'){el.outerHTML=audHtml(url)}
   else{el.href=url;el.download=p.n||'file'}
  }catch(e){if(el.isConnected&&el.classList.contains('ph'))el.textContent='⚠️ не загрузилось'}}
+async function loadOlderMessages(id){
+ if(!id||OLDER_LOADING[id]||!MORE[id]||!M[id]?.length)return;
+ OLDER_LOADING[id]=true;
+ try{
+  const oldest=M[id][0],r=await sb.from('msgs').select('*').eq('conv_id',id).lt('id',oldest.id).order('id',{ascending:false}).limit(100);
+  if(r.error)throw r.error;
+  const rows=(r.data||[]).reverse();MORE[id]=rows.length===100;
+  if(!rows.length){MORE[id]=false;return}
+  for(let i=0;i<rows.length;i+=20)await Promise.all(rows.slice(i,i+20).map(dc));
+  rows.forEach(m=>messageIndex.set(String(m.id),m));M[id]=rows.concat(M[id]||[]);
+  if(cur===id&&!$('#chat').hidden)render(false);
+ }catch(e){console.warn('[history] older messages failed',e);toast('Не удалось загрузить старые сообщения')}
+ finally{OLDER_LOADING[id]=false}
+}
 async function upload(c,bytes,kind,name,mime,extra){
  const sealed=await CR.sealB(K[c.id],c.id,bytes),path=`${c.id}/${crypto.randomUUID()}`;
  const r=await sb.storage.from('media').upload(path,new Blob([sealed]),{contentType:'application/octet-stream'});
@@ -786,7 +815,7 @@ async function addMembers(c,users,role='member'){
 }
 const TTL=[[3600,'1 час'],[86400,'1 день'],[604800,'1 неделя']];const ttlName=n=>(TTL.find(x=>x[0]===n)||[0,Math.round(n/3600)+' ч'])[1];
 function secretStart(){pickUser(u=>sheet(`<h3>🔒 Секретный чат с ${esc(u.name||'@'+u.username)}</h3><div class="msg">Сообщения исчезают сами. В этом чате нет пересылки и копирования. Выберите время жизни сообщений:</div>${TTL.map(([n,t])=>`<div class="srow" data-t="${n}">⏳ ${t}</div>`).join('')}`,sh=>sh.onclick=e=>{const t=+e.target.closest('[data-t]')?.dataset.t;if(t)startDm(u,t)}))}
-function pruneSecret(){let ch=false;Object.values(C).forEach(c=>{if(!c.secret_ttl)return;const a=M[c.id];if(!a)return;const f=a.filter(m=>Date.now()-new Date(m.created_at)<c.secret_ttl*1000);if(f.length!==a.length){M[c.id]=f;ch=true}});return ch}
+function pruneSecret(){let ch=false;Object.values(C).forEach(c=>{if(!c.secret_ttl)return;const a=M[c.id];if(!a)return;const f=a.filter(m=>Date.now()-new Date(m.created_at)<c.secret_ttl*1000);if(f.length!==a.length){const keep=new Set(f.map(m=>String(m.id)));a.forEach(m=>{if(!keep.has(String(m.id)))messageIndex.delete(String(m.id))});M[c.id]=f;ch=true}});return ch}
 const purge=()=>{sb.rpc('purge_secret').then(()=>{},()=>{})};
 setInterval(()=>{if(!me)return;if(pruneSecret()){if(cur&&SHOWN==='chat')render();else if(SHOWN==='home')home()}},15000);setInterval(()=>{if(me&&Object.values(C).some(c=>c.secret_ttl))purge()},300000);
 const dmPending=new Map();
@@ -1046,19 +1075,28 @@ if(window.visualViewport){const vv=visualViewport,app=$('#app');let keyboardOpen
  vv.addEventListener('resize',f);vv.addEventListener('scroll',()=>{if(keyboardOpen)f()});addEventListener('focusin',()=>setTimeout(f,60));addEventListener('focusout',()=>setTimeout(()=>{window.scrollTo(0,0);f()},80));f()}
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});let had=!!navigator.serviceWorker.controller;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!had){had=true;return}if(sessionStorage.getItem('swr'))return;sessionStorage.setItem('swr','1');if(!CALL&&!(document.activeElement&&/INPUT|TEXTAREA/.test(document.activeElement.tagName)))location.reload()})}
 
+let updateCheckAt=0;
 async function checkAndroidUpdate(){
- const native=window.MessageNative;if(!native||typeof native.getVersionName!=='function')return;
+ const native=window.MessageNative,standalone=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+ if(!native&&!standalone)return;
+ if(Date.now()-updateCheckAt<300000)return;updateCheckAt=Date.now();
  try{
   const res=await fetch('https://api.github.com/repos/tracynixx-wq/message/releases/latest',{headers:{Accept:'application/vnd.github+json'},cache:'no-store'});
-  if(!res.ok)return;const rel=await res.json(),latest=String(rel.tag_name||'').replace(/^android-v/i,''),current=String(native.getVersionName());
-  const asset=(rel.assets||[]).find(x=>/\.apk$/i.test(x.name||''));if(!asset||!latest||latest===current)return;
+  if(!res.ok)return;
+  const rel=await res.json(),latest=String(rel.tag_name||'').replace(/^android-v/i,'');
+  const current=String(native&&typeof native.getVersionName==='function'?native.getVersionName():(new URLSearchParams(location.search).get('appVersion')||'0.0.0'));
+  const asset=(rel.assets||[]).find(x=>/\.apk$/i.test(x.name||''));if(!asset||!latest)return;
   const cmp=(a,b)=>{const x=a.split('.').map(Number),y=b.split('.').map(Number);for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]||0)-(y[i]||0);if(d)return d}return 0};
   if(cmp(latest,current)<=0)return;
-  sheet('<h3>Доступно обновление Message</h3><div class="msg">Версия '+esc(latest)+' уже готова. Установите её, чтобы получить новые функции и исправления.</div><button class="btn" id="installAppUpdate">Скачать и установить</button><button class="btn sec" id="skipAppUpdate">Позже</button>',root=>{
-   root.querySelector('#installAppUpdate').onclick=()=>native.downloadAndInstall(asset.browser_download_url);
-   root.querySelector('#skipAppUpdate').onclick=closeSheet;
-  });
+  let banner=$('#appUpdate');
+  if(!banner){banner=document.createElement('aside');banner.id='appUpdate';banner.setAttribute('role','status');banner.setAttribute('aria-live','polite');document.body.appendChild(banner)}
+  banner.innerHTML='<div class="app-update-copy"><b>Доступно обновление Message '+esc(latest)+'</b><span>Есть новая версия приложения</span></div><button type="button" id="appUpdateInstall">Обновить</button><button type="button" id="appUpdateClose" aria-label="Закрыть">×</button>';
+  banner.hidden=false;
+  banner.querySelector('#appUpdateInstall').onclick=()=>{if(native&&typeof native.downloadAndInstall==='function')native.downloadAndInstall(asset.browser_download_url);else location.href=asset.browser_download_url};
+  banner.querySelector('#appUpdateClose').onclick=()=>{banner.hidden=true};
  }catch(e){console.warn('[app-update] check failed',e)}
-}
+ }
 
 boot();checkAndroidUpdate();
+addEventListener('online',checkAndroidUpdate);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkAndroidUpdate()});

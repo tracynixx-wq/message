@@ -27,8 +27,8 @@ import androidx.core.content.FileProvider;
 public class MainActivity extends Activity {
     private static final int FILE_CHOOSER_REQUEST = 1001;
     private static final String APP_URL = "https://tracynixx-wq.github.io/message/";
-    private static final String APP_VERSION = "1.2.0";
-    private static final int APP_VERSION_CODE = 3;
+    private static final String APP_VERSION = "1.3.0";
+    private static final int APP_VERSION_CODE = 4;
     private WebView webView;
     private ValueCallback<Uri[]> fileCallback;
     private BroadcastReceiver downloadReceiver;

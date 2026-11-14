@@ -514,3 +514,17 @@ html{overflow:hidden;overscroll-behavior:none}
 /* Animated covers keep their original brightness; GIF preview is not rebuilt on every keystroke. */
 .pcard-cover:has(.cover-media[data-animated-cover="1"]) .pcard-shade{background:linear-gradient(180deg,rgba(0,0,0,.01) 20%,rgba(0,0,0,.18) 100%)}
 .profile-cover-hero:has(.cover-media[data-animated-cover="1"]) .profile-banner-shade{background:linear-gradient(180deg,rgba(0,0,0,.01) 25%,rgba(0,0,0,.2) 100%)}
+
+.android-perf .day,.android-perf #cw,.android-perf .top,.android-perf .sh,.android-perf .over{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.android-perf .day{box-shadow:none!important;background:var(--card)}
+.android-perf #cw{box-shadow:none!important}
+.android-perf .crow,.android-perf .row .b,.android-perf .ib{box-shadow:none!important;will-change:auto!important}
+.android-perf .row .b,.android-perf .crow,.android-perf .btn,.android-perf .ib{transition:none!important}
+#list{contain:layout style}
+#appUpdate{position:fixed;z-index:10050;top:calc(env(safe-area-inset-top) + 8px);left:12px;right:12px;display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--line);border-radius:16px;background:var(--card);color:var(--fg);box-shadow:0 8px 28px rgba(0,0,0,.22)}
+#appUpdate[hidden]{display:none!important}
+#appUpdate .app-update-copy{display:grid;gap:2px;min-width:0;flex:1}
+#appUpdate .app-update-copy b{font-size:13px;line-height:1.25}
+#appUpdate .app-update-copy span{font-size:11px;color:var(--mut)}
+#appUpdate button{border:0;border-radius:10px;padding:9px 12px;background:var(--accent);color:var(--onacc);font-size:12px;font-weight:700;white-space:nowrap}
+#appUpdate #appUpdateClose{padding:4px 7px;background:transparent;color:var(--mut);font-size:20px}
