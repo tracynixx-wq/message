@@ -895,13 +895,13 @@ function groupStyle(c){let col=c.color||'',pend=null,previewUrl=null;
   if(!pushSupported()){toast('Push недоступен в этой сборке Android. Нужен Chrome/TWA с поддержкой уведомлений.',8000);return}
   try{const perm=await Notification.requestPermission();if(perm!=='granted'){toast('Уведомления запрещены. Разрешите их для приложения в настройках Android.',7000);return}
    const reg=await navigator.serviceWorker.ready;await ensurePushSubscription(reg);
-   toast('Устройство зарегистрировано. Серверные уведомления заработают после настройки Push-сервера.',7000);sets()
+   toast('Устройство зарегистрировано. Чтобы проверить удалённую доставку, отправьте сообщение с другого аккаунта при закрытом приложении.',7000);sets()
   }catch(e){toast('Не удалось включить уведомления: '+(e.message||e),7000)}}
  async function testPush(){try{if(!pushSupported())throw new Error('Push API недоступен в этой сборке');
   if(Notification.permission!=='granted')throw new Error('Сначала разрешите уведомления');
   const reg=await navigator.serviceWorker.ready;
   await reg.showNotification('Проверка уведомлений',{body:'Локальные уведомления Android работают',icon:'icon-192.png',badge:'icon-192.png',tag:'local-push-test'});
-  toast('Локальная проверка прошла. Для уведомлений о новых сообщениях нужен настроенный сервер Push.',7000)
+  toast('Локальная проверка прошла. Удалённую доставку проверьте сообщением с другого аккаунта при закрытом приложении.',7000)
  }catch(e){toast('Проверка не пройдена: '+(e.message||e),7000)}}
  
  /* ---------- клавиатура ---------- */
