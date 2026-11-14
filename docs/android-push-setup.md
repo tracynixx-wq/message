@@ -1,49 +1,31 @@
-# Android / Web Push setup
+# Android / Web Push
 
-The client can create and store a browser Push subscription, but notifications do not reach other devices until this server-side sender is deployed and connected to the `msgs` INSERT event.
+The app stores browser Push subscriptions in `public.push_subs`. The active server sender is the Supabase Edge Function `bright-endpoint`; the database trigger `public.push_on_msg` calls it after each `msgs` INSERT and sends the message id as `{ "id": ... }`.
 
-## Required secrets
+The sender never reads or transmits encrypted message contents. It sends a generic notification, excludes the sender, respects each member's muted setting, and removes expired subscriptions (HTTP 404/410).
 
-The current client VAPID public key is in `config.js`. The server's `VAPID_PRIVATE_KEY` **must be the matching private key**. It cannot be derived from the public key. Do not generate a new private key unless you also replace `CFG.vapid` with its matching public key and resubscribe devices.
+## Runtime configuration
 
-Set these secrets in the Supabase project whose URL is configured in `config.js`:
+The deployed function expects these Edge Function environment variables:
 
-- `PUSH_WEBHOOK_SECRET`: a long random secret used by the database webhook header.
-- `VAPID_PUBLIC_KEY`: exact value of `CFG.vapid` in `config.js`.
-- `VAPID_PRIVATE_KEY`: matching private VAPID key (not present in this repository).
-- `VAPID_SUBJECT`: a contact URI such as `mailto:you@example.com`.
+- `VAPID_PUBLIC`: must exactly match `CFG.vapid` in `config.js`.
+- `VAPID_PRIVATE`: the private key paired with that public key. It cannot be derived from the public key.
+- `VAPID_SUBJECT`: contact URI, for example `mailto:admin@example.com`.
+- `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`: standard Supabase function environment values.
 
-Also configure the standard Supabase Edge Function secrets `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (the platform normally provides these to deployed functions).
+Do not generate a new VAPID key pair unless both the server private key and client public key are replaced together. Never commit private keys or the service-role key.
 
-## Deploy
+## Android verification
 
-From the repository root, after linking the correct Supabase project:
-
-```sh
-supabase secrets set PUSH_WEBHOOK_SECRET='YOUR_RANDOM_SECRET' VAPID_PUBLIC_KEY='PUBLIC_KEY_FROM_CONFIG' VAPID_PRIVATE_KEY='MATCHING_PRIVATE_KEY' VAPID_SUBJECT='mailto:you@example.com'
-supabase functions deploy push-notify --no-verify-jwt
-```
-
-Never commit the private key, service-role key, or webhook secret.
-
-## Connect message inserts
-
-In the Supabase Dashboard for the same project as `config.js`, create a Database Webhook:
-- Table: `public.msgs`
-- Event: `INSERT`
-- Method: `POST`
-- URL: `https://YOUR_PROJECT_REF.supabase.co/functions/v1/push-notify`
-- Header: `Content-Type: application/json`
-- Header: `x-webhook-secret: YOUR_RANDOM_SECRET`
-
-The function notifies all conversation members except the sender. Notification text is generic and does not expose encrypted message contents. Expired endpoints (HTTP 404/410) are removed automatically.
-
-## Android checks
-
-1. Install/update the TWA APK built for the same verified domain and signing certificate.
+1. Install the TWA APK built for the same verified domain and signing certificate.
 2. In Android Settings → Apps → the app → Notifications, allow notifications.
-3. Open the app, sign in, and tap Settings → Notifications to grant browser permission and register this device.
-4. Use the in-app test to verify local notification display. This test does **not** prove remote push delivery; remote delivery requires the webhook and matching VAPID key above.
-5. Send a message from a different account while the recipient app is backgrounded.
+3. Open the app, sign in, and tap Settings → Notifications to grant browser permission and register the device.
+4. Use the in-app test for local notification display. This does not prove remote push delivery.
+5. Send a message from another account while the recipient app is backgrounded.
 
-If the current VAPID private key is unavailable, remote push cannot be activated with the existing public key; recover the matching key or rotate both public and private keys together.
+## Current project audit
+
+- `bright-endpoint` is deployed and active; the database trigger has generated successful HTTP 200 invocations.
+- The database currently contains 4 subscriptions across 2 users. The newest subscription was created on 2026-11-08.
+- HTTP 200 from the Edge Function confirms invocation, not delivery to an Android device. Confirm remote delivery on a real device.
+- The function is configured with JWT verification disabled because the database `pg_net` trigger calls it directly. This endpoint therefore needs a shared-secret authentication layer before production exposure; do not treat HTTP 200 as proof that this security gap is closed.

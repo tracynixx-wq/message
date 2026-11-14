@@ -19,8 +19,8 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: Check Web Push Edge Function
-        run: deno check --no-lock supabase/functions/push-notify/index.ts
+      - name: Check deployed Push Edge Function source
+        run: deno check --no-lock supabase/functions/bright-endpoint/index.ts
       - name: Check app shell assets
         run: |
           grep -q 'href="styles.css"' index.html
