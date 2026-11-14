@@ -638,17 +638,26 @@ async function startCall(c,video){if(CALL){toast('Звонок уже идёт')
  if(!K[c.id]){toast('Нет ключа этого чата');return}
  let ls;try{ls=await media(video)}catch(_){toast(video?'Нет доступа к камере или микрофону':'Нет доступа к микрофону');return}
  const id=crypto.randomUUID();const q=CALL={id,c,peer:peerId(c),video,dir:'out',st:'calling',ls,mute:false,cam:true};
- try{mkPc();ui();ring('out');await q.pc.setLocalDescription(await q.pc.createOffer());await gathered(q.pc)}
- catch(_){endCall(false,'Не удалось создать звонок');return}
- if(CALL!==q)return;const send=()=>sig(c,{t:'offer',id,video,sdp:q.pc.localDescription});send();q.resend=setInterval(send,2500);
+ try{
+  mkPc();ui();ring('out');
+  await q.pc.setLocalDescription(await q.pc.createOffer());
+  await gathered(q.pc);
+ }catch(_){endCall(false,'Не удалось создать звонок');return}
+ if(CALL!==q)return;
+ const send=()=>{if(CALL===q&&q.pc?.localDescription)sig(c,{t:'offer',id,video,sdp:q.pc.localDescription})};
+ send();q.resend=setInterval(send,2500);
  q.to=setTimeout(()=>{if(CALL===q&&q.st==='calling')endCall(true,'Нет ответа')},45000);
  sendPayload(c,{t:video?'📹 Видеозвонок':'📞 Голосовой звонок'})}
 function incoming(c,o){const q=CALL={id:o.id,c,peer:peerId(c),video:!!o.video,dir:'in',st:'ringing',offer:o.sdp,mute:false,cam:true};ui();ring('in');navigator.vibrate?.([300,200,300]);
  q.to=setTimeout(()=>{if(CALL===q&&q.st==='ringing')endCall(false,'Пропущенный звонок')},46000)}
 async function acceptCall(){const q=CALL;if(!q||q.st!=='ringing')return;ring(false);clearTimeout(q.to);
  try{q.ls=await media(q.video)}catch(_){toast('Нет доступа к микрофону или камере');endCall(true);return}
- q.st='connecting';mkPc();ui();
- try{await q.pc.setRemoteDescription(q.offer);await q.pc.setLocalDescription(await q.pc.createAnswer());await gathered(q.pc)}catch(_){endCall(true,'Ошибка звонка');return}
+ try{
+  q.st='connecting';mkPc();ui();
+  await q.pc.setRemoteDescription(q.offer);
+  await q.pc.setLocalDescription(await q.pc.createAnswer());
+  await gathered(q.pc);
+ }catch(_){endCall(true,'Ошибка звонка');return}
  if(CALL===q)sig(q.c,{t:'answer',id:q.id,sdp:q.pc.localDescription})}
 function endCall(send,msg){const q=CALL;if(!q)return;CALL=null;clearInterval(q.resend);clearInterval(q.timer);clearTimeout(q.to);clearTimeout(q.dc);ring(false);
  if(send)sig(q.c,{t:'end',id:q.id});try{q.pc&&q.pc.close()}catch(_){}q.ls&&q.ls.getTracks().forEach(t=>t.stop());const el=$('#call');el.hidden=true;el.innerHTML='';if(msg)toast(msg)}
