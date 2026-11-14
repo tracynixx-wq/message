@@ -145,7 +145,7 @@ async function start(s){if(me)return;window.__lastSession=s;me=s.user;if(!window
   const [pr,bk0]=await Promise.all([sb.from('profiles').select('*').eq('id',me.id).maybeSingle(),sb.from('keybackup').select('data').eq('user_id',me.id).maybeSingle()]);BK0=bk0;
   if(pr.error)throw pr.error;
   prof=pr.data;
-  saveLocalAccount(s.user,prof);
+  saveLocalAccount(s.user,prof);updateQuickAccountButton();
   if(!await ensureKeys())throw new Error('Не удалось проверить ключи аккаунта');
   if(!prof||!prof.name||!prof.username){show('home');await editor(true)}
   await enter()
@@ -247,10 +247,10 @@ function realtime(){
  .on('postgres_changes',{event:'*',schema:'public',table:'convs'},p=>{if(p.eventType==='UPDATE'&&C[p.new.id]){Object.assign(C[p.new.id],p.new);cur?head():home()}else if(p.eventType==='INSERT')loadAll()})
  .on('postgres_changes',{event:'UPDATE',schema:'public',table:'profiles'},p=>{if(P[p.new.id]){P[p.new.id]=p.new;cur?head():home()}})
  .subscribe();callInit()}
-async function onMsg(p){const n=p.new;
- if(p.eventType==='DELETE'){for(const k in M)M[k]=M[k].filter(x=>x.id!==p.old.id)}
- else{if(!n)return;if(!C[n.conv_id]){await loadAll();return}await dc(n);const a=M[n.conv_id]=M[n.conv_id]||[],i=a.findIndex(x=>x.id===n.id);if(i>-1)a[i]=n;else a.push(n)}
- if(cur){render(p.eventType==='INSERT'&&n?.conv_id===cur);markRead()}else home()}
+async function onMsg(p){const n=p.new;let affectsOpen=false;
+ if(p.eventType==='DELETE'){const deleted=M[p.old.conv_id]?.some(x=>x.id===p.old.id);for(const k in M)M[k]=M[k].filter(x=>x.id!==p.old.id);affectsOpen=!!deleted&&p.old.conv_id===cur}
+ else{if(!n)return;if(!C[n.conv_id]){await loadAll();return}await dc(n);const a=M[n.conv_id]=M[n.conv_id]||[],i=a.findIndex(x=>x.id===n.id);if(i>-1)a[i]=n;else a.push(n);affectsOpen=n.conv_id===cur}
+ if(cur){if(affectsOpen)render(p.eventType==='INSERT'&&n?.conv_id===cur);markRead()}else home()}
 function onMem(p){const x=p.new,o=p.old;
  if(p.eventType==='INSERT'){if(x.user_id===me.id||!C[x.conv_id])loadAll();else loadAll();return}
  if(p.eventType==='DELETE'){if(o.user_id===me.id){delete C[o.conv_id];delete K[o.conv_id];delete M[o.conv_id];if(cur===o.conv_id){cur=null;show('home')}home()}else loadAll();return}
@@ -364,7 +364,7 @@ function contactsList(f){const seen=new Set(),L=[];Object.values(C).forEach(c=>{
  $('#clist').innerHTML=h}
 function setTab(t){if(t==='profile'){profilePage();return}TAB=t;showArch=false;document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab===TAB));$('#home .top h2').textContent=TAB==='chats'?'Чаты':TAB==='contacts'?'Контакты':'Истории';home();if(TAB==='stories')loadStories()}
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
-function home(){if(!me)return;pruneSecret();const f=$('#q').value.trim().toLowerCase();CH.hidden=TAB!=='chats';if(TAB==='contacts'){contactsList(f);return}if(TAB==='stories'){storiesList();return}const chipHtml=chipsHtml();if(CH.innerHTML!==chipHtml)CH.innerHTML=chipHtml;
+function home(){if(!me)return;pruneSecret();const f=$('#q').value.trim().toLowerCase();CH.hidden=true;if(TAB==='contacts'){contactsList(f);return}if(TAB==='stories'){storiesList();return}
  const all=Object.values(C),inArch=all.filter(c=>c.my?.archived);
  const rows=all.filter(c=>!!c.my?.archived===showArch).map(c=>({c,l:lastOf(c),u:unread(c)})).filter(r=>(!f||title(r.c).toLowerCase().includes(f))&&passF(r))
   .sort((a,b)=>(b.c.my?.pinned?1:0)-(a.c.my?.pinned?1:0)||new Date(b.l?b.l.created_at:b.c.created_at)-new Date(a.l?a.l.created_at:a.c.created_at));
@@ -440,6 +440,7 @@ function render(sc,behavior='auto'){
  const c=C[cur];if(!c)return;pruneSecret();
  const box=$('#list'),near=box.scrollHeight-box.scrollTop-box.clientHeight<180;
  const stick=!!sc||near||pendingChatBottom===cur;
+ const anchor=!stick?(()=>{const br=box.getBoundingClientRect();return [...box.querySelectorAll('.b[data-id]')].map(el=>({id:el.dataset.id,top:el.getBoundingClientRect().top-br.top})).filter(x=>x.top>-80).slice(0,4)})():null;
  if(sc)pendingChatBottom=cur;
  const revision=stick?++chatScrollRevision:chatScrollRevision;
  const opening=cur;
@@ -460,6 +461,9 @@ function render(sc,behavior='auto'){
  if(stick){
   box.scrollTo({top:box.scrollHeight,behavior});
   pendingChatBottom=null;
+ }else if(anchor?.length){
+  const br=box.getBoundingClientRect();
+  for(const point of anchor){const el=box.querySelector(`.b[data-id="${point.id}"]`);if(el){box.scrollTop+=el.getBoundingClientRect().top-br.top-point.top;break}}
  }
 }
 $('#list').onclick=e=>{
@@ -576,8 +580,8 @@ async function loadMedia(el){const m=Object.values(M).flat().find(x=>String(x.id
   if(!url){const r=await fetch(sb.storage.from('media').getPublicUrl(p.p).data.publicUrl);if(!r.ok)throw 0;
    const raw=await CR.openB(K[c.id],c.id,new Uint8Array(await r.arrayBuffer()));url=BLOB[p.p]=URL.createObjectURL(new Blob([raw],{type:p.y||'application/octet-stream'}))}
   if(!el.isConnected)return;
-  if(p.k==='img'){el.outerHTML=`<img class="mi" src="${url}" alt="">`;const img=el.previousElementSibling;if(img?.decode)await img.decode().catch(()=>{})}
-  else if(p.k==='vid'){el.outerHTML=`<video src="${url}" controls playsinline preload="metadata"></video>`;const video=el.previousElementSibling;if(video&&video.readyState<1)await new Promise(resolve=>{let done=false;const finish=()=>{if(done)return;done=true;resolve()};video.addEventListener('loadedmetadata',finish,{once:true});video.addEventListener('error',finish,{once:true});setTimeout(finish,2000)})}
+  if(p.k==='img'){el.outerHTML=`<img class="mi" src="${url}" alt="">`;const img=document.querySelector(`#list .b[data-id="${m.id}"] .mi`);if(img?.decode)await img.decode().catch(()=>{})}
+  else if(p.k==='vid'){el.outerHTML=`<video src="${url}" controls playsinline preload="metadata"></video>`;const video=document.querySelector(`#list .b[data-id="${m.id}"] video`);if(video&&video.readyState<1)await new Promise(resolve=>{let done=false;const finish=()=>{if(done)return;done=true;resolve()};video.addEventListener('loadedmetadata',finish,{once:true});video.addEventListener('error',finish,{once:true});setTimeout(finish,2000)})}
   else if(p.k==='aud'){el.outerHTML=audHtml(url)}
   else{el.href=url;el.download=p.n||'file'}
  }catch(e){if(el.isConnected&&el.classList.contains('ph'))el.textContent='⚠️ не загрузилось'}}
@@ -921,8 +925,18 @@ $('#gear').onclick=redesignedSettings;
 const ACCOUNT_LIST_KEY='msg.accounts.v1';
 function readLocalAccounts(){try{const a=JSON.parse(localStorage.getItem(ACCOUNT_LIST_KEY)||'[]');return Array.isArray(a)?a.filter(x=>x&&x.id&&x.storageKey):[]}catch(_){return[]}}
 function saveLocalAccount(user,profile){
- try{const list=readLocalAccounts().filter(x=>x.id!==user.id);list.push({id:user.id,email:user.email||'',name:profile?.name||'',username:profile?.username||'',storageKey:window.__authStorageKey||''});localStorage.setItem(ACCOUNT_LIST_KEY,JSON.stringify(list))}catch(e){console.warn('[accounts] local registry unavailable',e)}
+ try{const list=readLocalAccounts().filter(x=>x.id!==user.id);list.push({id:user.id,email:user.email||'',name:profile?.name||'',username:profile?.username||'',avatar_url:profile?.avatar_url||'',storageKey:window.__authStorageKey||''});localStorage.setItem(ACCOUNT_LIST_KEY,JSON.stringify(list))}catch(e){console.warn('[accounts] local registry unavailable',e)}
 }
+function updateQuickAccountButton(){const b=$('#quickAccounts');if(b)b.innerHTML=av(prof,32)}
+function quickAccounts(){
+ const list=readLocalAccounts(),active=window.__authStorageKey||defaultAuthStorageKey();
+ const rows=list.map(x=>`<button class="account-switch-row" data-account-key="${esc(x.storageKey)}">${av({id:x.id,name:x.name,username:x.username,avatar_url:x.avatar_url},40)}<span><b>${esc(x.name||x.username||x.email||'Аккаунт')}</b><small>${esc(x.email||(x.username?'@'+x.username:''))}</small></span><i>${x.storageKey===active?'✓':'›'}</i></button>`).join('');
+ sheet(`<h3>Переключить аккаунт</h3><div class="account-switch-list">${rows||'<div class="empty">Сохранённых аккаунтов пока нет</div>'}</div><button class="btn" id="quickAddAccount">＋ Добавить аккаунт</button>`,el=>{
+  el.querySelectorAll('[data-account-key]').forEach(row=>row.onclick=()=>{const key=row.dataset.accountKey;if(!key||key===active)return;localStorage.setItem('msg.activeAuthKey',key);location.reload()});
+  el.querySelector('#quickAddAccount').onclick=()=>{try{const key=defaultAuthStorageKey()+'-account-'+crypto.randomUUID();localStorage.setItem('msg.activeAuthKey',key);location.reload()}catch(e){toast('Не удалось создать новый профиль входа')}};
+ });
+}
+$('#quickAccounts').onclick=quickAccounts;
 function defaultAuthStorageKey(){return `sb-${new URL(CFG.url).hostname.split('.')[0]}-auth-token`}
 function settingsAccounts(){
  const list=readLocalAccounts(),active=window.__authStorageKey||defaultAuthStorageKey();
@@ -955,7 +969,7 @@ function editor(first){return new Promise(res=>{
  <div id="pm" class="msg"></div><button class="btn profile-save" id="ps">Сохранить изменения</button>${first?'':'<button class="btn sec profile-cancel" id="px">Отмена</button>'}</div>`,root=>{
  const q=x=>root.querySelector(x);const preview=()=>{const nm=q('#pn').value.trim()||'Ваше имя',un=q('#pu').value.trim().replace(/^@/,'')||'username';q('#pname').textContent=nm+' '+q('#pe').value;q('#phandle').textContent='@'+un;q('#pavatar').innerHTML=av({...prof,id:me.id,name:nm,color,avatar_url:avatarPreviewUrl||prof?.avatar_url},112);if(pendCov){if(q('#pcover').dataset.previewUrl)URL.revokeObjectURL(q('#pcover').dataset.previewUrl);const pu=URL.createObjectURL(pendCov);q('#pcover').dataset.previewUrl=pu;q('#pcover').style.backgroundImage=`url("${pu}")`;q('#pcover').style.backgroundPosition='center';q('#pcover').style.backgroundSize='cover'}else{if(q('#pcover').dataset.previewUrl){URL.revokeObjectURL(q('#pcover').dataset.previewUrl);delete q('#pcover').dataset.previewUrl}q('#pcover').style.background=cover({...prof,theme:{...T0,cov,covUrl}})}q('#pc').querySelectorAll('i').forEach(i=>i.classList.toggle('on',i.dataset.c===color));q('#pcv').querySelectorAll('i').forEach(i=>i.classList.toggle('on',!covUrl&&!pendCov&&(i.dataset.v===''?cov==null:cov===+i.dataset.v)))};
  q('#pch').onclick=()=>q('#pf').click();q('#cch').onclick=()=>q('#cf').click();q('#pf').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{pend=await shrink(f,512);if(avatarPreviewUrl)URL.revokeObjectURL(avatarPreviewUrl);avatarPreviewUrl=URL.createObjectURL(pend);preview()}catch(_){toast('Не удалось прочитать фото')}};q('#cf').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{pendCov=await scaleImg(f,1000);covUrl='';preview()}catch(_){toast('Не удалось прочитать обложку')}};q('#pc').onclick=e=>{if(e.target.dataset.c){color=e.target.dataset.c;preview()}};q('#pcv').onclick=e=>{const v=e.target.dataset.v;if(v===undefined)return;cov=v===''?null:+v;covUrl='';pendCov=null;preview()};['#pn','#pu','#pb','#pe'].forEach(x=>q(x).oninput=preview);preview();if(!first)q('#px').onclick=()=>{if(avatarPreviewUrl)URL.revokeObjectURL(avatarPreviewUrl);closeSheet();res()};
- q('#ps').onclick=async()=>{const name=q('#pn').value.trim(),un=q('#pu').value.trim().replace(/^@/,''),pm=q('#pm');if(!name){pm.textContent='Введите имя';return}if(!/^[A-Za-z0-9_]{3,24}$/.test(un)){pm.textContent='Имя пользователя: 3–24 символа, латиница, цифры, _';return}q('#ps').disabled=true;pm.textContent='Сохранение…';const up=async(b,n)=>{const fp=`${me.id}/${n}${Date.now()}-${Math.random().toString(36).slice(2,7)}.jpg`,bucket=sb.storage.from('avatars'),u=await bucket.upload(fp,b,{contentType:'image/jpeg',cacheControl:'3600',upsert:false});if(u.error)throw new Error('Ошибка загрузки обложки/фото: '+u.error.message);const pub=bucket.getPublicUrl(fp)?.data?.publicUrl;if(!pub)throw new Error('Supabase не вернул публичную ссылку на изображение');return pub};try{let url=prof?.avatar_url||null;if(pend)url=await up(pend,'');if(pendCov)covUrl=await up(pendCov,'cover-');const theme={...T0,cov,covUrl};const r=await sb.from('profiles').upsert({id:me.id,name,username:un,bio:q('#pb').value.trim(),status_emoji:q('#pe').value.trim(),color,avatar_url:url,theme}).select().single();q('#ps').disabled=false;if(r.error){pm.textContent=/duplicate|unique/i.test(r.error.message)?'Это имя пользователя занято':/bio|column/i.test(r.error.message)?'В Supabase не выполнен design.sql':r.error.message;return}prof={...r.data,theme};P[me.id]=prof;if(avatarPreviewUrl)URL.revokeObjectURL(avatarPreviewUrl);closeSheet();toast('Профиль обновлён');if(!first){cur?head():home()}res()}catch(err){q('#ps').disabled=false;pm.textContent='Не удалось сохранить: '+err.message}};
+ q('#ps').onclick=async()=>{const name=q('#pn').value.trim(),un=q('#pu').value.trim().replace(/^@/,''),pm=q('#pm');if(!name){pm.textContent='Введите имя';return}if(!/^[A-Za-z0-9_]{3,24}$/.test(un)){pm.textContent='Имя пользователя: 3–24 символа, латиница, цифры, _';return}q('#ps').disabled=true;pm.textContent='Сохранение…';const up=async(b,n)=>{const fp=`${me.id}/${n}${Date.now()}-${Math.random().toString(36).slice(2,7)}.jpg`,bucket=sb.storage.from('avatars'),u=await bucket.upload(fp,b,{contentType:'image/jpeg',cacheControl:'3600',upsert:false});if(u.error)throw new Error('Ошибка загрузки обложки/фото: '+u.error.message);const pub=bucket.getPublicUrl(fp)?.data?.publicUrl;if(!pub)throw new Error('Supabase не вернул публичную ссылку на изображение');return pub};try{let url=prof?.avatar_url||null;if(pend)url=await up(pend,'');if(pendCov)covUrl=await up(pendCov,'cover-');const theme={...T0,cov,covUrl};const r=await sb.from('profiles').upsert({id:me.id,name,username:un,bio:q('#pb').value.trim(),status_emoji:q('#pe').value.trim(),color,avatar_url:url,theme}).select().single();q('#ps').disabled=false;if(r.error){pm.textContent=/duplicate|unique/i.test(r.error.message)?'Это имя пользователя занято':/bio|column/i.test(r.error.message)?'В Supabase не выполнен design.sql':r.error.message;return}prof={...r.data,theme};P[me.id]=prof;saveLocalAccount(me,prof);updateQuickAccountButton();if(avatarPreviewUrl)URL.revokeObjectURL(avatarPreviewUrl);closeSheet();toast('Профиль обновлён');if(!first){cur?head():home()}res()}catch(err){q('#ps').disabled=false;pm.textContent='Не удалось сохранить: '+err.message}};
  });
 })}
 
@@ -1030,8 +1044,8 @@ function groupStyle(c){let col=c.color||'',pend=null,previewUrl=null;
  }catch(e){toast('Проверка не пройдена: '+(e.message||e),7000)}}
  
  /* ---------- клавиатура ---------- */
-if(window.visualViewport){const vv=visualViewport,app=$('#app'),f=()=>{const ae=document.activeElement,ed=!!ae&&/^(INPUT|TEXTAREA)$/.test(ae.tagName),kb=ed||innerHeight-vv.height>120;document.documentElement.classList.toggle('kb',kb);
- app.style.height=vv.height+'px';app.style.top=vv.offsetTop+'px';if(kb)scrollTo(0,0)};
- vv.addEventListener('resize',f);vv.addEventListener('scroll',f);addEventListener('focusin',()=>setTimeout(f,60));addEventListener('focusout',()=>setTimeout(()=>{scrollTo(0,0);f()},60))}
+if(window.visualViewport){const vv=visualViewport,app=$('#app');let keyboardOpen=false;const f=()=>{const ae=document.activeElement,ed=!!ae&&/^(INPUT|TEXTAREA)$/.test(ae.tagName),kb=ed||innerHeight-vv.height>120;keyboardOpen=kb;document.documentElement.classList.toggle('kb',kb);
+ if(kb){app.style.height=vv.height+'px';app.style.top=vv.offsetTop+'px';if(window.scrollY)window.scrollTo(0,0)}else{app.style.height='100dvh';app.style.top='0px'}};
+ vv.addEventListener('resize',f);vv.addEventListener('scroll',()=>{if(keyboardOpen)f()});addEventListener('focusin',()=>setTimeout(f,60));addEventListener('focusout',()=>setTimeout(()=>{window.scrollTo(0,0);f()},80));f()}
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});let had=!!navigator.serviceWorker.controller;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!had){had=true;return}if(sessionStorage.getItem('swr'))return;sessionStorage.setItem('swr','1');if(!CALL&&!(document.activeElement&&/INPUT|TEXTAREA/.test(document.activeElement.tagName)))location.reload()})}
 boot();
