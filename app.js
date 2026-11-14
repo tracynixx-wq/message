@@ -985,7 +985,11 @@ async function settingsBackup(){sheet('<h3>Резервные копии</h3><di
 function applyAccessibility(v){const a={scale:[1,1.1,1.2].includes(+v.scale)?+v.scale:1,reduceMotion:!!v.reduceMotion,contrast:!!v.contrast};try{localStorage.setItem('message-a11y',JSON.stringify(a))}catch(_){}document.documentElement.style.setProperty('--ui-scale',a.scale);document.documentElement.classList.toggle('reduce-motion',a.reduceMotion);document.documentElement.classList.toggle('high-contrast',a.contrast);return a}
 try{applyAccessibility(JSON.parse(localStorage.getItem('message-a11y')||'{}'))}catch(_){}
 function settingsAccess(){let a={scale:1,reduceMotion:false,contrast:false};try{a=applyAccessibility(JSON.parse(localStorage.getItem('message-a11y')||'{}'))}catch(_){}sheet(`<h3>Специальные возможности</h3><div class="lbl">Размер интерфейса</div><div class="seg"><button data-scale="1" class="${a.scale===1?'on':''}">Обычный</button><button data-scale="1.1" class="${a.scale===1.1?'on':''}">Крупнее</button><button data-scale="1.2" class="${a.scale===1.2?'on':''}">Максимум</button></div><div class="srow" data-toggle="motion">Уменьшить анимации<b>${a.reduceMotion?'Включено':'Выключено'}</b></div><div class="srow" data-toggle="contrast">Повышенный контраст<b>${a.contrast?'Включён':'Выключен'}</b></div><button class="btn sec" id="accessBack">Назад</button>`,s=>{s.querySelector('#accessBack').onclick=sets;s.onclick=e=>{const scale=e.target.closest('[data-scale]')?.dataset.scale,t=e.target.closest('[data-toggle]')?.dataset.toggle;if(scale){a=applyAccessibility({...a,scale:+scale});settingsAccess()}else if(t){a=applyAccessibility({...a,[t==='motion'?'reduceMotion':'contrast']:!a[t==='motion'?'reduceMotion':'contrast']});settingsAccess()}}})}
-function settingsSupport(){const info={app:'Message',version:'Web/PWA',platform:navigator.platform||'unknown',language:navigator.language||'unknown',online:navigator.onLine,serviceWorker:'serviceWorker'in navigator,push:'PushManager'in window,notifications:'Notification'in window?Notification.permission:'unsupported',storage:'storage'in navigator};sheet(`<h3>Помощь и диагностика</h3><div class="msg">Если возникла проблема, скопируйте диагностику и приложите её к обращению. Личные сообщения и ключи шифрования не включаются.</div><div class="srow">Подключение<b>${info.online?'Онлайн':'Офлайн'}</b></div><div class="srow">Push API<b>${info.push?'Доступен':'Недоступен'}</b></div><div class="srow">Уведомления<b>${esc(info.notifications)}</b></div><button class="btn" id="copyDiag">Скопировать диагностику</button><button class="btn sec" id="supportBack">Назад</button>`,s=>{s.querySelector('#supportBack').onclick=sets;s.querySelector('#copyDiag').onclick=()=>{const text=JSON.stringify({...info,userAgent:navigator.userAgent},null,2);if(navigator.clipboard?.writeText)navigator.clipboard.writeText(text).then(()=>toast('Диагностика скопирована'),()=>toast('Не удалось скопировать'));else toast(text)}})}
+async function settingsSupport(){
+ const info={app:'Message',version:'Web/PWA',platform:navigator.platform||'unknown',language:navigator.language||'unknown',online:navigator.onLine,secureContext:!!window.isSecureContext,serviceWorker:'serviceWorker'in navigator,serviceWorkerControlled:!!navigator.serviceWorker?.controller,pushManagerGlobal:'PushManager'in window,notifications:'Notification'in window?Notification.permission:'unsupported',storage:'storage'in navigator};
+ try{if(info.serviceWorker){const reg=await navigator.serviceWorker.ready;info.pushManagerOnRegistration=!!reg.pushManager;info.notificationDisplay=typeof reg.showNotification==='function';info.serviceWorkerScope=reg.scope}}catch(e){info.serviceWorkerError=(e.name?e.name+': ':'')+(e.message||String(e))}
+ sheet(`<h3>Помощь и диагностика</h3><div class="msg">Если возникла проблема, скопируйте диагностику и приложите её к обращению. Личные сообщения и ключи шифрования не включаются.</div><div class="srow">Подключение<b>${info.online?'Онлайн':'Офлайн'}</b></div><div class="srow">Защищённый контекст<b>${info.secureContext?'Да':'Нет'}</b></div><div class="srow">Service Worker<b>${info.serviceWorker?'Доступен':'Недоступен'}</b></div><div class="srow">Push API регистрации<b>${info.pushManagerOnRegistration?'Доступен':info.serviceWorker?'Недоступен':'Не проверен'}</b></div><div class="srow">Уведомления<b>${esc(info.notifications)}</b></div><button class="btn" id="copyDiag">Скопировать диагностику</button><button class="btn sec" id="supportBack">Назад</button>`,s=>{s.querySelector('#supportBack').onclick=sets;s.querySelector('#copyDiag').onclick=()=>{const text=JSON.stringify({...info,userAgent:navigator.userAgent},null,2);if(navigator.clipboard?.writeText)navigator.clipboard.writeText(text).then(()=>toast('Диагностика скопирована'),()=>toast('Не удалось скопировать'));else toast(text)}})
+ }
 function editor(first){return new Promise(res=>{
  const T0=prof?.theme||{};let color=prof?.color||GR[0].join(','),cov=T0.cov??null,covUrl=T0.covUrl||'',covType=T0.covType||'',pend=null,pendCov=null,avatarPreviewUrl=null,coverPreviewState=Symbol('initial');
  sheet(`<div class="profile-editor"><div class="profile-editor-head"><div class="pcov" id="pcover">${coverMedia(prof||{})}</div><div class="pav" id="pavatar">${av(prof,112)}</div><h3 id="pname">${esc(prof?.name||'Ваше имя')}</h3><div class="handle" id="phandle">@${esc(prof?.username||'username')}</div><div class="edit-actions"><button id="pch">Изменить фото</button><button id="cch">Обложка профиля</button></div></div>
@@ -1044,32 +1048,42 @@ function groupStyle(c){let col=c.color||'',pend=null,previewUrl=null;
    catch(err){q('#gs').disabled=false;q('#gm').textContent=err.message}}})}
 
 /* ---------- push ---------- */
- function b64u(s){const p='='.repeat(4-s.length%4),b=(s+p).replace(/-/g,'+').replace(/_/g,'/'),r=atob(b),u=new Uint8Array(r.length);for(let i=0;i<r.length;i++)u[i]=r.charCodeAt(i);return u}
- function pushSupported(){return 'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window}
- async function ensurePushSubscription(reg){
-  const key=b64u(CFG.vapid);let sub=await reg.pushManager.getSubscription();
-  if(sub){const old=sub.options?.applicationServerKey;const same=old&&old.length===key.length&&key.every((v,i)=>v===old[i]);if(!same){await sub.unsubscribe();sub=null}}
-  if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});
-  const saved=await sb.from('push_subs').upsert({user_id:me.id,endpoint:sub.endpoint,sub:sub.toJSON()},{onConflict:'endpoint'});
-  if(saved.error)throw new Error('Не удалось сохранить подписку: '+saved.error.message);
-  return sub
- }
- async function pushSync(){if(!me||!pushSupported()||Notification.permission!=='granted')return;
-  try{const reg=await navigator.serviceWorker.ready;await ensurePushSubscription(reg)}catch(e){console.warn('[push] sync failed',e)}}
- async function enablePush(){
-  if(!pushSupported()){toast('Push недоступен в этой сборке Android. Нужен Chrome/TWA с поддержкой уведомлений.',8000);return}
-  try{const perm=await Notification.requestPermission();if(perm!=='granted'){toast('Уведомления запрещены. Разрешите их для приложения в настройках Android.',7000);return}
-   const reg=await navigator.serviceWorker.ready;await ensurePushSubscription(reg);
-   toast('Устройство зарегистрировано. Чтобы проверить удалённую доставку, отправьте сообщение с другого аккаунта при закрытом приложении.',7000);sets()
-  }catch(e){toast('Не удалось включить уведомления: '+(e.message||e),7000)}}
- async function testPush(){try{if(!pushSupported())throw new Error('Push API недоступен в этой сборке');
-  if(Notification.permission!=='granted')throw new Error('Сначала разрешите уведомления');
-  const reg=await navigator.serviceWorker.ready;
-  await reg.showNotification('Проверка уведомлений',{body:'Локальные уведомления Android работают',icon:'icon-192.png',badge:'icon-192.png',tag:'local-push-test'});
-  toast('Локальная проверка прошла. Удалённую доставку проверьте сообщением с другого аккаунта при закрытом приложении.',7000)
- }catch(e){toast('Проверка не пройдена: '+(e.message||e),7000)}}
+function b64u(s){const p='='.repeat(4-s.length%4),b=(s+p).replace(/-/g,'+').replace(/_/g,'/'),r=atob(b),u=new Uint8Array(r.length);for(let i=0;i<r.length;i++)u[i]=r.charCodeAt(i);return u}
+function pushSupportError(){
+ if(!window.isSecureContext)return 'Нужен защищённый HTTPS-контекст';
+ if(!('serviceWorker' in navigator))return 'Service Worker API недоступен в этом браузере';
+ if(!('Notification' in window))return 'Notification API недоступен в этом браузере';
+ return ''
+}
+function pushSupported(){return !pushSupportError()}
+async function ensurePushSubscription(reg){
+ if(!reg?.pushManager||typeof reg.pushManager.subscribe!=='function')throw new Error('PushManager API отсутствует в ServiceWorkerRegistration. Обновите Chrome/Android System WebView и проверьте, что приложение открыто через Chrome TWA.');
+ const key=b64u(CFG.vapid);let sub=await reg.pushManager.getSubscription();
+ if(sub){const old=sub.options?.applicationServerKey;const same=old&&old.length===key.length&&key.every((v,i)=>v===old[i]);if(!same){await sub.unsubscribe();sub=null}}
+ if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});
+ const saved=await sb.from('push_subs').upsert({user_id:me.id,endpoint:sub.endpoint,sub:sub.toJSON()},{onConflict:'endpoint'});
+ if(saved.error)throw new Error('Не удалось сохранить подписку: '+saved.error.message);
+ return sub
+}
+async function pushSync(){if(!me||!pushSupported()||Notification.permission!=='granted')return;
+ try{const reg=await navigator.serviceWorker.ready;await ensurePushSubscription(reg)}catch(e){console.warn('[push] sync failed',e)}}
+async function enablePush(){
+ const unsupported=pushSupportError();if(unsupported){toast('Уведомления недоступны: '+unsupported,8000);return}
+ try{const perm=await Notification.requestPermission();if(perm!=='granted'){toast('Уведомления запрещены. Разрешите их для приложения в настройках Android.',7000);return}
+  const reg=await navigator.serviceWorker.ready;await ensurePushSubscription(reg);
+  toast('Подписка устройства сохранена. Для проверки удалённой доставки отправьте сообщение с другого аккаунта при закрытом приложении.',7000);sets()
+ }catch(e){toast('Не удалось включить уведомления: '+(e.name?e.name+': ':'')+(e.message||e),9000)}}
+async function testPush(){try{
+ if(!('serviceWorker' in navigator))throw new Error('ServiceWorker API недоступен');
+ if(!('Notification' in window))throw new Error('Notification API недоступен');
+ if(Notification.permission!=='granted')throw new Error('Сначала разрешите уведомления');
+ const reg=await navigator.serviceWorker.ready;
+ if(typeof reg.showNotification!=='function')throw new Error('ServiceWorkerRegistration.showNotification недоступен');
+ await reg.showNotification('Проверка уведомлений',{body:'Локальные уведомления Android работают',icon:'icon-192.png',badge:'icon-192.png',tag:'local-push-test'});
+ toast('Локальная проверка прошла. Это подтверждает показ уведомления, но не удалённую Push-доставку.',7000)
+}catch(e){toast('Проверка не пройдена: '+(e.name?e.name+': ':'')+(e.message||e),9000)}}
  
- /* ---------- клавиатура ---------- */
+/* ---------- клавиатура ---------- */
 if(window.visualViewport){const vv=window.visualViewport,app=$('#app'),android=/Android/i.test(navigator.userAgent);let frame=0,baseHeight=Math.max(document.documentElement.clientHeight,window.innerHeight,vv.height);const editable=()=>{const ae=document.activeElement;return !!ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)};const f=()=>{if(frame)return;frame=requestAnimationFrame(()=>{frame=0;const ed=editable(),layoutHeight=Math.max(document.documentElement.clientHeight,window.innerHeight),delta=Math.max(baseHeight-layoutHeight,baseHeight-vv.height,layoutHeight-vv.height),kb=ed&&delta>110;document.documentElement.classList.toggle('kb',kb);if(kb){app.style.height=Math.max(0,vv.height)+'px';app.style.top=android?'0px':Math.max(0,vv.offsetTop)+'px'}else{app.style.height='100dvh';app.style.top='0px';baseHeight=Math.max(document.documentElement.clientHeight,window.innerHeight,vv.height)}if(android&&window.scrollY)window.scrollTo(0,0)})};vv.addEventListener('resize',f,{passive:true});vv.addEventListener('scroll',f,{passive:true});addEventListener('resize',f,{passive:true});addEventListener('orientationchange',()=>{requestAnimationFrame(()=>{baseHeight=Math.max(document.documentElement.clientHeight,window.innerHeight,vv.height);f()})},{passive:true});addEventListener('focusin',f,{passive:true});addEventListener('focusout',()=>requestAnimationFrame(f),{passive:true});f()}
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});let had=!!navigator.serviceWorker.controller;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!had){had=true;return}if(sessionStorage.getItem('swr'))return;sessionStorage.setItem('swr','1');if(!CALL&&!(document.activeElement&&/INPUT|TEXTAREA/.test(document.activeElement.tagName)))location.reload()})}
 
@@ -1080,21 +1094,28 @@ async function checkAndroidUpdate(){
  if(Date.now()-updateCheckAt<300000)return;updateCheckAt=Date.now();
  try{
   const res=await fetch('https://api.github.com/repos/tracynixx-wq/message/releases/latest',{headers:{Accept:'application/vnd.github+json'},cache:'no-store'});
-  if(!res.ok)return;
+  if(!res.ok)throw new Error('GitHub Releases: HTTP '+res.status);
   const rel=await res.json(),latest=String(rel.tag_name||'').replace(/^android-v/i,'');
   const current=String(native&&typeof native.getVersionName==='function'?native.getVersionName():(new URLSearchParams(location.search).get('appVersion')||'0.0.0'));
   const asset=(rel.assets||[]).find(x=>/\.apk$/i.test(x.name||''));if(!asset||!latest)return;
   const cmp=(a,b)=>{const x=a.split('.').map(Number),y=b.split('.').map(Number);for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]||0)-(y[i]||0);if(d)return d}return 0};
-  if(cmp(latest,current)<=0)return;
+  if(cmp(latest,current)<=0){const old=$('#appUpdate');if(old)old.hidden=true;return}
+  if(sessionStorage.getItem('msg.update.actioned')===latest)return;
   let banner=$('#appUpdate');
   if(!banner){banner=document.createElement('aside');banner.id='appUpdate';banner.setAttribute('role','status');banner.setAttribute('aria-live','polite');document.body.appendChild(banner)}
-  const migration=cmp(current,'1.3.0')<0;banner.innerHTML='<div class="app-update-copy"><b>Доступно обновление Message '+esc(latest)+'</b><span>'+(migration?'Первая Chrome-версия установится отдельно. Старое приложение пока не удаляйте.':'Есть новая версия приложения')+'</span></div><button type="button" id="appUpdateInstall">Обновить</button><button type="button" id="appUpdateClose" aria-label="Закрыть">×</button>';
+  const migration=cmp(current,'1.3.0')<0;banner.innerHTML='<div class="app-update-copy"><b>Доступно обновление Message '+esc(latest)+'</b><span>'+(migration?'Первая Chrome-версия установится отдельно. После загрузки APK откройте файл и подтвердите установку.':'После загрузки APK откройте файл и подтвердите установку.')+'</span></div><button type="button" id="appUpdateInstall">Обновить</button><button type="button" id="appUpdateClose" aria-label="Закрыть">×</button>';
   banner.hidden=false;
-  banner.querySelector('#appUpdateInstall').onclick=()=>{if(native&&typeof native.downloadAndInstall==='function')native.downloadAndInstall(asset.browser_download_url);else location.href=asset.browser_download_url};
-  banner.querySelector('#appUpdateClose').onclick=()=>{banner.hidden=true};
- }catch(e){console.warn('[app-update] check failed',e)}
+  banner.querySelector('#appUpdateInstall').onclick=()=>{
+   try{
+    if(native&&typeof native.downloadAndInstall==='function')native.downloadAndInstall(asset.browser_download_url);
+    else{const link=document.createElement('a');link.href=asset.browser_download_url;link.target='_blank';link.rel='noopener';link.style.display='none';document.body.appendChild(link);link.click();link.remove()}
+    sessionStorage.setItem('msg.update.actioned',latest);banner.hidden=true;
+    toast('Загрузка APK запущена. После загрузки откройте файл и подтвердите установку.',9000)
+   }catch(e){toast('Не удалось начать загрузку: '+(e.message||e),8000)}
+  };
+  banner.querySelector('#appUpdateClose').onclick=()=>{sessionStorage.setItem('msg.update.actioned',latest);banner.hidden=true};
+ }catch(e){console.warn('[app-update] check failed',e);toast('Не удалось проверить обновления: '+(e.message||e),6000)}
  }
-
 boot();checkAndroidUpdate();
 addEventListener('online',checkAndroidUpdate);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkAndroidUpdate()});
