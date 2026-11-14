@@ -102,11 +102,13 @@ $('#swm').onclick=()=>{authMode=authMode==='in'?'up':'in';authUI()};
 $('#go').onclick=async()=>{const email=$('#em').value.trim(),password=$('#pw').value;
  if(!email||password.length<6){$('#msg').textContent='Введите почту и пароль от 6 символов';return}
  $('#go').disabled=true;$('#msg').textContent='…';
- const r=authMode==='up'?await sb.auth.signUp({email,password}):await sb.auth.signInWithPassword({email,password});
- $('#go').disabled=false;
- if(r.error){$('#msg').textContent=/Invalid login/i.test(r.error.message)?'Неверная почта или пароль':r.error.message;return}
- if(!r.data.session){$('#msg').textContent='Подтвердите почту по письму, затем войдите';authMode='in';authUI();return}
- start(r.data.session)};
+ try{
+  const r=authMode==='up'?await sb.auth.signUp({email,password}):await sb.auth.signInWithPassword({email,password});
+  if(r.error){$('#msg').textContent=/Invalid login/i.test(r.error.message)?'Неверная почта или пароль':r.error.message;return}
+  if(!r.data.session){$('#msg').textContent='Подтвердите почту по письму, затем войдите';authMode='in';authUI();return}
+  await start(r.data.session)
+ }catch(e){$('#msg').textContent='Ошибка соединения. Проверьте интернет и попробуйте снова.'}
+ finally{$('#go').disabled=false}};
 $('#pw').onkeydown=e=>{if(e.key==='Enter')$('#go').click()};
 
 async function boot(){
