@@ -194,14 +194,14 @@ async function loadAllImpl(){
  const mr=await sb.from('members').select('*').eq('user_id',me.id);
  if(mr.error){toast('Не удалось загрузить список чатов: '+mr.error.message);return}
  const ids=(mr.data||[]).map(x=>x.conv_id);
- if(!ids.length){C={};M={};cur=null;if(SHOWN==='chat')show('home');home();return}
+ if(!ids.length){C={};M={};K={};cur=null;SEL=null;if(SHOWN==='chat')show('home');home();return}
  const [cv,mm]=await Promise.all([sb.from('convs').select('*').in('id',ids),sb.from('members').select('*').in('conv_id',ids)]);
  if(cv.error||mm.error){toast('Не удалось загрузить данные чатов: '+(cv.error||mm.error).message);return}
  const uids=[...new Set((mm.data||[]).flatMap(x=>[x.user_id,x.wrapped_by]))];
  const pr=await sb.from('profiles').select('*').in('id',uids);if(pr.error){toast('Не удалось загрузить профили участников: '+pr.error.message);return}(pr.data||[]).forEach(p=>P[p.id]=p);P[me.id]=prof;
  const nc={};(cv.data||[]).forEach(c=>nc[c.id]={...c,members:[],my:null});
  (mm.data||[]).forEach(x=>{const c=nc[x.conv_id];if(!c)return;c.members.push(x);if(x.user_id===me.id)c.my=x});
- C=nc;M={};if(!cur)home();
+ C=nc;M={};for(const id of Object.keys(K))if(!nc[id])delete K[id];if(cur&&!nc[cur]){cur=null;if(SHOWN==='chat')show('home')}if(!cur)home();
  await Promise.all(Object.values(C).map(unwrap));
  // Load each conversation independently so a busy chat cannot hide history from other chats.
  const lists=[];
@@ -232,7 +232,7 @@ async function onMsg(p){const n=p.new;
  if(cur){render(p.eventType==='INSERT'&&n?.conv_id===cur);markRead()}else home()}
 function onMem(p){const x=p.new,o=p.old;
  if(p.eventType==='INSERT'){if(x.user_id===me.id||!C[x.conv_id])loadAll();else loadAll();return}
- if(p.eventType==='DELETE'){if(o.user_id===me.id){delete C[o.conv_id];if(cur===o.conv_id){cur=null;show('home')}home()}else loadAll();return}
+ if(p.eventType==='DELETE'){if(o.user_id===me.id){delete C[o.conv_id];delete K[o.conv_id];delete M[o.conv_id];if(cur===o.conv_id){cur=null;show('home')}home()}else loadAll();return}
  const c=C[x.conv_id];if(!c)return;const i=c.members.findIndex(m=>m.user_id===x.user_id);if(i>-1)c.members[i]=x;if(x.user_id===me.id)c.my=x;if(cur===x.conv_id)render()}
 function presence(){
  const ping=(force)=>{if(force===true||!document.hidden)sb.from('profiles').update({last_seen:new Date().toISOString()}).eq('id',me.id).then(()=>{})};
