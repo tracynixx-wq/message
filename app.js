@@ -474,7 +474,7 @@ const inp=$('#inp');
 function fit(){inp.style.height='auto';inp.style.height=Math.max(44,Math.min(inp.scrollHeight,130))+'px';const has=!!inp.value.trim();$('#sendb').hidden=!has;if(!rec)$('#mic').hidden=has}
 inp.oninput=fit;
 async function sendPayload(c,payload){if(!K[c.id]){toast('Нет ключа этого чата');return null}
- const r=await sb.from('msgs').insert({conv_id:c.id,data:await CR.seal(K[c.id],c.id,payload)}).select().single();
+ const r=await sb.from('msgs').insert({conv_id:c.id,sender:me.id,data:await CR.seal(K[c.id],c.id,payload)}).select().single();
  if(r.error){toast(r.error.message);return null}
  await dc(r.data);const a=M[c.id]=M[c.id]||[];if(!a.some(x=>x.id===r.data.id))a.push(r.data);if(cur===c.id)render(true);else home();return r.data}
 $('#sendb').onclick=async()=>{const t=inp.value.trim(),c=C[cur];if(!t||!c)return;
