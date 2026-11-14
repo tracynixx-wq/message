@@ -723,24 +723,32 @@ function groupStyle(c){let col=c.color||'',pend=null;
    catch(err){q('#gs').disabled=false;q('#gm').textContent=err.message}}})}
 
 /* ---------- push ---------- */
-function b64u(s){const p='='.repeat((4-s.length%4)%4),b=(s+p).replace(/-/g,'+').replace(/_/g,'/'),r=atob(b),u=new Uint8Array(r.length);for(let i=0;i<r.length;i++)u[i]=r.charCodeAt(i);return u}
-async function pushSync(){try{if(!('serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window)||Notification.permission!=='granted')return;
- const reg=await navigator.serviceWorker.ready;let sub=await reg.pushManager.getSubscription();
- if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(CFG.vapid)});
- await sb.from('push_subs').upsert({user_id:me.id,endpoint:sub.endpoint,sub:sub.toJSON()},{onConflict:'endpoint'})}catch(e){}}
-async function enablePush(){
- if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){toast('Откройте приложение с иконки на экране «Домой» (iOS 16.4 и новее)',8000);return}
- try{const perm=await Notification.requestPermission();if(perm!=='granted'){toast('Разрешите уведомления в настройках телефона',6000);return}
-  const reg=await navigator.serviceWorker.ready;let sub=await reg.pushManager.getSubscription();
-  if(sub&&!sub.options?.applicationServerKey){}
-  if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(CFG.vapid)});
-  const r=await sb.from('push_subs').upsert({user_id:me.id,endpoint:sub.endpoint,sub:sub.toJSON()},{onConflict:'endpoint'});
-  toast(r.error?r.error.message:'Уведомления включены',5000);sets()}catch(e){toast('Ошибка: '+(e.message||e),6000)}}
-async function testPush(){try{const reg=await navigator.serviceWorker.ready;
- if(Notification.permission!=='granted'){toast('Сначала включите уведомления');return}
- await reg.showNotification('Проверка',{body:'Если вы это видите, уведомления работают',icon:'icon-192.png'});toast('Отправлено на это устройство')}catch(e){toast('Не получилось: '+(e.message||e))}}
-
-/* ---------- клавиатура ---------- */
+ function b64u(s){const p='='.repeat(4-s.length%4),b=(s+p).replace(/-/g,'+').replace(/_/g,'/'),r=atob(b),u=new Uint8Array(r.length);for(let i=0;i<r.length;i++)u[i]=r.charCodeAt(i);return u}
+ function pushSupported(){return 'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window}
+ async function ensurePushSubscription(reg){
+  const key=b64u(CFG.vapid);let sub=await reg.pushManager.getSubscription();
+  if(sub){const old=sub.options?.applicationServerKey;const same=old&&old.length===key.length&&key.every((v,i)=>v===old[i]);if(!same){await sub.unsubscribe();sub=null}}
+  if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});
+  const saved=await sb.from('push_subs').upsert({user_id:me.id,endpoint:sub.endpoint,sub:sub.toJSON()},{onConflict:'endpoint'});
+  if(saved.error)throw new Error('Не удалось сохранить подписку: '+saved.error.message);
+  return sub
+ }
+ async function pushSync(){if(!me||!pushSupported()||Notification.permission!=='granted')return;
+  try{const reg=await navigator.serviceWorker.ready;await ensurePushSubscription(reg)}catch(e){console.warn('[push] sync failed',e)}}
+ async function enablePush(){
+  if(!pushSupported()){toast('Push недоступен в этой сборке Android. Нужен Chrome/TWA с поддержкой уведомлений.',8000);return}
+  try{const perm=await Notification.requestPermission();if(perm!=='granted'){toast('Уведомления запрещены. Разрешите их для приложения в настройках Android.',7000);return}
+   const reg=await navigator.serviceWorker.ready;await ensurePushSubscription(reg);
+   toast('Устройство зарегистрировано. Серверные уведомления заработают после настройки Push-сервера.',7000);sets()
+  }catch(e){toast('Не удалось включить уведомления: '+(e.message||e),7000)}}
+ async function testPush(){try{if(!pushSupported())throw new Error('Push API недоступен в этой сборке');
+  if(Notification.permission!=='granted')throw new Error('Сначала разрешите уведомления');
+  const reg=await navigator.serviceWorker.ready;
+  await reg.showNotification('Проверка уведомлений',{body:'Локальные уведомления Android работают',icon:'icon-192.png',badge:'icon-192.png',tag:'local-push-test'});
+  toast('Локальная проверка прошла. Для уведомлений о новых сообщениях нужен настроенный сервер Push.',7000)
+ }catch(e){toast('Проверка не пройдена: '+(e.message||e),7000)}}
+ 
+ /* ---------- клавиатура ---------- */
 if(window.visualViewport){const vv=visualViewport,app=$('#app'),f=()=>{const ae=document.activeElement,ed=!!ae&&/^(INPUT|TEXTAREA)$/.test(ae.tagName),kb=ed||innerHeight-vv.height>120;document.documentElement.classList.toggle('kb',kb);
  app.style.height=vv.height+'px';app.style.top=vv.offsetTop+'px';if(kb){scrollTo(0,0);const l=$('#list');if(l&&!$('#chat').hidden)l.scrollTop=l.scrollHeight}};
  vv.addEventListener('resize',f);vv.addEventListener('scroll',f);addEventListener('focusin',()=>setTimeout(f,60));addEventListener('focusout',()=>setTimeout(()=>{scrollTo(0,0);f()},60))}
