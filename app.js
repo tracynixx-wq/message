@@ -164,7 +164,7 @@ async function loadAll(){
  const mr=await sb.from('members').select('*').eq('user_id',me.id);
  if(mr.error){toast('Не удалось загрузить список чатов: '+mr.error.message);return}
  const ids=(mr.data||[]).map(x=>x.conv_id);
- if(!ids.length){C={};M={};cur?render():home();return}
+ if(!ids.length){C={};M={};cur=null;if(SHOWN==='chat')show('home');home();return}
  const msP=sb.from('msgs').select('*').in('conv_id',ids).order('id',{ascending:false}).limit(600);
  const [cv,mm]=await Promise.all([sb.from('convs').select('*').in('id',ids),sb.from('members').select('*').in('conv_id',ids)]);
  if(cv.error||mm.error){toast('Не удалось загрузить данные чатов: '+(cv.error||mm.error).message);return}
@@ -192,8 +192,8 @@ function realtime(){
  .subscribe();callInit()}
 async function onMsg(p){const n=p.new;
  if(p.eventType==='DELETE'){for(const k in M)M[k]=M[k].filter(x=>x.id!==p.old.id)}
- else{if(!C[n.conv_id]){await loadAll();return}await dc(n);const a=M[n.conv_id]=M[n.conv_id]||[],i=a.findIndex(x=>x.id===n.id);if(i>-1)a[i]=n;else a.push(n)}
- if(cur){render(p.eventType==='INSERT'&&n.conv_id===cur);markRead()}else home()}
+ else{if(!n)return;if(!C[n.conv_id]){await loadAll();return}await dc(n);const a=M[n.conv_id]=M[n.conv_id]||[],i=a.findIndex(x=>x.id===n.id);if(i>-1)a[i]=n;else a.push(n)}
+ if(cur){render(p.eventType==='INSERT'&&n?.conv_id===cur);markRead()}else home()}
 function onMem(p){const x=p.new,o=p.old;
  if(p.eventType==='INSERT'){if(x.user_id===me.id||!C[x.conv_id])loadAll();else loadAll();return}
  if(p.eventType==='DELETE'){if(o.user_id===me.id){delete C[o.conv_id];if(cur===o.conv_id){cur=null;show('home')}home()}else loadAll();return}
