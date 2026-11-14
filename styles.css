@@ -92,6 +92,9 @@ button:active{transform:scale(.92)}
 #list{scroll-behavior:auto}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 #list{overflow-x:hidden}
+/* Keep the message list as the bounded scroll container and provide a stable bottom target. */
+#list{min-height:0;overflow-anchor:auto}
+#chat-bottom-anchor{height:1px;min-height:1px;flex:none;overflow-anchor:auto}
 .b{position:relative;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .fw{font-size:13px;color:var(--accent);font-weight:600;margin-bottom:2px}.me .fw{color:#fff;opacity:.92}
 #pin{display:flex;gap:10px;align-items:center;padding:6px 14px;border-bottom:1px solid var(--line);cursor:pointer;background:var(--bg)}
