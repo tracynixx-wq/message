@@ -115,7 +115,7 @@ async function boot(){
  if(!window.CFG||!window.supabase){$('#load').innerHTML='<div class="box"><p>Не удалось загрузить приложение. Проверьте интернет и config.js</p></div>';show('load');return}
  try{
   sb=supabase.createClient(CFG.url,CFG.key);
-  sb.auth.onAuthStateChange((ev,session)=>{if(ev==='SIGNED_OUT')location.reload();else if(ev==='SIGNED_IN'&&session&&!me)start(session).catch(showStartError)});
+  sb.auth.onAuthStateChange((ev)=>{if(ev==='SIGNED_OUT')location.reload()});
   const {data,error}=await sb.auth.getSession();if(error)throw error;
   if(data.session)await start(data.session);else{authUI();show('auth')}
   if(/iphone|ipad/i.test(navigator.userAgent)&&!navigator.standalone)$('#hint').textContent='Чтобы получать уведомления: «Поделиться» → «На экран Домой»'
