@@ -113,20 +113,26 @@ $('#pw').onkeydown=e=>{if(e.key==='Enter')$('#go').click()};
 
 async function boot(){
  if(!window.CFG||!window.supabase){$('#load').innerHTML='<div class="box"><p>Не удалось загрузить приложение. Проверьте интернет и config.js</p></div>';show('load');return}
- sb=supabase.createClient(CFG.url,CFG.key);
- sb.auth.onAuthStateChange((ev,s)=>{if(ev==='SIGNED_OUT')location.reload()});
- const {data}=await sb.auth.getSession();
- if(data.session)start(data.session);else{authUI();show('auth')}
- if(/iphone|ipad/i.test(navigator.userAgent)&&!navigator.standalone)$('#hint').textContent='Чтобы получать уведомления: «Поделиться» → «На экран Домой»'}
-
+ try{
+  sb=supabase.createClient(CFG.url,CFG.key);
+  sb.auth.onAuthStateChange((ev,session)=>{if(ev==='SIGNED_OUT')location.reload();else if(ev==='SIGNED_IN'&&session&&!me)start(session).catch(showStartError)});
+  const {data,error}=await sb.auth.getSession();if(error)throw error;
+  if(data.session)await start(data.session);else{authUI();show('auth')}
+  if(/iphone|ipad/i.test(navigator.userAgent)&&!navigator.standalone)$('#hint').textContent='Чтобы получать уведомления: «Поделиться» → «На экран Домой»'
+ }catch(e){$('#load').innerHTML='<div class="box"><p>Не удалось подключиться. Проверьте интернет.</p><button class="btn" id="retryBoot">Повторить</button></div>';show('load');$('#retryBoot').onclick=()=>boot()}
+}
+function showStartError(e){$('#load').innerHTML='<div class="box"><p>Не удалось открыть аккаунт: '+esc(e?.message||'ошибка соединения')+'</p><button class="btn" id="retryStart">Повторить</button></div>';show('load');$('#retryStart').onclick=()=>{me=null;start(window.__lastSession).catch(showStartError)}}
 let BK0=null;
-async function start(s){if(me)return;me=s.user;if(!window.__shell)show('load');
- const [pr,bk0]=await Promise.all([sb.from('profiles').select('*').eq('id',me.id).maybeSingle(),sb.from('keybackup').select('data').eq('user_id',me.id).maybeSingle()]);BK0=bk0;
- if(pr.error){$('#load').innerHTML='<div class="box"><p>Ошибка базы: '+esc(pr.error.message)+'</p><p>Выполните setup2.sql в Supabase</p></div>';show('load');return}
- prof=pr.data;
- if(!await ensureKeys())return;
- if(!prof||!prof.name||!prof.username){show('home');await editor(true)}
- await enter()}
+async function start(s){if(me)return;window.__lastSession=s;me=s.user;if(!window.__shell)show('load');
+ try{
+  const [pr,bk0]=await Promise.all([sb.from('profiles').select('*').eq('id',me.id).maybeSingle(),sb.from('keybackup').select('data').eq('user_id',me.id).maybeSingle()]);BK0=bk0;
+  if(pr.error)throw pr.error;
+  prof=pr.data;
+  if(!await ensureKeys())throw new Error('Не удалось проверить ключи аккаунта');
+  if(!prof||!prof.name||!prof.username){show('home');await editor(true)}
+  await enter()
+ }catch(e){me=null;showStartError(e)}
+}
 
 /* ---------- ключи ---------- */
 function askPhrase(create,err){return new Promise(res=>{
@@ -336,7 +342,7 @@ function head(){const c=C[cur];if(!c)return;$('#cvoice').hidden=$('#cvideo').hid
  const pm=c.pinned_id&&(M[cur]||[]).find(x=>x.id===c.pinned_id);$('#pin').hidden=!c.pinned_id;if(c.pinned_id)$('#pt').textContent=pm?preview(pm):'Сообщение';}
 $('#who').onclick=$('#hav').onclick=()=>{const c=C[cur];if(c)info(c)};
 async function markRead(){const c=C[cur];if(!c||document.hidden)return;const l=lastOf(c);
- if(l&&c.my&&l.created_at>c.my.last_read_at){c.my.last_read_at=new Date().toISOString();sb.rpc('mark_read',{c:cur}).then(()=>{})}}
+ if(l&&c.my&&l.created_at>c.my.last_read_at){const previous=c.my.last_read_at,next=new Date().toISOString();c.my.last_read_at=next;sb.rpc('mark_read',{c:c.id}).then(({error})=>{if(error&&c.my?.last_read_at===next){c.my.last_read_at=previous;if(cur===c.id)render();else home();console.warn('[read] mark_read failed',error)}}).catch(error=>console.warn('[read] mark_read failed',error))}}
 const tick=r=>`<svg class="tk" viewBox="0 0 18 11" width="15" height="10"><path d="${r?'M1 6l3.2 3.2L10.5 1.5M7.2 8.2l1 1L15 1.5':'M3 6l3.2 3.2L13 1.5'}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const audHtml=u=>`<div class="vp" data-src="${u}"><button class="vpb" aria-label="Воспроизвести"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button><div class="vpbar"><i></i></div><span class="vpt">0:00</span></div>`;
 function bubble(m,c){const p=m.p||{},mine=m.sender===me.id;let h='';
@@ -473,7 +479,7 @@ $('#sendb').onclick=async()=>{const t=inp.value.trim(),c=C[cur];if(!t||!c)return
 inp.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&matchMedia('(hover:hover)').matches){e.preventDefault();$('#sendb').click()}};
 
 /* ---------- файлы ---------- */
-async function loadMedia(el){const m=(M[cur]||[]).find(x=>x.id===+el.dataset.m);if(!m||!m.p||!m.p.p)return;const p=m.p,c=C[m.conv_id];
+async function loadMedia(el){const m=(M[cur]||[]).find(x=>String(x.id)===String(el.dataset.m));if(!m||!m.p||!m.p.p)return;const p=m.p,c=C[m.conv_id];
  try{let url=BLOB[p.p];
   if(!url){const r=await fetch(sb.storage.from('media').getPublicUrl(p.p).data.publicUrl);if(!r.ok)throw 0;
    const raw=await CR.openB(K[c.id],c.id,new Uint8Array(await r.arrayBuffer()));url=BLOB[p.p]=URL.createObjectURL(new Blob([raw],{type:p.y||'application/octet-stream'}))}
@@ -488,9 +494,13 @@ async function upload(c,bytes,kind,name,mime,extra){
  const r=await sb.storage.from('media').upload(path,new Blob([sealed]),{contentType:'application/octet-stream'});
  if(r.error){toast('Не загрузилось: '+r.error.message);return}
  const pl={k:kind,p:path,n:name,y:mime,s:bytes.length,...extra};if(reply){pl.r=reply.id;unbar()}return sendPayload(c,pl)}
-function shrink(file,max=1600){return new Promise((res,rej)=>{const im=new Image(),u=URL.createObjectURL(file);im.onload=()=>{
- const k=Math.min(1,max/Math.max(im.width,im.height)),cv=document.createElement('canvas');cv.width=Math.round(im.width*k);cv.height=Math.round(im.height*k);
- cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);cv.toBlob(b=>b?res(b):rej(),'image/jpeg',.82);URL.revokeObjectURL(u)};im.onerror=rej;im.src=u})}
+function shrink(file,max=1600){return new Promise((res,rej)=>{const im=new Image(),u=URL.createObjectURL(file);let done=false;
+ const finish=(fn,v)=>{if(done)return;done=true;URL.revokeObjectURL(u);fn(v)};
+ im.onload=()=>{try{if(!im.naturalWidth||!im.naturalHeight)throw new Error('Некорректное изображение');
+  const k=Math.min(1,max/Math.max(im.naturalWidth,im.naturalHeight)),cv=document.createElement('canvas');cv.width=Math.max(1,Math.round(im.naturalWidth*k));cv.height=Math.max(1,Math.round(im.naturalHeight*k));
+  const ctx=cv.getContext('2d');if(!ctx)throw new Error('Canvas недоступен');ctx.drawImage(im,0,0,cv.width,cv.height);
+  cv.toBlob(b=>b?finish(res,b):finish(rej,new Error('Не удалось обработать изображение')),'image/jpeg',.82)
+ }catch(e){finish(rej,e)}};im.onerror=()=>finish(rej,new Error('Формат изображения не поддерживается'));im.src=u})}
 $('#att').onclick=()=>$('#fileIn').click();
 $('#fileIn').onchange=async e=>{const f=e.target.files[0];e.target.value='';const c=C[cur];if(!f||!c)return;
  if(f.size>40*1024*1024){toast('Файл больше 40 МБ');return}toast('Отправка…',20000);
