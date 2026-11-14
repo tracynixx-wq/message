@@ -145,7 +145,7 @@ async function start(s){if(me)return;window.__lastSession=s;me=s.user;if(!window
   const [pr,bk0]=await Promise.all([sb.from('profiles').select('*').eq('id',me.id).maybeSingle(),sb.from('keybackup').select('data').eq('user_id',me.id).maybeSingle()]);BK0=bk0;
   if(pr.error)throw pr.error;
   prof=pr.data;
-  saveLocalAccount(s.user,prof);updateQuickAccountButton();
+  
   if(!await ensureKeys())throw new Error('Не удалось проверить ключи аккаунта');
   if(!prof||!prof.name||!prof.username){show('home');await editor(true)}
   await enter()
@@ -866,7 +866,6 @@ function sets(){const t=prof.theme||{},md=t.mode||'auto';const perm='Notificatio
   <div class="srow" data-a="cd">🎨 Оформление чатов</div>
   <div class="lbl">Дополнительные возможности</div>
   <div class="srow" data-a="devices">📱 Устройства и сеансы</div>
-  <div class="srow" data-a="accounts">🔁 Переключить аккаунт</div>
   <div class="srow" data-a="folders">🗂 Папки и организация<b>${folders().length||'Нет'}</b></div>
   <div class="srow" data-a="backup">🔐 Резервная копия ключа</div>
   <div class="srow" data-a="access">♿ Специальные возможности</div>
@@ -889,20 +888,13 @@ function uiIcon(name){
  return `<span class="ui-icon"><svg viewBox="0 0 24 24"><path d="${d[name]||d.user}"/></svg></span>`;
 }
 function profilePage(){
- const pinned=Object.values(C).filter(c=>c.pinned_id).slice(0,5);
- const media=Object.entries(M).flatMap(([cid,list])=>list.filter(m=>m.sender===me.id&&['img','vid'].includes(m.p?.k)).map(m=>({cid,m}))).sort((a,b)=>new Date(b.m.created_at)-new Date(a.m.created_at)).slice(0,6);
- const phone=prof.phone||prof.phone_number||'',music=typeof prof.music_url==='string'?prof.music_url:'';
- sheet(`<div class="profile-screen">
- <div class="profile-hero">${av(prof,88)}<div class="profile-identity"><h2>${displayName(prof)} ${esc(prof.status_emoji||'')}</h2><span class="profile-status"><i></i>${stat(prof)||'в сети'}</span><small>@${esc(prof.username||'')}</small></div></div>
- <div class="profile-facts">${phone?`<div><span>Телефон</span><b>${esc(phone)}</b></div>`:''}<div><span>О себе</span><b>${esc(prof.bio||'Не указано')}</b></div></div>
- <div class="profile-section-new"><div class="profile-section-head"><b>Музыка</b>${uiIcon('music')}</div>${music?`<audio controls preload="none" src="${esc(music)}"></audio>`:'<div class="profile-empty">Музыкальный плеер пока не настроен</div>'}</div>
- <div class="profile-section-new"><div class="profile-section-head"><b>Медиа</b>${uiIcon('image')}</div>${media.length?`<div class="profile-media-grid">${media.map(({cid,m})=>{const p=m.p||{},u=BLOB[p.p];return `<button class="profile-media-item" data-media-chat="${esc(cid)}" data-media-id="${m.id}">${u&&p.k==='img'?`<img src="${u}" alt="">`:`<span>${p.k==='vid'?'▶':'▧'}</span>`}</button>`}).join('')}</div>`:'<div class="profile-empty">Фото и видео появятся здесь</div>'}</div>
- <div class="profile-section-new"><div class="profile-section-head"><b>Избранное</b>${uiIcon('heart')}</div>${pinned.length?pinned.map(c=>`<button class="profile-favorite" data-fav-chat="${esc(c.id)}">${uiIcon('heart')}<span><b>${esc(title(c))}</b><small>Есть закреплённое сообщение</small></span><span class="profile-chevron">›</span></button>`).join(''):'<div class="profile-empty">Закреплённых сообщений пока нет</div>'}</div>
- <button class="profile-edit-button" id="profileEdit">${uiIcon('edit')}Редактировать профиль</button><button class="profile-settings-link" id="profileSettings">Настройки</button></div>`,s=>{
- s.querySelector('#profileEdit').onclick=()=>editor(false);s.querySelector('#profileSettings').onclick=()=>redesignedSettings();
- s.querySelectorAll('[data-fav-chat]').forEach(b=>b.onclick=()=>{const id=b.dataset.favChat;closeSheet();openChat(id);setTimeout(()=>jump(C[id]?.pinned_id),80)});
- s.querySelectorAll('[data-media-chat]').forEach(b=>b.onclick=()=>{const id=b.dataset.mediaChat,mid=+b.dataset.mediaId;closeSheet();openChat(id);setTimeout(()=>jump(mid),80)});
- });
+  const phone=prof.phone||prof.phone_number||'';
+  sheet(`<div class="profile-screen">
+  <div class="profile-hero">${av(prof,88)}<div class="profile-identity"><h2>${displayName(prof)} ${esc(prof.status_emoji||'')}</h2><span class="profile-status"><i></i>${stat(prof)||'в сети'}</span><small>@${esc(prof.username||'')}</small></div></div>
+  ${phone?`<div class="profile-facts"><div><span>Телефон</span><b>${esc(phone)}</b></div></div>`:''}
+  <button class="profile-edit-button" id="profileEdit">${uiIcon('edit')}Редактировать профиль</button><button class="profile-settings-link" id="profileSettings">Настройки</button></div>`,s=>{
+  s.querySelector('#profileEdit').onclick=()=>editor(false);s.querySelector('#profileSettings').onclick=()=>redesignedSettings();
+  });
 }
 function redesignedSettings(){
  const t=prof.theme||{},md=t.mode||'auto',perm='Notification' in window?Notification.permission:'unsupported';
@@ -919,38 +911,13 @@ function redesignedSettings(){
  if(md2||ac!==undefined){const n={...(prof.theme||{})};if(md2)n.mode=md2;if(ac!==undefined)n.accent=ac;prof.theme=applyTheme(n);await sb.from('profiles').update({theme:prof.theme}).eq('id',me.id);redesignedSettings();return}
  if(a==='profile'){profilePage();return}if(a==='security'){toast('Переписка защищена сквозным шифрованием');return}
  if(a==='cd'){chatDesign();return}if(a==='push')enablePush();if(a==='test')testPush();
- if(a==='accounts')settingsAccounts();if(a==='devices')settingsDevices();if(a==='folders')settingsFolders();if(a==='backup')settingsBackup();if(a==='access')settingsAccess();if(a==='support')settingsSupport();
+ if(a==='devices')settingsDevices();if(a==='folders')settingsFolders();if(a==='backup')settingsBackup();if(a==='access')settingsAccess();if(a==='support')settingsSupport();
  if(a==='out'&&confirm('Выйти из аккаунта?'))sb.auth.signOut()
  });
 }
 sets=redesignedSettings;
 $('#gear').onclick=redesignedSettings;
 
-const ACCOUNT_LIST_KEY='msg.accounts.v1';
-function readLocalAccounts(){try{const a=JSON.parse(localStorage.getItem(ACCOUNT_LIST_KEY)||'[]');return Array.isArray(a)?a.filter(x=>x&&x.id&&x.storageKey):[]}catch(_){return[]}}
-function saveLocalAccount(user,profile){
- try{const list=readLocalAccounts().filter(x=>x.id!==user.id);list.push({id:user.id,email:user.email||'',name:profile?.name||'',username:profile?.username||'',avatar_url:profile?.avatar_url||'',storageKey:window.__authStorageKey||''});localStorage.setItem(ACCOUNT_LIST_KEY,JSON.stringify(list))}catch(e){console.warn('[accounts] local registry unavailable',e)}
-}
-function updateQuickAccountButton(){const b=$('#quickAccounts');if(b)b.innerHTML=av(prof,32)}
-function quickAccounts(){
- const list=readLocalAccounts(),active=window.__authStorageKey||defaultAuthStorageKey();
- const rows=list.map(x=>`<button class="account-switch-row" data-account-key="${esc(x.storageKey)}">${av({id:x.id,name:x.name,username:x.username,avatar_url:x.avatar_url},40)}<span><b>${esc(x.name||x.username||x.email||'Аккаунт')}</b><small>${esc(x.email||(x.username?'@'+x.username:''))}</small></span><i>${x.storageKey===active?'✓':'›'}</i></button>`).join('');
- sheet(`<h3>Переключить аккаунт</h3><div class="account-switch-list">${rows||'<div class="empty">Сохранённых аккаунтов пока нет</div>'}</div><button class="btn" id="quickAddAccount">＋ Добавить аккаунт</button>`,el=>{
-  el.querySelectorAll('[data-account-key]').forEach(row=>row.onclick=()=>{const key=row.dataset.accountKey;if(!key||key===active)return;localStorage.setItem('msg.activeAuthKey',key);location.reload()});
-  el.querySelector('#quickAddAccount').onclick=()=>{try{const key=defaultAuthStorageKey()+'-account-'+crypto.randomUUID();localStorage.setItem('msg.activeAuthKey',key);location.reload()}catch(e){toast('Не удалось создать новый профиль входа')}};
- });
-}
-$('#quickAccounts').onclick=quickAccounts;
-function defaultAuthStorageKey(){return `sb-${new URL(CFG.url).hostname.split('.')[0]}-auth-token`}
-function settingsAccounts(){
- const list=readLocalAccounts(),active=window.__authStorageKey||defaultAuthStorageKey();
- const rows=list.map(x=>`<div class="srow" data-account-key="${esc(x.storageKey)}"><div style="min-width:0;flex:1"><b>${esc(x.name||x.username||x.email||'Аккаунт')}</b><div class="muted" style="font-size:12px">${esc(x.email|| (x.username?'@'+x.username:''))}</div></div><b>${x.storageKey===active?'Активен':'Переключить'}</b></div>`).join('');
- sheet(`<h3>Аккаунты</h3><div class="msg">Сохранённые аккаунты остаются авторизованными на этом устройстве. При переключении текущий аккаунт не удаляется.</div>${rows||'<div class="empty">Список аккаунтов пока пуст</div>'}<button class="btn" id="addAccount">＋ Добавить аккаунт</button><button class="btn sec" id="accountsBack">Назад</button>`,el=>{
-  el.querySelector('#accountsBack').onclick=sets;
-  el.querySelector('#addAccount').onclick=()=>{try{const key=defaultAuthStorageKey()+'-account-'+crypto.randomUUID();localStorage.setItem('msg.activeAuthKey',key);location.reload()}catch(e){toast('Не удалось создать новый профиль входа')}};
-  el.querySelectorAll('[data-account-key]').forEach(row=>row.onclick=()=>{const key=row.dataset.accountKey;if(!key||key===active)return;localStorage.setItem('msg.activeAuthKey',key);location.reload()});
- })
-}
 function sessionDevice(ua=''){if(/iPhone/i.test(ua))return 'iPhone';if(/iPad/i.test(ua))return 'iPad';if(/Android/i.test(ua)){const m=ua.match(/Android[^;)]*(?:;\s*([^;)]+))?/i);return 'Android'+(m?.[1]?' · '+m[1].trim():'')}if(/Windows NT/i.test(ua))return 'Windows PC';if(/Macintosh|Mac OS X/i.test(ua))return 'Mac';if(/Linux/i.test(ua))return 'Linux';return 'Неизвестное устройство'}
 function sessionBrowser(ua=''){const m=ua.match(/(YaBrowser|Edg|Chrome|CriOS|Firefox|FxiOS|Version|Safari)(?:\/|\s)?([\d.]+)/i);if(!m)return 'Браузер не определён';const n={YaBrowser:'Яндекс Браузер',Edg:'Microsoft Edge',Chrome:'Chrome',CriOS:'Chrome',Firefox:'Firefox',FxiOS:'Firefox',Version:'Safari',Safari:'Safari'};return (n[m[1]]||m[1])+' '+m[2]}
 function sessionDate(v){if(!v)return 'Нет данных';const d=new Date(v);return Number.isNaN(+d)?'Нет данных':d.toLocaleString('ru-RU',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}
@@ -973,7 +940,7 @@ function editor(first){return new Promise(res=>{
  <div id="pm" class="msg"></div><button class="btn profile-save" id="ps">Сохранить изменения</button>${first?'':'<button class="btn sec profile-cancel" id="px">Отмена</button>'}</div>`,root=>{
  const q=x=>root.querySelector(x);const preview=()=>{const nm=q('#pn').value.trim()||'Ваше имя',un=q('#pu').value.trim().replace(/^@/,'')||'username';q('#pname').textContent=nm+' '+q('#pe').value;q('#phandle').textContent='@'+un;q('#pavatar').innerHTML=av({...prof,id:me.id,name:nm,color,avatar_url:avatarPreviewUrl||prof?.avatar_url},112);if(pendCov){if(q('#pcover').dataset.previewUrl)URL.revokeObjectURL(q('#pcover').dataset.previewUrl);const pu=URL.createObjectURL(pendCov);q('#pcover').dataset.previewUrl=pu;q('#pcover').style.backgroundImage=`url("${pu}")`;q('#pcover').style.backgroundPosition='center';q('#pcover').style.backgroundSize='cover'}else{if(q('#pcover').dataset.previewUrl){URL.revokeObjectURL(q('#pcover').dataset.previewUrl);delete q('#pcover').dataset.previewUrl}q('#pcover').style.background=cover({...prof,theme:{...T0,cov,covUrl}})}q('#pc').querySelectorAll('i').forEach(i=>i.classList.toggle('on',i.dataset.c===color));q('#pcv').querySelectorAll('i').forEach(i=>i.classList.toggle('on',!covUrl&&!pendCov&&(i.dataset.v===''?cov==null:cov===+i.dataset.v)))};
  q('#pch').onclick=()=>q('#pf').click();q('#cch').onclick=()=>q('#cf').click();q('#pf').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{pend=await shrink(f,512);if(avatarPreviewUrl)URL.revokeObjectURL(avatarPreviewUrl);avatarPreviewUrl=URL.createObjectURL(pend);preview()}catch(_){toast('Не удалось прочитать фото')}};q('#cf').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{pendCov=await scaleImg(f,1000);covUrl='';preview()}catch(_){toast('Не удалось прочитать обложку')}};q('#pc').onclick=e=>{if(e.target.dataset.c){color=e.target.dataset.c;preview()}};q('#pcv').onclick=e=>{const v=e.target.dataset.v;if(v===undefined)return;cov=v===''?null:+v;covUrl='';pendCov=null;preview()};['#pn','#pu','#pb','#pe'].forEach(x=>q(x).oninput=preview);preview();if(!first)q('#px').onclick=()=>{if(avatarPreviewUrl)URL.revokeObjectURL(avatarPreviewUrl);closeSheet();res()};
- q('#ps').onclick=async()=>{const name=q('#pn').value.trim(),un=q('#pu').value.trim().replace(/^@/,''),pm=q('#pm');if(!name){pm.textContent='Введите имя';return}if(!/^[A-Za-z0-9_]{3,24}$/.test(un)){pm.textContent='Имя пользователя: 3–24 символа, латиница, цифры, _';return}q('#ps').disabled=true;pm.textContent='Сохранение…';const up=async(b,n)=>{const fp=`${me.id}/${n}${Date.now()}-${Math.random().toString(36).slice(2,7)}.jpg`,bucket=sb.storage.from('avatars'),u=await bucket.upload(fp,b,{contentType:'image/jpeg',cacheControl:'3600',upsert:false});if(u.error)throw new Error('Ошибка загрузки обложки/фото: '+u.error.message);const pub=bucket.getPublicUrl(fp)?.data?.publicUrl;if(!pub)throw new Error('Supabase не вернул публичную ссылку на изображение');return pub};try{let url=prof?.avatar_url||null;if(pend)url=await up(pend,'');if(pendCov)covUrl=await up(pendCov,'cover-');const theme={...T0,cov,covUrl};const r=await sb.from('profiles').upsert({id:me.id,name,username:un,bio:q('#pb').value.trim(),status_emoji:q('#pe').value.trim(),color,avatar_url:url,theme}).select().single();q('#ps').disabled=false;if(r.error){pm.textContent=/duplicate|unique/i.test(r.error.message)?'Это имя пользователя занято':/bio|column/i.test(r.error.message)?'В Supabase не выполнен design.sql':r.error.message;return}prof={...r.data,theme};P[me.id]=prof;saveLocalAccount(me,prof);updateQuickAccountButton();if(avatarPreviewUrl)URL.revokeObjectURL(avatarPreviewUrl);closeSheet();toast('Профиль обновлён');if(!first){cur?head():home()}res()}catch(err){q('#ps').disabled=false;pm.textContent='Не удалось сохранить: '+err.message}};
+ q('#ps').onclick=async()=>{const name=q('#pn').value.trim(),un=q('#pu').value.trim().replace(/^@/,''),pm=q('#pm');if(!name){pm.textContent='Введите имя';return}if(!/^[A-Za-z0-9_]{3,24}$/.test(un)){pm.textContent='Имя пользователя: 3–24 символа, латиница, цифры, _';return}q('#ps').disabled=true;pm.textContent='Сохранение…';const up=async(b,n)=>{const fp=`${me.id}/${n}${Date.now()}-${Math.random().toString(36).slice(2,7)}.jpg`,bucket=sb.storage.from('avatars'),u=await bucket.upload(fp,b,{contentType:'image/jpeg',cacheControl:'3600',upsert:false});if(u.error)throw new Error('Ошибка загрузки обложки/фото: '+u.error.message);const pub=bucket.getPublicUrl(fp)?.data?.publicUrl;if(!pub)throw new Error('Supabase не вернул публичную ссылку на изображение');return pub};try{let url=prof?.avatar_url||null;if(pend)url=await up(pend,'');if(pendCov)covUrl=await up(pendCov,'cover-');const theme={...T0,cov,covUrl};const r=await sb.from('profiles').upsert({id:me.id,name,username:un,bio:q('#pb').value.trim(),status_emoji:q('#pe').value.trim(),color,avatar_url:url,theme}).select().single();q('#ps').disabled=false;if(r.error){pm.textContent=/duplicate|unique/i.test(r.error.message)?'Это имя пользователя занято':/bio|column/i.test(r.error.message)?'В Supabase не выполнен design.sql':r.error.message;return}prof={...r.data,theme};P[me.id]=prof;if(avatarPreviewUrl)URL.revokeObjectURL(avatarPreviewUrl);closeSheet();toast('Профиль обновлён');if(!first){cur?head():home()}res()}catch(err){q('#ps').disabled=false;pm.textContent='Не удалось сохранить: '+err.message}};
  });
 })}
 
