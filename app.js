@@ -74,7 +74,7 @@ function cardHtml(p,st){p=p||{};return`<div class="pcard"><div class="pcov" styl
 function scaleImg(f,n=1280){return new Promise((res,rej)=>{const i=new Image(),u=URL.createObjectURL(f);let done=false;const finish=(fn,v)=>{if(done)return;done=true;URL.revokeObjectURL(u);fn(v)};i.onload=()=>{try{if(!i.naturalWidth||!i.naturalHeight)throw new Error('Некорректное изображение');const k=Math.min(1,n/Math.max(i.naturalWidth,i.naturalHeight)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(i.naturalWidth*k));c.height=Math.max(1,Math.round(i.naturalHeight*k));const x=c.getContext('2d');if(!x)throw new Error('Canvas недоступен');x.drawImage(i,0,0,c.width,c.height);c.toBlob(b=>b?finish(res,b):finish(rej,new Error('Не удалось обработать изображение')),'image/jpeg',.88)}catch(e){finish(rej,e)}};i.onerror=()=>finish(rej,new Error('Формат изображения не поддерживается браузером'));i.src=u})}
 const EM=['👍','❤️','😂','😮','😢','🔥'];
 const BLOB={};
-let sb,me=null,prof=null,ID=null,P={},C={},K={},M={},cur=null,reply=null,editing=null,booted=false,authMode='in';
+let sb,me=null,prof=null,ID=null,P={},C={},K={},KH={},H={},M={},cur=null,reply=null,editing=null,booted=false,authMode='in';
 
 /* ---------- утилиты ---------- */
 function toast(t,ms=2800){const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,ms)}
@@ -187,18 +187,34 @@ const peerOf=c=>P[peerId(c)];
 const title=c=>c.kind==='dm'?(peerOf(c)?.name||'…'):(c.title||'Без названия');
 const isAdmin=c=>c.my&&(c.my.role==='owner'||c.my.role==='admin');
 const canPost=c=>c.kind!=='channel'||isAdmin(c);
-async function unwrap(c){if(K[c.id]||!c.my)return;const by=P[c.my.wrapped_by];if(!by?.pubkey)return;
- try{K[c.id]=await CR.unwrap(ID.priv,by.pubkey,c.my.wrapped_key,c.id)}catch(e){}}
-async function dc(m){const k=K[m.conv_id];m.p=null;if(!k){m.p={t:'🔒 Нет ключа'};return}
- try{m.p=await CR.open(k,m.conv_id,m.data)}catch(e){m.p={t:'🔒 Не удалось расшифровать'}}}
+async function unwrap(c){
+ if(!c.my)return;
+ const rows=[c.my,...(H[c.id]||[])];
+ const keys=[];
+ for(const row of rows){
+  const by=P[row.wrapped_by];if(!by?.pubkey||!row.wrapped_key)continue;
+  try{const key=await CR.unwrap(ID.priv,by.pubkey,row.wrapped_key,c.id);keys.push(key)}catch(e){}
+ }
+ if(keys.length){K[c.id]=keys[0];KH[c.id]=keys.slice(1)}
+}
+async function dc(m){
+ const keys=[K[m.conv_id],...(KH[m.conv_id]||[])].filter(Boolean);m.p=null;
+ if(!keys.length){m.p={t:'🔒 Нет ключа'};return}
+ for(const key of keys){try{m.p=await CR.open(key,m.conv_id,m.data);return}catch(e){}}
+ m.p={t:'🔒 Не удалось расшифровать'}
+}
 async function loadAllImpl(){
  const mr=await sb.from('members').select('*').eq('user_id',me.id);
  if(mr.error){toast('Не удалось загрузить список чатов: '+mr.error.message);return}
  const ids=(mr.data||[]).map(x=>x.conv_id);
- if(!ids.length){C={};M={};K={};cur=null;SEL=null;if(SHOWN==='chat')show('home');home();return}
+ if(!ids.length){C={};M={};K={};KH={};H={};cur=null;SEL=null;if(SHOWN==='chat')show('home');home();return}
  const [cv,mm]=await Promise.all([sb.from('convs').select('*').in('id',ids),sb.from('members').select('*').in('conv_id',ids)]);
  if(cv.error||mm.error){toast('Не удалось загрузить данные чатов: '+(cv.error||mm.error).message);return}
- const uids=[...new Set((mm.data||[]).flatMap(x=>[x.user_id,x.wrapped_by]))];
+ const kh=await sb.from('member_key_history').select('conv_id,user_id,wrapped_by,wrapped_key,created_at').eq('user_id',me.id).in('conv_id',ids);
+ if(kh.error){toast('Не удалось загрузить историю ключей: '+kh.error.message);return}
+ H={};(kh.data||[]).forEach(x=>(H[x.conv_id]=H[x.conv_id]||[]).push(x));
+ Object.values(H).forEach(a=>a.sort((x,y)=>new Date(y.created_at)-new Date(x.created_at)));
+ const uids=[...new Set([...(mm.data||[]).flatMap(x=>[x.user_id,x.wrapped_by]),...(kh.data||[]).map(x=>x.wrapped_by)])];
  const pr=await sb.from('profiles').select('*').in('id',uids);if(pr.error){toast('Не удалось загрузить профили участников: '+pr.error.message);return}(pr.data||[]).forEach(p=>P[p.id]=p);P[me.id]=prof;
  const nc={};(cv.data||[]).forEach(c=>nc[c.id]={...c,members:[],my:null});
  (mm.data||[]).forEach(x=>{const c=nc[x.conv_id];if(!c)return;c.members.push(x);if(x.user_id===me.id)c.my=x});
