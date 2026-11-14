@@ -408,38 +408,42 @@ function bubble(m,c){const p=m.p||{},mine=m.sender===me.id;let h='';
  const mineR=(m.reactions||{})[me.id];
  const rh=Object.keys(rx).length?`<div class="rx">${Object.entries(rx).map(([e,n])=>`<span class="${mineR===e?'on':''}" data-id="${m.id}" data-e="${e}">${e} ${n}</span>`).join('')}</div>`:'';
  return`<div class="row ${mine?'me':'th'}${SEL&&SEL.has(m.id)?' sel':''}">${!mine&&c.kind!=='dm'?`<div class="snd">${displayName(P[m.sender],P[m.sender]?.name||'…')}</div>`:''}<div class="b ${media&&!p.t&&(p.k==='img'||p.k==='vid')?'nopad':''}" data-id="${m.id}">${h}${t}</div>${rh}</div>`}
-function scrollChatBottom(id=cur){
- if(!id||cur!==id)return;
+let chatScrollRevision=0;
+function scrollChatBottom(id=cur,revision=chatScrollRevision){
+ if(!id||cur!==id||revision!==chatScrollRevision)return;
  const box=$('#list');
- const go=()=>{if(cur!==id||$('#chat').hidden||!box.isConnected)return;
-  const anchor=$('#chat-bottom-anchor');
-  if(anchor?.isConnected)anchor.scrollIntoView({block:'end',behavior:'auto'});
+ requestAnimationFrame(()=>{
+  if(cur!==id||revision!==chatScrollRevision||$('#chat').hidden||!box.isConnected)return;
   box.scrollTop=box.scrollHeight;
- };
- requestAnimationFrame(()=>requestAnimationFrame(go));
+ });
 }
 function render(sc){
  const c=C[cur];if(!c)return;pruneSecret();
  const box=$('#list'),near=box.scrollHeight-box.scrollTop-box.clientHeight<180;
  const stick=!!sc||near||pendingChatBottom===cur;
  if(sc)pendingChatBottom=cur;
+ const revision=stick?++chatScrollRevision:chatScrollRevision;
+ const opening=cur;
  const a=M[cur]||[];let h='',pd=null;
  for(const m of a){
   if(!pd||!sameDay(pd,m.created_at))h+=`<div class="day">${sameDay(m.created_at,Date.now())?'Сегодня':new Date(m.created_at).toLocaleDateString('ru',{day:'numeric',month:'long'})}</div>`;
   pd=m.created_at;h+=bubble(m,c);
  }
- box.innerHTML=(h||'<div class="empty">🔒 Сообщения защищены сквозным шифрованием.<br>Напишите первым.</div>')+'<div id="chat-bottom-anchor" aria-hidden="true"></div>';
+ box.innerHTML=h||'<div class="empty">🔒 Сообщения защищены сквозным шифрованием.<br>Напишите первым.</div>';
  const seen=RL[cur],maxId=a.length?a[a.length-1].id:0;
  if(seen!==undefined)box.querySelectorAll('.b').forEach(b=>{if(+b.dataset.id>seen)b.parentElement.classList.add('new')});
  RL[cur]=maxId;
- if(stick)scrollChatBottom(cur);
  const mediaLoads=[...box.querySelectorAll('[data-m]')].map(el=>loadMedia(el));
  if(stick){
-  const opening=cur;
-  Promise.allSettled(mediaLoads).then(()=>{
-   if(cur!==opening||pendingChatBottom!==opening)return;
-   scrollChatBottom(opening);
-   requestAnimationFrame(()=>{if(cur===opening&&pendingChatBottom===opening){scrollChatBottom(opening);pendingChatBottom=null}});
+  const imageLoads=[...box.querySelectorAll('img.mi')].map(img=>img.decode?img.decode().catch(()=>{}):Promise.resolve());
+  const videoLoads=[...box.querySelectorAll('video')].map(video=>video.readyState>=1?Promise.resolve():new Promise(resolve=>{
+   const done=()=>resolve();video.addEventListener('loadedmetadata',done,{once:true});video.addEventListener('error',done,{once:true});
+   setTimeout(done,1800);
+  }));
+  Promise.allSettled([...mediaLoads,...imageLoads,...videoLoads]).then(()=>{
+   if(cur!==opening||revision!==chatScrollRevision||pendingChatBottom!==opening)return;
+   scrollChatBottom(opening,revision);
+   pendingChatBottom=null;
   });
  }
 }
@@ -954,7 +958,7 @@ function groupStyle(c){let col=c.color||'',pend=null,previewUrl=null;
  
  /* ---------- клавиатура ---------- */
 if(window.visualViewport){const vv=visualViewport,app=$('#app'),f=()=>{const ae=document.activeElement,ed=!!ae&&/^(INPUT|TEXTAREA)$/.test(ae.tagName),kb=ed||innerHeight-vv.height>120;document.documentElement.classList.toggle('kb',kb);
- app.style.height=vv.height+'px';app.style.top=vv.offsetTop+'px';if(kb){scrollTo(0,0);const l=$('#list');if(l&&!$('#chat').hidden)l.scrollTop=l.scrollHeight}};
+ app.style.height=vv.height+'px';app.style.top=vv.offsetTop+'px';if(kb)scrollTo(0,0)};
  vv.addEventListener('resize',f);vv.addEventListener('scroll',f);addEventListener('focusin',()=>setTimeout(f,60));addEventListener('focusout',()=>setTimeout(()=>{scrollTo(0,0);f()},60))}
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});let had=!!navigator.serviceWorker.controller;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!had){had=true;return}if(sessionStorage.getItem('swr'))return;sessionStorage.setItem('swr','1');if(!CALL&&!(document.activeElement&&/INPUT|TEXTAREA/.test(document.activeElement.tagName)))location.reload()})}
 boot();
