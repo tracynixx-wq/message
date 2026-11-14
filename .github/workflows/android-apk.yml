@@ -79,9 +79,10 @@ jobs:
           set -e
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)
           APK=android/app/build/outputs/apk/debug/app-debug.apk
-          APK_SHA=$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1 | tr -d ':' | tr '[:lower:]' 'upper')
-          KEY_SHA=$(keytool -list -v -keystore ~/.android/debug.keystore -storepass message-debug -alias message | sed -n 's/.*SHA256: //p' | head -n 1 | tr -d ':' | tr '[:lower:]' 'upper')
-          test -n "$APK_SHA" && test "$APK_SHA" = "$KEY_SHA"
+          APK_HEX=$("$APKSIGNER" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')
+          KEY_HEX=$(keytool -list -v -keystore ~/.android/debug.keystore -storepass message-debug -alias message | sed -n 's/.*SHA256: //p' | head -n 1 | tr -d ':' | tr '[:lower:]' '[:upper:]')
+          test -n "$APK_HEX" && test "$APK_HEX" = "$KEY_HEX"
+          APK_SHA=$(echo "$APK_HEX" | sed 's/../&:/g;s/:$//')
           echo "sha256=$APK_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Publish APK artifact
