@@ -22,7 +22,7 @@ Fields below are observed in client payloads, filters, or reads. Fields returned
 | `keybackup` | `user_id`, `data`; select by user_id; upsert encrypted private-key backup |
 | `convs` | `id`, `kind`, `dm_key`, `secret_ttl`, `title`, `pinned_id`; insert/select/update/delete |
 | `members` | `conv_id`, `user_id`, `role`, `wrapped_by`, `wrapped_key`; client also reads per-member flags and `last_read_at`; insert/select/update/delete |
-| `msgs` | `id`, `conv_id`, `data`, `created_at`, `edited_at`; insert/select/update/delete; payload is encrypted before upload |
+| `msgs` | `id`, `conv_id`, `sender`, `data`, `created_at`, `edited_at`; insert/select/update/delete; `sender` is written explicitly from the authenticated user; payload is encrypted before upload |
 | `stories` | `id`, `user_id`, `kind`, `path`, `caption`, `bg`, `created_at`, `expires_at`; insert/select/delete |
 | `story_views` | `story_id`, `viewer_id`; select/upsert |
 | `push_subs` | `user_id`, `endpoint`, `sub`; upsert on `endpoint` |
