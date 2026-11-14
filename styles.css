@@ -317,3 +317,29 @@ html.tt *,html.tt{transition:background-color .35s ease,color .35s ease,border-c
 .sk .ci{flex:1}.sk b,.sk small{display:block;height:12px;border-radius:6px;background:var(--card2);margin:6px 0}.sk small{height:10px;opacity:.7}
 .sk{animation:skp 1.2s ease-in-out infinite}@keyframes skp{50%{opacity:.45}}
 #load{background:var(--bg)}
+
+
+/* Profile color swatches: fixed circular paint area on mobile browsers */
+.profile-editor .sw#pc,
+.profile-editor .sw#pcv {
+  align-items: center;
+}
+.profile-editor .sw#pc i,
+.profile-editor .sw#pcv i {
+  display: flex;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  aspect-ratio: 1 / 1;
+  box-sizing: border-box;
+  padding: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+  background-size: 100% 100% !important;
+  -webkit-appearance: none;
+  appearance: none;
+}
