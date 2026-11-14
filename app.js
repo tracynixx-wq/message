@@ -531,20 +531,51 @@ $('#list').addEventListener('click',e=>{const el=e.target.closest('.vp');if(!el)
  if(!a){a=VP[src]=new Audio(src);a.preload='metadata';['timeupdate','play','pause','ended','loadedmetadata'].forEach(ev=>a.addEventListener(ev,()=>{if(ev==='ended')a.currentTime=0;vpUI(src,a)}))}
  if(e.target.closest('.vpbar')&&!e.target.closest('.vpb')){const r=el.querySelector('.vpbar').getBoundingClientRect();if(isFinite(a.duration)&&a.duration>0){a.currentTime=Math.min(.999,Math.max(0,(e.clientX-r.left)/r.width))*a.duration;vpUI(src,a)}return}
  if(a.paused){if(vpCur&&vpCur!==a)vpCur.pause();vpCur=a;a.play().catch(()=>toast('Не удалось воспроизвести'))}else a.pause()});
-let rec=null,chunks=[],recCancel=false,recT=null,recS=0;
-$('#mic').onclick=async()=>{const c=C[cur];if(!c)return;
- if(rec){rec.stop();return}
- try{const st=await navigator.mediaDevices.getUserMedia({audio:true});
-  const mt=['audio/mp4','audio/webm;codecs=opus','audio/webm'].find(t=>window.MediaRecorder&&MediaRecorder.isTypeSupported(t))||'';
-  rec=new MediaRecorder(st,mt?{mimeType:mt}:{});chunks=[];
-  rec.ondataavailable=e=>chunks.push(e.data);
-  rec.onstop=async()=>{st.getTracks().forEach(t=>t.stop());const type=rec.mimeType||mt||'audio/webm';rec=null;clearInterval(recT);$('#recbar').hidden=true;$('#mic').classList.remove('rec');fit();
-   if(recCancel){recCancel=false;return}
-   const b=new Blob(chunks,{type});if(b.size<800)return;
-   await upload(c,new Uint8Array(await b.arrayBuffer()),'aud','voice',type.split(';')[0])};
-  rec.start();recCancel=false;recS=Date.now();$('#rect').textContent='0:00';$('#recbar').hidden=false;recT=setInterval(()=>$('#rect').textContent=mmss((Date.now()-recS)/1000),250);$('#mic').classList.add('rec')}catch(e){toast('Нет доступа к микрофону')}};
-
-$('#recx').onclick=()=>{if(rec){recCancel=true;rec.stop()}};
+let rec=null,chunks=[],recCancel=false,recT=null,recS=0,recStarting=false;
+const REC_MAX_MS=5*60*1000;
+function recCleanup(){clearInterval(recT);recT=null;$('#recbar').hidden=true;$('#mic').classList.remove('rec');fit()}
+async function finishRecording(r,stream,c){
+ const type=r.mimeType||'audio/webm';
+ try{
+  if(recCancel){recCancel=false;return}
+  const blob=new Blob(chunks,{type});
+  if(blob.size<800){toast('Запись слишком короткая');return}
+  if(blob.size>25*1024*1024){toast('Голосовое больше 25 МБ');return}
+  const duration=Math.min(REC_MAX_MS,Date.now()-recS);
+  toast('Отправка голосового…',20000);
+  const sent=await upload(c,new Uint8Array(await blob.arrayBuffer()),'aud','voice',type.split(';')[0],{d:Math.round(duration/1000)});
+  if(sent)toast('Голосовое отправлено');
+ }catch(e){toast('Не удалось отправить голосовое: '+(e?.message||'ошибка'))}
+ finally{stream.getTracks().forEach(t=>t.stop());chunks=[];recCleanup();$('#toast').hidden=false}
+}
+$('#mic').onclick=async()=>{
+ const c=C[cur];if(!c)return;
+ if(rec){if(rec.state!=='inactive')rec.stop();return}
+ if(recStarting)return;
+ if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){toast('Запись голосовых не поддерживается этим браузером');return}
+ recStarting=true;$('#mic').disabled=true;
+ let stream;
+ try{
+  stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+  const candidates=['audio/webm;codecs=opus','audio/mp4','audio/webm'];
+  const mimeType=candidates.find(t=>MediaRecorder.isTypeSupported?.(t))||'';
+  const recorder=new MediaRecorder(stream,mimeType?{mimeType}:{});
+  rec=recorder;chunks=[];recCancel=false;recS=Date.now();
+  recorder.ondataavailable=e=>{if(e.data?.size)chunks.push(e.data)};
+  recorder.onerror=()=>{recCancel=true;toast('Ошибка записи голосового');try{if(recorder.state!=='inactive')recorder.stop()}catch(_){stream.getTracks().forEach(t=>t.stop());rec=null;recCleanup()}};
+  recorder.onstop=()=>{if(rec===recorder)rec=null;finishRecording(recorder,stream,c)};
+  recorder.start(1000);
+  $('#rect').textContent='0:00';$('#recbar').hidden=false;$('#mic').classList.add('rec');
+  recT=setInterval(()=>{
+   const elapsed=Date.now()-recS;$('#rect').textContent=mmss(elapsed/1000);
+   if(elapsed>=REC_MAX_MS&&recorder.state!=='inactive'){toast('Достигнут лимит записи — отправляю голосовое');recorder.stop()}
+  },250);
+ }catch(e){
+  stream?.getTracks().forEach(t=>t.stop());rec=null;recCleanup();
+  toast(e?.name==='NotAllowedError'?'Разрешите доступ к микрофону в настройках приложения':'Не удалось начать запись: '+(e?.message||'ошибка'));
+ }finally{recStarting=false;$('#mic').disabled=false}
+};
+$('#recx').onclick=()=>{if(rec&&rec.state!=='inactive'){recCancel=true;rec.stop()}};
 
 /* ---------- звонки (WebRTC) ---------- */
 const ICE=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']},...(window.CFG&&Array.isArray(CFG.ice)?CFG.ice:[])];
