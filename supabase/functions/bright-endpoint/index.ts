@@ -21,6 +21,9 @@ Deno.serve(async (req: Request) => {
     return json({ error: "push_configuration_missing" }, 500);
   }
 
+  const webhookSecret = req.headers.get("x-webhook-secret");
+  if (!webhookSecret) return json({ error: "unauthorized" }, 401);
+
   let input: { id?: number | string };
   try { input = await req.json(); }
   catch { return json({ error: "invalid_json" }, 400); }
@@ -34,6 +37,17 @@ Deno.serve(async (req: Request) => {
     const db = createClient(url, serviceKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+
+    const { data: authorized, error: authError } = await db.rpc(
+      "verify_push_webhook_secret",
+      { p_secret: webhookSecret },
+    );
+    if (authError) {
+      console.error("Push webhook authentication check failed", authError.message);
+      return json({ error: "webhook_authentication_unavailable" }, 500);
+    }
+    if (authorized !== true) return json({ error: "unauthorized" }, 401);
+
     const { data: message, error: messageError } = await db
       .from("msgs").select("id,conv_id,sender,created_at").eq("id", messageId).maybeSingle();
     if (messageError) throw messageError;
