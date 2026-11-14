@@ -920,7 +920,7 @@ function sets(){const t=prof.theme||{},md=t.mode||'auto';const perm='Notificatio
   <div class="srow" data-a="test">🧪 Проверить уведомление</div>
   <div class="msg" style="font-size:13px">🔑 Ключ шифрования хранится на этом устройстве. Для входа с другого телефона понадобится ключевая фраза.</div>
   <button class="btn red" data-a="out">Выйти</button>`,s=>s.onclick=async e=>{
-  const a=e.target.closest('[data-a]')?.dataset.a,md2=e.target.dataset.mode,ac=e.target.dataset.acc;
+  const a=e.target.closest('[data-a]')?.dataset.a,md2=e.target.closest('[data-mode]')?.dataset.mode,accEl=e.target.closest('[data-acc]'),ac=accEl?.dataset.acc;
   if(md2||ac!==undefined){const n={...(prof.theme||{})};if(md2)n.mode=md2;if(ac!==undefined)n.accent=ac;prof.theme=applyTheme(n);await sb.from('profiles').update({theme:prof.theme}).eq('id',me.id);sets();return}
   if(a==='cd'){chatDesign();return}if(a==='ed')editor(false);if(a==='push')enablePush();if(a==='test')testPush();
 
@@ -963,9 +963,9 @@ function redesignedSettings(){
  <section class="settings-group"><h3>Уведомления</h3>${row('bell','Push-уведомления','push',perm==='granted'?'Включены':perm==='denied'?'Запрещены':perm==='unsupported'?'Недоступны':'Выключены')}${row('bell','Проверить уведомление','test')}</section>
  <div class="settings-note">Ключ шифрования хранится на этом устройстве. Для входа с другого телефона понадобится ключевая фраза.</div><button class="settings-logout" data-a="out">${uiIcon('logout')}Выйти из аккаунта</button></div>`,s=>s.onclick=async e=>{
  const a=e.target.closest('[data-a]')?.dataset.a,md2=e.target.dataset.mode,ac=e.target.dataset.acc;
- if(md2||ac!==undefined){const n={...(prof.theme||{})};if(md2)n.mode=md2;if(ac!==undefined)n.accent=ac;prof.theme=applyTheme(n);await sb.from('profiles').update({theme:prof.theme}).eq('id',me.id);redesignedSettings();return}
+ if(md2!==undefined||accEl){const n={...(prof.theme||{})};if(md2!==undefined)n.mode=md2;if(accEl)n.accent=ac;prof.theme=applyTheme(n);const saved=await sb.from('profiles').update({theme:prof.theme}).eq('id',me.id);if(saved.error)toast('Настройка применена на этом устройстве, но не сохранена в аккаунте: '+saved.error.message,8000);redesignedSettings();return}
  if(a==='profile'){setTab('profile');return}if(a==='security'){toast('Переписка защищена сквозным шифрованием');return}
- if(a==='cd'){chatDesign();return}if(a==='push')enablePush();if(a==='test')testPush();
+ if(a==='cd'){chatDesign();return}if(a==='push'){await enablePush();return}if(a==='test'){await testPush();return}
  if(a==='devices')settingsDevices();if(a==='folders')settingsFolders();if(a==='backup')settingsBackup();if(a==='access')settingsAccess();if(a==='support')settingsSupport();
  if(a==='out'&&confirm('Выйти из аккаунта?'))sb.auth.signOut()
  });
