@@ -4,7 +4,7 @@ self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.a
 self.addEventListener('fetch',e=>{const r=e.request;if(r.method!=='GET')return;const u=new URL(r.url);
  if(r.url===CDN){e.respondWith(caches.match(r).then(h=>h||fetch(r).then(res=>{const cp=res.clone();caches.open(C).then(c=>c.put(r,cp));return res})));return}
  if(u.origin!==location.origin)return;
- e.respondWith(caches.match(r,{ignoreSearch:true}).then(hit=>{const net=fetch(r).then(res=>{if(res.ok){const cp=res.clone();caches.open(C).then(c=>c.put(r,cp))}return res}).catch(()=>hit);return hit||net}))});
+ e.respondWith(caches.match(r,{ignoreSearch:true}).then(hit=>fetch(r).then(res=>{if(res.ok){const cp=res.clone();caches.open(C).then(c=>c.put(r,cp))}return res}).catch(()=>hit||Promise.reject(new Error('Offline and no cached response')))))});
 self.addEventListener('push',e=>{let d={};try{d=e.data?.json()||{}}catch(_){try{d={body:e.data?.text()||'Новое сообщение'}}catch(__){}}
  const conv=d.conv||null;
  e.waitUntil(self.registration.showNotification(d.title||'Чат',{body:d.body||'Новое сообщение',icon:'icon-192.png',badge:'icon-192.png',tag:conv?'c'+conv:'chat-message',renotify:true,data:{conv}}))});
