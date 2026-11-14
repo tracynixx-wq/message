@@ -379,7 +379,8 @@ async function flag(c,f,v){const r=await sb.rpc('member_flag',{c:c.id,f,v});
 const online=p=>p&&p.last_seen&&Date.now()-new Date(p.last_seen)<70000;
 const stat=p=>!p?'':online(p)?'в сети':'был(а) '+(sameDay(p.last_seen,Date.now())?'в '+hm(p.last_seen):new Date(p.last_seen).toLocaleDateString('ru',{day:'numeric',month:'short'}));
 const RL={};
-function openChat(id){cur=id;if(C[id]&&C[id].secret_ttl)purge();delete RL[id];if(SEL){SEL=null;selUI()}unbar();$('#inp').value='';fit();show('chat');head();render(true);markRead();setComposer()}
+let pendingChatBottom=null;
+function openChat(id){cur=id;pendingChatBottom=id;if(C[id]&&C[id].secret_ttl)purge();delete RL[id];if(SEL){SEL=null;selUI()}unbar();$('#inp').value='';fit();show('chat');head();render(true);markRead();setComposer()}
 $('#back').onclick=()=>{cur=null;unbar();if(SEL){SEL=null;selUI()}show('home');home()};
 function setComposer(){const c=C[cur];const ok=c&&canPost(c);$('#comp').hidden=!ok;$('#ro').hidden=ok;if(!ok)unbar()}
 function head(){const c=C[cur];if(!c)return;$('#cvoice').hidden=$('#cvideo').hidden=c.kind!=='dm';$('#chat').classList.toggle('secret',!!c.secret_ttl);const o=c.kind==='dm'?peerOf(c):c;$('#hav').innerHTML=av(o,40);
@@ -415,7 +416,9 @@ function render(sc){const c=C[cur];if(!c)return;pruneSecret();const box=$('#list
  if(seen!==undefined)box.querySelectorAll('.b').forEach(b=>{if(+b.dataset.id>seen)b.parentElement.classList.add('new')});
  RL[cur]=maxId;
  if(sc||near){if(seen!==undefined&&maxId>seen)box.scrollTo({top:box.scrollHeight,behavior:'smooth'});else box.scrollTop=box.scrollHeight}
- box.querySelectorAll('[data-m]').forEach(el=>loadMedia(el))}
+ const mediaLoads=[...box.querySelectorAll('[data-m]')].map(el=>loadMedia(el));
+ if(pendingChatBottom===cur){const opening=cur;Promise.allSettled(mediaLoads).then(()=>{if(pendingChatBottom!==opening||cur!==opening)return;requestAnimationFrame(()=>requestAnimationFrame(()=>{if(pendingChatBottom!==opening||cur!==opening)return;box.scrollTop=box.scrollHeight;pendingChatBottom=null}))})}
+}
 $('#list').onclick=e=>{
  const rx=e.target.closest('.rx span');if(rx){react(+rx.dataset.id,rx.dataset.e);return}
  if(SEL){const b=e.target.closest('.b');if(b)toggleSel(+b.dataset.id);return}
@@ -530,8 +533,8 @@ async function loadMedia(el){const m=Object.values(M).flat().find(x=>String(x.id
   if(!url){const r=await fetch(sb.storage.from('media').getPublicUrl(p.p).data.publicUrl);if(!r.ok)throw 0;
    const raw=await CR.openB(K[c.id],c.id,new Uint8Array(await r.arrayBuffer()));url=BLOB[p.p]=URL.createObjectURL(new Blob([raw],{type:p.y||'application/octet-stream'}))}
   if(!el.isConnected)return;
-  if(p.k==='img'){el.outerHTML=`<img class="mi" src="${url}" alt="">`}
-  else if(p.k==='vid'){el.outerHTML=`<video src="${url}" controls playsinline preload="metadata"></video>`}
+  if(p.k==='img'){el.outerHTML=`<img class="mi" src="${url}" alt="">`;const img=el.previousElementSibling;if(img?.decode)await img.decode().catch(()=>{})}
+  else if(p.k==='vid'){el.outerHTML=`<video src="${url}" controls playsinline preload="metadata"></video>`;const video=el.previousElementSibling;if(video&&video.readyState<1)await new Promise(resolve=>video.addEventListener('loadedmetadata',resolve,{once:true}))}
   else if(p.k==='aud'){el.outerHTML=audHtml(url)}
   else{el.href=url;el.download=p.n||'file'}
  }catch(e){if(el.isConnected&&el.classList.contains('ph'))el.textContent='⚠️ не загрузилось'}}
