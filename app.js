@@ -620,9 +620,9 @@ async function startCall(c,video){if(CALL){toast('Звонок уже идёт')
  if(!navigator.mediaDevices||!window.RTCPeerConnection){toast('Звонки не поддерживаются этим браузером');return}
  if(!K[c.id]){toast('Нет ключа этого чата');return}
  let ls;try{ls=await media(video)}catch(_){toast(video?'Нет доступа к камере или микрофону':'Нет доступа к микрофону');return}
- const id=Math.random().toString(36).slice(2,10);const q=CALL={id,c,peer:peerId(c),video,dir:'out',st:'calling',ls,mute:false,cam:true};
- mkPc();ui();ring('out');
- try{await q.pc.setLocalDescription(await q.pc.createOffer());await gathered(q.pc)}catch(_){endCall(false,'Ошибка звонка');return}
+ const id=crypto.randomUUID();const q=CALL={id,c,peer:peerId(c),video,dir:'out',st:'calling',ls,mute:false,cam:true};
+ try{mkPc();ui();ring('out');await q.pc.setLocalDescription(await q.pc.createOffer());await gathered(q.pc)}
+ catch(_){endCall(false,'Не удалось создать звонок');return}
  if(CALL!==q)return;const send=()=>sig(c,{t:'offer',id,video,sdp:q.pc.localDescription});send();q.resend=setInterval(send,2500);
  q.to=setTimeout(()=>{if(CALL===q&&q.st==='calling')endCall(true,'Нет ответа')},45000);
  sendPayload(c,{t:video?'📹 Видеозвонок':'📞 Голосовой звонок'})}
@@ -674,14 +674,30 @@ function secretStart(){pickUser(u=>sheet(`<h3>🔒 Секретный чат с 
 function pruneSecret(){let ch=false;Object.values(C).forEach(c=>{if(!c.secret_ttl)return;const a=M[c.id];if(!a)return;const f=a.filter(m=>Date.now()-new Date(m.created_at)<c.secret_ttl*1000);if(f.length!==a.length){M[c.id]=f;ch=true}});return ch}
 const purge=()=>{sb.rpc('purge_secret').then(()=>{},()=>{})};
 setInterval(()=>{if(!me)return;if(pruneSecret()){if(cur&&SHOWN==='chat')render();else if(SHOWN==='home')home()}},15000);setInterval(()=>{if(me&&Object.values(C).some(c=>c.secret_ttl))purge()},300000);
+const dmPending=new Map();
 async function startDm(u,ttl){closeSheet();const key=[me.id,u.id].sort().join('_')+(ttl?'_s':'');
- const ex=Object.values(C).find(c=>c.dm_key===key);if(ex){openChat(ex.id);return}
- const r=await sb.from('convs').insert(ttl?{kind:'dm',dm_key:key,secret_ttl:ttl}:{kind:'dm',dm_key:key}).select().single();
- if(r.error){if(ttl&&/secret_ttl|column/i.test(r.error.message)){toast('Выполните secret.sql в Supabase');return}if(/duplicate|unique/i.test(r.error.message)){await loadAll();const e2=Object.values(C).find(c=>c.dm_key===key);if(e2)openChat(e2.id)}else toast(r.error.message);return}
- const c=r.data,k=await CR.newKey();K[c.id]=k;
- const mr=await sb.from('members').insert([{conv_id:c.id,user_id:me.id,role:'owner',wrapped_by:me.id,wrapped_key:await CR.wrap(ID.priv,ID.pub,k,c.id)},
-  {conv_id:c.id,user_id:u.id,role:'member',wrapped_by:me.id,wrapped_key:await CR.wrap(ID.priv,u.pubkey,k,c.id)}]);
- if(mr.error){await sb.from('convs').delete().eq('id',c.id);delete K[c.id];toast('Не удалось добавить участника: '+mr.error.message);return}P[u.id]=u;await loadAll();openChat(c.id)}
+ const existing=()=>Object.values(C).find(c=>c.dm_key===key);
+ const ex=existing();if(ex){openChat(ex.id);return}
+ if(dmPending.has(key)){await dmPending.get(key);await loadAll();const found=existing();if(found)openChat(found.id);return}
+ const task=(async()=>{
+  const r=await sb.from('convs').insert(ttl?{kind:'dm',dm_key:key,secret_ttl:ttl}:{kind:'dm',dm_key:key}).select().single();
+  if(r.error){
+   if(ttl&&/secret_ttl|column/i.test(r.error.message)){toast('Выполните secret.sql в Supabase');return}
+   if(/duplicate|unique/i.test(r.error.message)){await loadAll();const found=existing();if(found)openChat(found.id);else toast('Не удалось открыть существующий чат')}
+   else toast(r.error.message);
+   return;
+  }
+  const c=r.data,k=await CR.newKey();K[c.id]=k;
+  const mr=await sb.from('members').insert([
+   {conv_id:c.id,user_id:me.id,role:'owner',wrapped_by:me.id,wrapped_key:await CR.wrap(ID.priv,ID.pub,k,c.id)},
+   {conv_id:c.id,user_id:u.id,role:'member',wrapped_by:me.id,wrapped_key:await CR.wrap(ID.priv,u.pubkey,k,c.id)}
+  ]);
+  if(mr.error){await sb.from('convs').delete().eq('id',c.id);delete K[c.id];toast('Не удалось добавить участника: '+mr.error.message);return}
+  P[u.id]=u;await loadAll();openChat(c.id);
+ })();
+ dmPending.set(key,task);
+ try{await task}finally{dmPending.delete(key)}
+}
 let NG={kind:'group',title:'',sel:[]};
 function newConv(kind,keep){if(!keep)NG={kind,title:'',sel:[]};
  sheet(`<h3>${NG.kind==='group'?'Новая группа':'Новый канал'}</h3><input id="gt" placeholder="Название" maxlength="60" value="${esc(NG.title)}"><div class="lbl">Участники</div>
@@ -718,7 +734,23 @@ function info(c){
   ${owner?'<button class="btn red" data-a="del">Удалить '+(c.kind==='channel'?'канал':'группу')+'</button>':'<button class="btn red" data-a="leave">Выйти</button>'}`,s=>s.onclick=async e=>{
   const a=e.target.dataset.a,rm=e.target.dataset.rm;
   if(!rm){const pu=e.target.closest('[data-pu]')?.dataset.pu;if(pu&&P[pu]){profileSheet(P[pu],()=>info(c));return}}
-  if(rm){const r=await sb.from('members').delete().eq('conv_id',c.id).eq('user_id',rm);if(r.error)toast(r.error.message);else{c.members=c.members.filter(x=>x.user_id!==rm);info(c)}}
+  if(rm){
+   if(c.kind==='group'||c.kind==='channel'){
+    try{
+     const remaining=c.members.filter(x=>x.user_id!==rm);
+     if(!remaining.length)throw new Error('Нельзя удалить последнего участника');
+     const nextKey=await CR.newKey(),wrapped={};
+     for(const member of remaining){
+      const user=P[member.user_id];
+      if(!user?.pubkey)throw new Error('Нет открытого ключа участника '+(user?.username||member.user_id));
+      wrapped[member.user_id]=await CR.wrap(ID.priv,user.pubkey,nextKey,c.id);
+     }
+     const r=await sb.rpc('rotate_group_member_key',{p_conv_id:c.id,p_user_id:rm,p_wrapped_keys:wrapped});
+     if(r.error)throw r.error;
+     K[c.id]=nextKey;closeSheet();await loadAll();if(C[c.id])info(C[c.id]);toast('Участник удалён. Ключ чата обновлён');
+    }catch(err){toast('Не удалось безопасно удалить участника: '+(err.message||err),6500)}
+   }else{const r=await sb.from('members').delete().eq('conv_id',c.id).eq('user_id',rm);if(r.error)toast(r.error.message);else{c.members=c.members.filter(x=>x.user_id!==rm);info(c)}}
+  }
   if(a==='gst'){groupStyle(c);return}if(a==='ren'){const t=prompt('Новое название',c.title||'');if(t&&t.trim()){const r=await sb.from('convs').update({title:t.trim()}).eq('id',c.id);if(r.error)toast(r.error.message);else{c.title=t.trim();head();info(c)}}}
   if(a==='add')pickUser(async u=>{if(c.members.some(x=>x.user_id===u.id)){toast('Уже в чате');return}const r=await addMembers(c,[u]);if(r.error)toast(r.error.message);else{P[u.id]=u;await loadAll();info(C[c.id])}},c.members.map(x=>x.user_id));
   if(a==='leave'&&confirm('Выйти из чата?')){const r=await sb.from('members').delete().eq('conv_id',c.id).eq('user_id',me.id);if(r.error)toast(r.error.message);else{closeSheet();cur=null;delete C[c.id];show('home');home()}}
