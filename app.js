@@ -8,26 +8,39 @@ const CR={
  async genIdentity(){const kp=await crypto.subtle.generateKey(EC,true,['deriveBits']);
   return{priv:kp.privateKey,pub:b64(await crypto.subtle.exportKey('raw',kp.publicKey)),jwk:await crypto.subtle.exportKey('jwk',kp.privateKey)}},
  importPriv:jwk=>crypto.subtle.importKey('jwk',jwk,EC,false,['deriveBits']),
- async pbk(pass,salt){const k=await crypto.subtle.importKey('raw',enc.encode(pass),'PBKDF2',false,['deriveKey']);
-  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:300000,hash:'SHA-256'},k,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])},
+ async pbk(pass,salt,iterations=600000){const k=await crypto.subtle.importKey('raw',enc.encode(pass),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations,hash:'SHA-256'},k,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])},
  async backup(jwk,pass){const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
   const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},await CR.pbk(pass,salt),enc.encode(JSON.stringify(jwk)));
-  return{salt:b64(salt),iv:b64(iv),ct:b64(ct)}},
- async restore(bk,pass){const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(bk.iv)},await CR.pbk(pass,unb64(bk.salt)),unb64(bk.ct));return JSON.parse(dec.decode(pt))},
+  return{v:2,salt:b64(salt),iv:b64(iv),ct:b64(ct)}},
+ async restore(bk,pass){const iterations=bk.v>=2?600000:300000;const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(bk.iv)},await CR.pbk(pass,unb64(bk.salt),iterations),unb64(bk.ct));return JSON.parse(dec.decode(pt))},
  async shared(priv,theirPub,info){const pub=await crypto.subtle.importKey('raw',unb64(theirPub),EC,false,[]);
   const bits=await crypto.subtle.deriveBits({name:'ECDH',public:pub},priv,256);
   const hk=await crypto.subtle.importKey('raw',bits,'HKDF',false,['deriveKey']);
   return crypto.subtle.deriveKey({name:'HKDF',hash:'SHA-256',salt:new Uint8Array(32),info:enc.encode('wrap:'+info)},hk,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])},
  newKey:()=>crypto.subtle.importKey('raw',crypto.getRandomValues(new Uint8Array(32)),'AES-GCM',true,['encrypt','decrypt']),
- async wrap(priv,theirPub,K,conv){const aes=await CR.shared(priv,theirPub,conv),iv=crypto.getRandomValues(new Uint8Array(12));
-  const raw=new Uint8Array(await crypto.subtle.exportKey('raw',K));
-  return b64(cat(iv,new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},aes,raw))))},
- async unwrap(priv,theirPub,w,conv){const aes=await CR.shared(priv,theirPub,conv),u=unb64(w);
-  const raw=await crypto.subtle.decrypt({name:'AES-GCM',iv:u.slice(0,12)},aes,u.slice(12));
+ async wrap(priv,theirPub,K,conv){const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
+  const pub=await crypto.subtle.importKey('raw',unb64(theirPub),EC,false,[]),bits=await crypto.subtle.deriveBits({name:'ECDH',public:pub},priv,256);
+  const hk=await crypto.subtle.importKey('raw',bits,'HKDF',false,['deriveKey']);
+  const aes=await crypto.subtle.deriveKey({name:'HKDF',hash:'SHA-256',salt,info:enc.encode('message/e2ee/key-wrap/v2:'+conv)},hk,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+  const raw=new Uint8Array(await crypto.subtle.exportKey('raw',K)),aad=enc.encode('message/e2ee/key-wrap/aad/v2:'+conv);
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:aad},aes,raw);
+  return 'v2.'+b64(cat(cat(salt,iv),new Uint8Array(ct)))},
+ async unwrap(priv,theirPub,w,conv){let aes,u,iv,ct,aad;
+  if(typeof w==='string'&&w.startsWith('v2.')){u=unb64(w.slice(3));const salt=u.slice(0,16);iv=u.slice(16,28);ct=u.slice(28);
+   const pub=await crypto.subtle.importKey('raw',unb64(theirPub),EC,false,[]),bits=await crypto.subtle.deriveBits({name:'ECDH',public:pub},priv,256);
+   const hk=await crypto.subtle.importKey('raw',bits,'HKDF',false,['deriveKey']);
+   aes=await crypto.subtle.deriveKey({name:'HKDF',hash:'SHA-256',salt,info:enc.encode('message/e2ee/key-wrap/v2:'+conv)},hk,{name:'AES-GCM',length:256},false,['decrypt']);
+   aad=enc.encode('message/e2ee/key-wrap/aad/v2:'+conv);
+  }else{aes=await CR.shared(priv,theirPub,conv);u=unb64(w);iv=u.slice(0,12);ct=u.slice(12)}
+  const raw=await crypto.subtle.decrypt({name:'AES-GCM',iv,...(aad?{additionalData:aad}:{})},aes,ct);
   return crypto.subtle.importKey('raw',raw,'AES-GCM',true,['encrypt','decrypt'])},
- async sealB(K,conv,bytes){const iv=crypto.getRandomValues(new Uint8Array(12));
-  return cat(iv,new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:enc.encode(conv)},K,bytes)))},
- async openB(K,conv,u){return new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv:u.slice(0,12),additionalData:enc.encode(conv)},K,u.slice(12)))},
+ async sealB(K,conv,bytes){const iv=crypto.getRandomValues(new Uint8Array(12)),magic=new Uint8Array([0x50,0x42,0x02]);
+  const aad=enc.encode('message/e2ee/payload/aad/v2:'+conv),ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:aad},K,bytes));
+  return cat(cat(magic,iv),ct)},
+ async openB(K,conv,u){const v2=u.length>3&&u[0]===0x50&&u[1]===0x42&&u[2]===0x02,off=v2?3:0,iv=u.slice(off,off+12),ct=u.slice(off+12);
+  const aad=v2?enc.encode('message/e2ee/payload/aad/v2:'+conv):enc.encode(conv);
+  return new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv,additionalData:aad},K,ct))},
  async seal(K,conv,obj){return b64(await CR.sealB(K,conv,enc.encode(JSON.stringify(obj))))},
  async open(K,conv,s){return JSON.parse(dec.decode(await CR.openB(K,conv,unb64(s))))}
 };
@@ -137,9 +150,9 @@ async function start(s){if(me)return;window.__lastSession=s;me=s.user;if(!window
 /* ---------- ключи ---------- */
 function askPhrase(create,err){return new Promise(res=>{
  $('#kt').textContent=create?'Ключевая фраза':'Введите ключевую фразу';
- $('#kd').textContent=create?'Она защищает ваши сообщения. Запишите её: без неё не получится войти с нового телефона, восстановить её нельзя.':'Нужна, чтобы расшифровать ваши чаты на этом устройстве.';
+ $('#kd').textContent=create?'Создайте длинную уникальную фразу минимум из 16 символов. Она защищает резервную копию ключа. Запишите её: без неё восстановить чаты нельзя.':'Нужна, чтобы расшифровать ваши чаты на этом устройстве.';
  $('#kp').value='';$('#kp2').value='';$('#kp2').hidden=!create;$('#kmsg').textContent=err||'';show('keys');
- const go=()=>{const a=$('#kp').value;if(a.length<6){$('#kmsg').textContent='Минимум 6 символов';return}
+ const go=()=>{const a=$('#kp').value;if(a.length<(create?16:6)){$('#kmsg').textContent=create?'Минимум 16 символов':'Минимум 6 символов';return}
   if(create&&a!==$('#kp2').value){$('#kmsg').textContent='Фразы не совпадают';return}res(a)};
  $('#kgo').onclick=go;$('#kp').onkeydown=$('#kp2').onkeydown=e=>{if(e.key==='Enter')go()}})}
 async function ensureKeys(){
