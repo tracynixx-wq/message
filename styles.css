@@ -528,3 +528,11 @@ html{overflow:hidden;overscroll-behavior:none}
 #appUpdate .app-update-copy span{font-size:11px;color:var(--mut)}
 #appUpdate button{border:0;border-radius:10px;padding:9px 12px;background:var(--accent);color:var(--onacc);font-size:12px;font-weight:700;white-space:nowrap}
 #appUpdate #appUpdateClose{padding:4px 7px;background:transparent;color:var(--mut);font-size:20px}
+
+/* Android keyboard/viewport stability */
+html.kb #app{height:var(--vvh,100dvh)}
+html.kb #home,html.kb #chat{min-height:0}
+html.kb #list,html.kb #clist{min-height:0;overscroll-behavior:contain}
+html.kb #inp{font-size:16px;max-height:120px}
+.android-perf input,.android-perf textarea{scroll-margin-block:12px}
+.android-perf #app{height:100dvh;contain:layout paint}
