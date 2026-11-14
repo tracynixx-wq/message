@@ -160,7 +160,8 @@ async function ensureKeys(){
  try{ID=await idb.get('id:'+me.id)}catch(e){ID=null}
  const bk=BK0||await sb.from('keybackup').select('data').eq('user_id',me.id).maybeSingle();BK0=null;
  if(bk.error){toast(bk.error.message);return false}
- if(ID&&bk.data){}
+ if(ID&&bk.data&&bk.data.data?.pub&&ID.pub!==bk.data.data.pub){ID=null;await idb.set('id:'+me.id,null)}
+ if(ID){}
  else if(bk.data){let err='';
   for(;;){const ph=await askPhrase(false,err);try{const jwk=await CR.restore(bk.data.data,ph);const priv=await CR.importPriv(jwk);
    ID={priv,pub:bk.data.data.pub};await idb.set('id:'+me.id,ID);break}catch(e){err='Неверная фраза'}}}
