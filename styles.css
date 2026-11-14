@@ -454,3 +454,17 @@ html{overflow:hidden;overscroll-behavior:none}
 .b.media-bubble .mi,.b.media-bubble video,.b.media-bubble .ph{width:min(260px,70vw);height:180px;max-height:none;object-fit:contain}
 .b.media-bubble .ph{width:min(260px,70vw);height:180px}
 @media(prefers-reduced-motion:reduce){.story-avatar,.story-tile{transition:none}}
+
+/* Profile and settings are full tabs, not bottom sheets */
+#gear{display:none!important}
+#clist>.profile-screen,#clist>.settings-screen{width:100%;max-width:760px;margin:0 auto;padding:16px 16px max(22px,env(safe-area-inset-bottom));}
+#clist>.profile-screen{gap:18px}
+#clist>.settings-screen{gap:18px}
+.account-switch-list{display:grid;gap:7px}
+.account-switch-row{width:100%;display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:14px;background:var(--card);text-align:left;color:var(--fg);min-width:0}
+.account-switch-row>span{display:grid;gap:3px;flex:1;min-width:0}
+.account-switch-row b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.account-switch-row small{font-size:11px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.account-switch-row i{font-style:normal;color:var(--accent);font-size:12px;flex:none}
+.account-switch-section .btn{margin-top:5px}
+#nav button{min-width:0}
