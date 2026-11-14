@@ -217,7 +217,7 @@ async function loadAllImpl(){
 async function enter(){applyTheme(prof.theme);P[me.id]=prof;show('home');await loadAll();
  const q=new URLSearchParams(location.search).get('c');if(q&&C[q])openChat(q);
  realtime();presence();pushSync();
- navigator.serviceWorker?.addEventListener('message',e=>{if(e.data?.open&&C[e.data.open])openChat(e.data.open)})}
+ if(navigator.serviceWorker&&!window.__swMessageBound){window.__swMessageBound=true;navigator.serviceWorker.addEventListener('message',e=>{const id=e.data?.open;if(typeof id!=='string'||!id)return;(async()=>{if(!C[id])await loadAll();if(C[id])openChat(id);else toast('Этот чат больше недоступен')})().catch(err=>console.warn('[notification] open failed',err))})}}
 function realtime(){
  sb.channel('room')
  .on('postgres_changes',{event:'*',schema:'public',table:'msgs'},onMsg)
