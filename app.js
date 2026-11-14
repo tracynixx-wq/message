@@ -912,8 +912,7 @@ function profilePage(){
   const accounts=readLocalAccounts(),active=window.__authStorageKey||defaultAuthStorageKey();
   const accountRows=accounts.map(x=>`<button class="account-switch-row" data-account-key="${esc(x.storageKey)}">${av({id:x.id,name:x.name,username:x.username,avatar_url:x.avatar_url},40)}<span><b>${esc(x.name||x.username||x.email||'Аккаунт')}</b><small>${esc(x.email||(x.username?'@'+x.username:''))}</small></span><i>${x.storageKey===active?'✓':'Переключить'}</i></button>`).join('');
   renderSectionPage('Профиль',`<div class="profile-screen">
-  <div class="profile-cover">${coverMedia(prof)}</div>
-  <div class="profile-hero">${av(prof,88)}<div class="profile-identity"><h2>${displayName(prof)} ${esc(prof.status_emoji||'')}</h2><span class="profile-status"><i></i>${stat(prof)||'в сети'}</span><small>@${esc(prof.username||'')}</small></div></div>
+  <div class="profile-cover profile-cover-hero">${coverMedia(prof)}<div class="profile-banner-shade"></div><div class="profile-banner-identity">${av(prof,82)}<div class="profile-identity"><h2>${displayName(prof)} ${esc(prof.status_emoji||'')}</h2><span class="profile-status"><i></i>${stat(prof)||'в сети'}</span><small>@${esc(prof.username||'')}</small></div></div></div>
   
   <button class="profile-edit-button" id="profileEdit">${uiIcon('edit')}Редактировать профиль</button>
   <section class="profile-section-new account-switch-section"><div class="profile-section-head"><b>Смена профиля</b>${uiIcon('user')}</div><div class="account-switch-list">${accountRows||'<div class="profile-empty">Сохранённых профилей пока нет</div>'}</div><button class="btn" id="addProfile">＋ Добавить профиль</button></section>
