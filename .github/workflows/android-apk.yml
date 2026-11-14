@@ -29,6 +29,19 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Restore stable Android debug signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: message-debug-signing-key-v1
+
+      - name: Create stable debug signing key if missing
+        run: |
+          mkdir -p ~/.android
+          if [ ! -f ~/.android/debug.keystore ]; then
+            keytool -genkeypair -v -keystore ~/.android/debug.keystore -storepass message-debug -alias message -keypass message-debug -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Message Debug,O=Message,C=LV"
+          fi
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
