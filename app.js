@@ -102,9 +102,10 @@ try{applyTheme(JSON.parse(localStorage.getItem('th')))}catch(e){applyTheme()}
 let SHOWN=null;
 function show(id){const prev=SHOWN;SHOWN=id;['load','auth','keys','home','chat'].forEach(k=>$('#'+k).hidden=k!==id);
  if(prev&&prev!==id&&(id==='chat'||(id==='home'&&prev==='chat'))){const el=$('#'+id);el.classList.remove('slR','slL');void el.offsetWidth;el.classList.add(id==='chat'?'slR':'slL');setTimeout(()=>el.classList.remove('slR','slL'),350)}}
-function sheet(html,mount){const s=$('#sheet');s.innerHTML=`<div class="sh">${html}</div>`;s.hidden=false;
+function releaseSheetMedia(){const s=$('#sheet');s.querySelectorAll('img[src^="blob:"],video[src^="blob:"],audio[src^="blob:"]').forEach(e=>{try{URL.revokeObjectURL(e.src)}catch(_){}});s.querySelectorAll('[data-preview-url]').forEach(e=>{try{URL.revokeObjectURL(e.dataset.previewUrl)}catch(_){};delete e.dataset.previewUrl})}
+function sheet(html,mount){const s=$('#sheet');releaseSheetMedia();s.innerHTML=`<div class="sh">${html}</div>`;s.hidden=false;
  s.onclick=e=>{if(e.target===s)closeSheet()};if(mount)mount(s.firstChild);return s.firstChild}
-function closeSheet(){$('#sheet').hidden=true;$('#sheet').innerHTML=''}
+function closeSheet(){releaseSheetMedia();$('#sheet').hidden=true;$('#sheet').innerHTML=''}
 const idb=(()=>{let d;const open=()=>d||(d=new Promise((res,rej)=>{const r=indexedDB.open('chat2',1);r.onupgradeneeded=()=>r.result.createObjectStore('k');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}));
  const tx=async(m,f)=>{const db=await open();return new Promise((res,rej)=>{const t=db.transaction('k',m),q=f(t.objectStore('k'));t.oncomplete=()=>res(q.result);t.onerror=()=>rej(t.error)})};
  return{get:k=>tx('readonly',s=>s.get(k)),set:(k,v)=>tx('readwrite',s=>s.put(v,k))}})();
@@ -778,12 +779,12 @@ function chatDesign(){let t=applyTheme(prof.theme);const dk=document.documentEle
   q('#wcl').onclick=()=>{t={...t,wallUrl:''};set('wall','none');mark('#cw1',x=>x.dataset.w==='none')};
   q('#cdn').onclick=async()=>{prof.theme=t;P[me.id]=prof;closeSheet();await sb.from('profiles').update({theme:t}).eq('id',me.id);cur?render():home()}})}
 
-function groupStyle(c){let col=c.color||'',pend=null;
+function groupStyle(c){let col=c.color||'',pend=null,previewUrl=null;
  const s=sheet(`<h3>Оформление группы</h3><div id="gp" style="display:grid;justify-items:center"></div>
   <button class="link" id="gpc" style="justify-self:center">Выбрать фото</button><input type="file" id="gpf" accept="image/*" hidden>
   <div class="lbl">Цвет</div><div class="sw" id="gcol">${GR.map(g=>`<i data-c="${g.join(',')}" style="background:linear-gradient(135deg,${g[0]},${g[1]||g[0]})"></i>`).join('')}</div>
   <div id="gm" class="msg"></div><button class="btn" id="gs">Сохранить</button>`,s=>{
-  const q=x=>s.querySelector(x),redraw=()=>{q('#gp').innerHTML=av({...c,color:col,avatar_url:pend?URL.createObjectURL(pend):c.avatar_url},96);
+  const q=x=>s.querySelector(x),redraw=()=>{if(previewUrl){URL.revokeObjectURL(previewUrl);previewUrl=null}if(pend)previewUrl=URL.createObjectURL(pend);q('#gp').innerHTML=av({...c,color:col,avatar_url:previewUrl||c.avatar_url},96);
    q('#gcol').querySelectorAll('i').forEach(i=>i.classList.toggle('on',i.dataset.c===col))};redraw();
   q('#gpc').onclick=()=>q('#gpf').click();
   q('#gpf').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{pend=await shrink(f,512);redraw()}catch(_){toast('Не удалось прочитать фото')}};
