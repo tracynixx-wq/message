@@ -162,17 +162,19 @@ async function dc(m){const k=K[m.conv_id];m.p=null;if(!k){m.p={t:'🔒 Нет к
  try{m.p=await CR.open(k,m.conv_id,m.data)}catch(e){m.p={t:'🔒 Не удалось расшифровать'}}}
 async function loadAll(){
  const mr=await sb.from('members').select('*').eq('user_id',me.id);
+ if(mr.error){toast('Не удалось загрузить список чатов: '+mr.error.message);return}
  const ids=(mr.data||[]).map(x=>x.conv_id);
  if(!ids.length){C={};M={};cur?render():home();return}
  const msP=sb.from('msgs').select('*').in('conv_id',ids).order('id',{ascending:false}).limit(600);
  const [cv,mm]=await Promise.all([sb.from('convs').select('*').in('id',ids),sb.from('members').select('*').in('conv_id',ids)]);
+ if(cv.error||mm.error){toast('Не удалось загрузить данные чатов: '+(cv.error||mm.error).message);return}
  const uids=[...new Set((mm.data||[]).flatMap(x=>[x.user_id,x.wrapped_by]))];
- const pr=await sb.from('profiles').select('*').in('id',uids);(pr.data||[]).forEach(p=>P[p.id]=p);P[me.id]=prof;
+ const pr=await sb.from('profiles').select('*').in('id',uids);if(pr.error){toast('Не удалось загрузить профили участников: '+pr.error.message);return}(pr.data||[]).forEach(p=>P[p.id]=p);P[me.id]=prof;
  const nc={};(cv.data||[]).forEach(c=>nc[c.id]={...c,members:[],my:null});
  (mm.data||[]).forEach(x=>{const c=nc[x.conv_id];if(!c)return;c.members.push(x);if(x.user_id===me.id)c.my=x});
  C=nc;M={};if(!cur)home();
  await Promise.all(Object.values(C).map(unwrap));
- const ms=await msP;const list=(ms.data||[]).reverse();
+ const ms=await msP;if(ms.error){toast('Не удалось загрузить сообщения: '+ms.error.message);return}const list=(ms.data||[]).reverse();
  for(let i=0;i<list.length;i+=60)await Promise.all(list.slice(i,i+60).map(dc));
  for(const m of list)(M[m.conv_id]=M[m.conv_id]||[]).push(m);
  if(cur&&!C[cur])cur=null;
