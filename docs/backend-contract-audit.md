@@ -10,7 +10,7 @@ The existing `setup.sql` is obsolete for this application and must not be run ag
 - Its profile insert policy contains `(select count(*) from profiles)<2`, which would prevent normal account creation once two profiles exist.
 - Its message policies are not scoped to conversation membership.
 
-No live database has been changed during this audit.
+The live project was subsequently verified and updated on 2026-11-14. The changes are recorded in `supabase/migrations/20261114120000_harden_messenger_backend.sql`.
 
 ## Tables and fields referenced by the client
 
@@ -62,10 +62,12 @@ The database implementation must validate that the caller is a member of the aff
 
 - Conversation creation currently uses multiple requests (create conversation, insert owner/member rows, then add other members). A failure can leave orphaned conversations or partially populated groups. Prefer one transactional RPC.
 - `loadAll()` does not consistently surface errors from the members, conversations, messages, and profile queries; failed requests can look like empty chat lists.
-- The client reads up to 600 messages total across all conversations, rather than paginating per conversation.
+- The client currently loads up to 600 messages per conversation; cursor-based pagination is still needed for long-running chats.
 - The client currently fetches encrypted media through public object URLs. Encryption protects message contents only if key handling and authorization are sound; it does not prevent public retrieval of ciphertext.
 - The browser stores the unlocked private key in IndexedDB for convenience. Device-level access and logout/key-removal behavior need an explicit threat-model review.
 
 ## Verification still required
 
-Before writing or applying migrations, inspect the actual Supabase project matching the URL in `config.js`, then compare every table, column, index, constraint, trigger, function, bucket, storage policy, and RLS policy against this contract. The connected Supabase projects available during this pass do not match that URL, so no schema changes were attempted.
+The connected live project was verified on 2026-11-14. Its initial schema contained the legacy tables `chats` and `messages` alongside the active `convs`, `members`, and `msgs` model. The `stories` and `story_views` tables were missing and have now been created with RLS policies. A private `stories` Storage bucket was added; story images now use signed URLs. Group/channel membership changes rotate encryption keys and preserve each remaining member's old wrapped keys in `member_key_history` so previous messages remain decryptable. RLS init-plan expressions and foreign-key indexes were optimized.
+
+Still verify with real user accounts and devices: story visibility through DM membership, Storage signed URL expiry, group-key rotation/add/remove flows, notification delivery, voice/video calls, and long-history loading. The push Edge Function and VAPID private key are not yet deployed/configured, so server push notifications are not confirmed working.
