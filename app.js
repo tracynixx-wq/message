@@ -895,11 +895,11 @@ function saveLocalAccount(user,profile){try{const key=window.__authStorageKey||d
 function switchToAccount(key){if(!key||key===(window.__authStorageKey||defaultAuthStorageKey()))return;try{localStorage.setItem('msg.activeAuthKey',key);location.reload()}catch(e){toast('Не удалось переключить профиль')}}
 function addAccount(){try{const key=defaultAuthStorageKey()+'-account-'+crypto.randomUUID();localStorage.setItem('msg.activeAuthKey',key);location.reload()}catch(e){toast('Не удалось создать новый профиль входа')}}
 function profilePage(){
-  const isCreator=me?.id===CFG.creator,phone=isCreator?'+888 0000 0088':(me?.phone||prof.phone||prof.phone_number||''),phoneVisible=isCreator||prof.phone_public!==false,accounts=readLocalAccounts(),active=window.__authStorageKey||defaultAuthStorageKey();
+  const accounts=readLocalAccounts(),active=window.__authStorageKey||defaultAuthStorageKey();
   const accountRows=accounts.map(x=>`<button class="account-switch-row" data-account-key="${esc(x.storageKey)}">${av({id:x.id,name:x.name,username:x.username,avatar_url:x.avatar_url},40)}<span><b>${esc(x.name||x.username||x.email||'Аккаунт')}</b><small>${esc(x.email||(x.username?'@'+x.username:''))}</small></span><i>${x.storageKey===active?'✓':'Переключить'}</i></button>`).join('');
   renderSectionPage('Профиль',`<div class="profile-screen">
   <div class="profile-hero">${av(prof,88)}<div class="profile-identity"><h2>${displayName(prof)} ${esc(prof.status_emoji||'')}</h2><span class="profile-status"><i></i>${stat(prof)||'в сети'}</span><small>@${esc(prof.username||'')}</small></div></div>
-  ${phone&&phoneVisible?`<div class="profile-facts"><div><span>Телефон</span><b>${esc(phone)}</b></div></div>`:''}
+  
   <button class="profile-edit-button" id="profileEdit">${uiIcon('edit')}Редактировать профиль</button>
   <section class="profile-section-new account-switch-section"><div class="profile-section-head"><b>Смена профиля</b>${uiIcon('user')}</div><div class="account-switch-list">${accountRows||'<div class="profile-empty">Сохранённых профилей пока нет</div>'}</div><button class="btn" id="addProfile">＋ Добавить профиль</button></section>
   </div>`,root=>{
@@ -916,12 +916,12 @@ function redesignedSettings(){
  <section class="settings-group"><h3>Аккаунт</h3>${row('user','Профиль','profile')}${row('devices','Устройства и сеансы','devices')}${row('folder','Папки и организация','folders',String(folders().length||'—'))}</section>
  <section class="settings-group"><h3>Внешний вид</h3>${row('palette','Оформление чатов','cd')}<div class="settings-option"><div class="settings-option-title">${uiIcon('sliders')}<span>Тема приложения</span></div><div class="seg">${[['auto','Авто'],['light','Светлая'],['dark','Тёмная']].map(([k,n])=>`<button data-mode="${k}" class="${md===k?'on':''}">${n}</button>`).join('')}</div></div><div class="settings-option"><div class="settings-option-title">${uiIcon('palette')}<span>Акцентный цвет</span></div><div class="sw">${ACC.map(c=>`<i data-acc="${c}" style="background:${c||'linear-gradient(135deg,#151515 50%,#f2f2f4 50%)'}" class="${((t.accent==='#3e88f7'?'':t.accent)||'')===c?'on':''}"></i>`).join('')}</div></div></section>
  <section class="settings-group"><h3>Данные</h3>${row('database','Резервная копия ключа','backup')}${row('sliders','Специальные возможности','access')}${row('help','Помощь и диагностика','support')}</section>
- <section class="settings-group"><h3>Безопасность и конфиденциальность</h3>${row('shield','Шифрование переписки','security','Включено')}${row('key','Ключ и восстановление','backup')}<button class="srow settings-row" data-a="phonePrivacy"><span>Показывать мой номер телефона</span><b>${prof.phone_public===true?'Включено':'Выключено'}</b><span class="settings-chevron">›</span></button><div class="settings-note">По умолчанию номер скрыт.</div></section>
+ <section class="settings-group"><h3>Безопасность и конфиденциальность</h3>${row('shield','Шифрование переписки','security','Включено')}${row('key','Ключ и восстановление','backup')}</section>
  <section class="settings-group"><h3>Уведомления</h3>${row('bell','Push-уведомления','push',perm==='granted'?'Включены':perm==='denied'?'Запрещены':perm==='unsupported'?'Недоступны':'Выключены')}${row('bell','Проверить уведомление','test')}</section>
  <div class="settings-note">Ключ шифрования хранится на этом устройстве. Для входа с другого телефона понадобится ключевая фраза.</div><button class="settings-logout" data-a="out">${uiIcon('logout')}Выйти из аккаунта</button></div>`,s=>s.onclick=async e=>{
  const a=e.target.closest('[data-a]')?.dataset.a,md2=e.target.dataset.mode,ac=e.target.dataset.acc;
  if(md2||ac!==undefined){const n={...(prof.theme||{})};if(md2)n.mode=md2;if(ac!==undefined)n.accent=ac;prof.theme=applyTheme(n);await sb.from('profiles').update({theme:prof.theme}).eq('id',me.id);redesignedSettings();return}
- if(a==='profile'){setTab('profile');return}if(a==='phonePrivacy'){const next=prof.phone_public!==true;const z=await sb.from('profiles').update({phone_public:next}).eq('id',me.id);if(z.error){toast('Не удалось сохранить настройку');return}prof.phone_public=next;saveLocalAccount(me,prof);redesignedSettings();return}if(a==='security'){toast('Переписка защищена сквозным шифрованием');return}
+ if(a==='profile'){setTab('profile');return}if(a==='security'){toast('Переписка защищена сквозным шифрованием');return}
  if(a==='cd'){chatDesign();return}if(a==='push')enablePush();if(a==='test')testPush();
  if(a==='devices')settingsDevices();if(a==='folders')settingsFolders();if(a==='backup')settingsBackup();if(a==='access')settingsAccess();if(a==='support')settingsSupport();
  if(a==='out'&&confirm('Выйти из аккаунта?'))sb.auth.signOut()
