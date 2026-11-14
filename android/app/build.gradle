@@ -4,7 +4,7 @@ plugins {
 
 dependencies {
     implementation 'androidx.core:core:1.15.0'
-    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.7.4'
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
 }
 
 android {

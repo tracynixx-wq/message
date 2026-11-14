@@ -270,7 +270,7 @@ async function onMsg(p){const n=p.new;let affectsOpen=false;
  if(cur){if(affectsOpen)render(p.eventType==='INSERT'&&n?.conv_id===cur);markRead()}else home()}
 function onMem(p){const x=p.new,o=p.old;
  if(p.eventType==='INSERT'){if(x.user_id===me.id||!C[x.conv_id])loadAll();else loadAll();return}
- if(p.eventType==='DELETE'){if(o.user_id===me.id){delete C[o.conv_id];delete K[o.conv_id];delete M[o.conv_id];(M[o.conv_id]||[]).forEach(m=>messageIndex.delete(String(m.id)));if(cur===o.conv_id){cur=null;show('home')}home()}else loadAll();return}
+ if(p.eventType==='DELETE'){if(o.user_id===me.id){delete C[o.conv_id];delete K[o.conv_id];(M[o.conv_id]||[]).forEach(m=>messageIndex.delete(String(m.id)));delete M[o.conv_id];if(cur===o.conv_id){cur=null;show('home')}home()}else loadAll();return}
  const c=C[x.conv_id];if(!c)return;const i=c.members.findIndex(m=>m.user_id===x.user_id);if(i>-1)c.members[i]=x;if(x.user_id===me.id)c.my=x;if(cur===x.conv_id)render()}
 function presence(){
  const ping=(force)=>{if(force===true||!document.hidden)sb.from('profiles').update({last_seen:new Date().toISOString()}).eq('id',me.id).then(()=>{})};
@@ -461,7 +461,7 @@ let mediaObserver=null;
 function watchChatMedia(box){
  if(!('IntersectionObserver' in window)){box.querySelectorAll('[data-m]').forEach(el=>loadMedia(el));return}
  if(!mediaObserver)mediaObserver=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting){mediaObserver.unobserve(entry.target);loadMedia(entry.target)}}),{root:box,rootMargin:'480px 0px'});
- box.querySelectorAll('[data-m]').forEach(el=>mediaObserver.observe(el));
+ box.querySelectorAll('[data-m]').forEach(el=>{if(el.dataset.observed)return;el.dataset.observed='1';mediaObserver.observe(el)});
 }
 function render(sc,behavior='auto'){
  const c=C[cur];if(!c)return;pruneSecret();
@@ -608,7 +608,7 @@ $('#sendb').onclick=async()=>{const t=inp.value.trim(),c=C[cur];if(!t||!c)return
 inp.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&matchMedia('(hover:hover)').matches){e.preventDefault();$('#sendb').click()}};
 
 /* ---------- файлы ---------- */
-async function loadMedia(el){const m=messageIndex.get(String(el.dataset.m));if(!m||!m.p||!m.p.p)return;const p=m.p,c=C[m.conv_id];if(!c||!K[c.id]){if(el.isConnected)el.textContent='🔒 нет доступа';return}
+async function loadMedia(el){if(!el||el.dataset.loading==='1')return;const m=messageIndex.get(String(el.dataset.m));if(!m||!m.p||!m.p.p)return;el.dataset.loading='1';const p=m.p,c=C[m.conv_id];if(!c||!K[c.id]){if(el.isConnected)el.textContent='🔒 нет доступа';return}
  try{let url=BLOB[p.p];
   if(!url){const r=await fetch(sb.storage.from('media').getPublicUrl(p.p).data.publicUrl);if(!r.ok)throw 0;
    const raw=await CR.openB(K[c.id],c.id,new Uint8Array(await r.arrayBuffer()));url=BLOB[p.p]=URL.createObjectURL(new Blob([raw],{type:p.y||'application/octet-stream'}))}
@@ -617,7 +617,7 @@ async function loadMedia(el){const m=messageIndex.get(String(el.dataset.m));if(!
   else if(p.k==='vid'){el.outerHTML=`<video src="${url}" controls playsinline preload="metadata"></video>`;const video=document.querySelector(`#list .b[data-id="${m.id}"] video`);if(video&&video.readyState<1)await new Promise(resolve=>{let done=false;const finish=()=>{if(done)return;done=true;resolve()};video.addEventListener('loadedmetadata',finish,{once:true});video.addEventListener('error',finish,{once:true});setTimeout(finish,2000)})}
   else if(p.k==='aud'){el.outerHTML=audHtml(url)}
   else{el.href=url;el.download=p.n||'file'}
- }catch(e){if(el.isConnected&&el.classList.contains('ph'))el.textContent='⚠️ не загрузилось'}}
+ }catch(e){if(el.isConnected&&el.classList.contains('ph')){delete el.dataset.loading;el.textContent='⚠️ не загрузилось'}}}
 async function loadOlderMessages(id){
  if(!id||OLDER_LOADING[id]||!MORE[id]||!M[id]?.length)return;
  OLDER_LOADING[id]=true;
@@ -1078,7 +1078,7 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch
 let updateCheckAt=0;
 async function checkAndroidUpdate(){
  const native=window.MessageNative,standalone=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
- if(!native&&!standalone)return;
+ const inAndroidApp=/Android/i.test(navigator.userAgent)&&(!!native||standalone||new URLSearchParams(location.search).has('appVersion'));if(!inAndroidApp)return;
  if(Date.now()-updateCheckAt<300000)return;updateCheckAt=Date.now();
  try{
   const res=await fetch('https://api.github.com/repos/tracynixx-wq/message/releases/latest',{headers:{Accept:'application/vnd.github+json'},cache:'no-store'});
