@@ -596,13 +596,17 @@ $('#newb').onclick=()=>sheet(`<h3>Новый чат</h3>
  <div class="srow" data-a="secret">🔒 Секретный чат</div>
  <div class="srow" data-a="group">👥 Создать группу</div>
  <div class="srow" data-a="channel">📢 Создать канал</div>`,s=>s.onclick=e=>{const a=e.target.closest('[data-a]')?.dataset.a;if(!a)return;a==='dm'?pickUser(u=>startDm(u)):a==='secret'?secretStart():newConv(a,false)});
-async function findUsers(q){q=q.trim().replace(/^@/,'').replace(/[%_,()]/g,'');if(q.length<2)return[];
- const r=await sb.from('profiles').select('*').or(`username.ilike.${q}%,name.ilike.${q}%`).neq('id',me.id).limit(12);return r.data||[]}
+async function findUsers(q){q=q.trim().replace(/^@/,'').replace(/[^\p{L}\p{N}_ -]/gu,'').slice(0,32);if(q.length<2)return[];
+ const r=await sb.from('profiles').select('*').or(`username.ilike.${q}%,name.ilike.${q}%`).neq('id',me.id).limit(24);
+ if(r.error)throw r.error;const seen=new Set();return(r.data||[]).filter(u=>u&&u.id&&!seen.has(u.id)&&seen.add(u.id))}
 function pickUser(cb,exclude=[]){sheet(`<h3>Поиск по @имени или имени</h3><input id="su" placeholder="Например: ivan" autocapitalize="off"><div id="sr"></div>`,s=>{
- let t;const box=s.querySelector('#sr');s.querySelector('#su').oninput=e=>{clearTimeout(t);t=setTimeout(async()=>{
-  const us=(await findUsers(e.target.value)).filter(u=>!exclude.includes(u.id));
-  box.innerHTML=us.length?us.map(u=>`<div class="mrow" data-u="${u.id}" style="cursor:pointer">${av(u,44)}<div class="ci"><b>${displayName(u)}</b><small>@${esc(u.username||'')}</small></div></div>`).join(''):'<p class="msg">Никого не нашли</p>';
-  box.onclick=ev=>{const r=ev.target.closest('[data-u]');if(!r)return;const u=us.find(x=>x.id===r.dataset.u);if(!u.pubkey){toast('Этот человек ещё не открыл новое приложение');return}cb(u)}},250)}})}
+ let t,seq=0;const box=s.querySelector('#sr'),input=s.querySelector('#su');
+ input.oninput=e=>{clearTimeout(t);const value=e.target.value,request=++seq;t=setTimeout(async()=>{
+  try{const us=(await findUsers(value)).filter(u=>!exclude.includes(u.id));if(request!==seq||!s.isConnected)return;
+   box.innerHTML=us.length?us.map(u=>`<div class="mrow" data-u="${esc(u.id)}" style="cursor:pointer">${av(u,44)}<div class="ci"><b>${displayName(u)}</b><small>@${esc(u.username||'')}</small></div></div>`).join(''):'<p class="msg">Никого не нашли</p>';
+   box.onclick=ev=>{const r=ev.target.closest('[data-u]');if(!r)return;const u=us.find(x=>String(x.id)===r.dataset.u);if(!u)return;if(!u.pubkey){toast('Этот человек ещё не открыл новое приложение');return}cb(u)}
+  }catch(err){if(request===seq)box.innerHTML='<p class="msg">Не удалось выполнить поиск. Попробуйте ещё раз.</p>'}
+ },250)}})}
 async function addMembers(c,users,role='member'){const rows=[];
  for(const u of users)rows.push({conv_id:c.id,user_id:u.id,role,wrapped_by:me.id,wrapped_key:await CR.wrap(ID.priv,u.pubkey,K[c.id],c.id)});return sb.from('members').insert(rows)}
 const TTL=[[3600,'1 час'],[86400,'1 день'],[604800,'1 неделя']];const ttlName=n=>(TTL.find(x=>x[0]===n)||[0,Math.round(n/3600)+' ч'])[1];
