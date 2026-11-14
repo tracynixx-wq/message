@@ -349,7 +349,7 @@ function contactsList(f){const seen=new Set(),L=[];Object.values(C).forEach(c=>{
  let h=`<div class="crow" data-find="1"><div class="av" style="width:50px;height:50px;font-size:24px">+</div><div class="ci"><b>Найти пользователя</b><small>Написать новому человеку</small></div></div>`;
  h+=rows.length?rows.map(({c,o})=>`<div class="crow" data-c="${c.id}"><div class="avw">${av(o,50)}${online(o)?'<i class="dot"></i>':''}</div><div class="ci"><b class="nm"><span class="t">${displayName(o,title(c))} ${esc(o.status_emoji||'')}</span></b><small>${online(o)?'в сети':(o.last_seen?'был(а) '+tm(o.last_seen):'@'+esc(o.username||''))}</small></div></div>`).join(''):'<div class="empty">Пока нет контактов.<br>Начните личный чат — человек появится здесь.</div>';
  $('#clist').innerHTML=h}
-function setTab(t){if(t==='profile'){sets();return}TAB=t;showArch=false;document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab===TAB));$('#home .top h2').textContent=TAB==='chats'?'Чаты':TAB==='contacts'?'Контакты':'Истории';home();if(TAB==='stories')loadStories()}
+function setTab(t){if(t==='profile'){profilePage();return}TAB=t;showArch=false;document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab===TAB));$('#home .top h2').textContent=TAB==='chats'?'Чаты':TAB==='contacts'?'Контакты':'Истории';home();if(TAB==='stories')loadStories()}
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 function home(){if(!me)return;pruneSecret();const f=$('#q').value.trim().toLowerCase();CH.hidden=TAB!=='chats';if(TAB==='contacts'){contactsList(f);return}if(TAB==='stories'){storiesList();return}const chipHtml=chipsHtml();if(CH.innerHTML!==chipHtml)CH.innerHTML=chipHtml;
  const all=Object.values(C),inArch=all.filter(c=>c.my?.archived);
@@ -863,6 +863,48 @@ function sets(){const t=prof.theme||{},md=t.mode||'auto';const perm='Notificatio
 
   if(a==='accounts')settingsAccounts();if(a==='devices')settingsDevices();if(a==='folders')settingsFolders();if(a==='backup')settingsBackup();if(a==='access')settingsAccess();if(a==='support')settingsSupport();
   if(a==='out'&&confirm('Выйти из аккаунта?'))sb.auth.signOut()})}
+function uiIcon(name){
+ const d={user:'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21c1-4 3.5-6 8-6s7 2 8 6',devices:'M3 4h13v12H3zM7 20h5m-2-4v4M18 8h3v12h-3z',folder:'M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9H3z',palette:'M12 3a9 9 0 1 0 0 18h1a2 2 0 0 0 1-4 2 2 0 0 1 2-3h1a4 4 0 0 0 4-4c0-4-4-7-9-7',database:'M12 3c5 0 9 1 9 3s-4 3-9 3-9-1-9-3 4-3 9-3ZM3 6v12c0 2 4 3 9 3s9-1 9-3V6M3 12c0 2 4 3 9 3s9-1 9-3',sliders:'M4 7h16M4 17h16M14 4v6M9 14v6',shield:'M12 3 20 6v5c0 5-3 8-8 10-5-2-8-5-8-10V6zM9 12l2 2 4-4',key:'M8 15a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm3-5 9-7 2 2-3 3 2 2-3 3-2-2-3 3',bell:'M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4',help:'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM9 9a3 3 0 1 1 5 2c-1 1-2 1-2 3M12 17v.1',logout:'M10 17l5-5-5-5M15 12H3M12 3h6v18h-6',edit:'m4 16-1 5 5-1L20 8l-4-4zM14 6l4 4',heart:'M20 9c0 5-8 10 8-10S4 14 4 9a4 4 0 0 1 8-2 4 4 0 0 1 8 2',image:'M3 4h18v16H3zM8 9h.1M3 17l6-6 4 4 3-3 5 5',music:'M9 18V5l12-2v13M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6M18 19a3 3 0 1 0 0-6 3 3 0 0 0 0 6};
+ return `<span class="ui-icon"><svg viewBox="0 0 24 24"><path d="${d[name]||d.user}"/></svg></span>`;
+}
+function profilePage(){
+ const pinned=Object.values(C).filter(c=>c.pinned_id).slice(0,5);
+ const media=Object.entries(M)).flatMap(([cid,list])=>list.filter(m=>m.sender===me.id&&['img','vid'].includes(m.p?.k)).map(m=>({cid,m}))).sort((a,b)=>new Date(b.m.created_at)-new Date(a.m.created_at)).slice(0,6);
+ const phone=prof.phone||prof.phone_number||'',music=typeof prof.music_url==='string'?prof.music_url:'';
+ sheet(`<div class="profile-screen">
+ <div class="profile-hero">${av(prof,88)}<div class="profile-identity"><h2>${displayName(prof)} ${esc(prof.status_emoji||'')}</h2><span class="profile-status"><i></i>${stat(prof)||'в сети'}</span><small>@${esc(prof.username||'')}</small></div></div>
+ <div class="profile-facts">${phone?`<div><span>Телефон</span><b>${esc(phone)}</b></div>`:''}<div><span>О себе</span><b>${esc(prof.bio||'Не указано')}</b></div></div>
+ <div class="profile-section-new"><div class="profile-section-head"><b>Музыка</b>${uiIcon('music')}</div>${music?`<audio controls preload="none" src="${esc(music)}"></audio>`:'<div class="profile-empty">Музыкальный плеер пока не настроен</div>'}</div>
+ <div class="profile-section-new"><div class="profile-section-head"><b>Медиа</b>${uiIcon('image')}</div>${media.length?`<div class="profile-media-grid">${media.map(({cid,m})=>{const p=m.p||{},u=BLOB[p.p];return `<button class="profile-media-item" data-media-chat="${esc(cid)}" data-media-id="${m.id}">${u&&p.k==='img'?`<img src="${u}" alt="">`:`<span>${p.k==='vid'?'▶':'▧'}</span>`}</button>`}).join('')}</div>`:'<div class="profile-empty">Фото и видео появятся здесь</div>'}</div>
+ <div class="profile-section-new"><div class="profile-section-head"><b>Избранное</b>${uiIcon('heart')}</div>${pinned.length?pinned.map(c=>`<button class="profile-favorite" data-fav-chat="${esc(c.id)}">${uiIcon('heart')}<span><b>${esc(title(c))}</b><small>Есть закреплённое сообщение</small></span><span class="profile-chevron">›</span></button>`).join(''):'<div class="profile-empty">Закреплённых сообщений пока нет</div>'}</div>
+ <button class="profile-edit-button" id="profileEdit">${uiIcon('edit')}Редактировать профиль</button><button class="profile-settings-link" id="profileSettings">Настройки</button></div>`,s=>{
+ s.querySelector('#profileEdit').onclick=()=>editor(false);s.querySelector('#profileSettings').onclick=()=>redesignedSettings();
+ s.querySelectorAll('[data-fav-chat]').forEach(b=>b.onclick=()=>{const id=b.dataset.favChat;closeSheet();openChat(id);setTimeout(()=>jump(C[id]?.pinned_id),80)});
+ s.querySelectorAll('[data-media-chat]').forEach(b=>b.onclick=()=>{const id=b.dataset.mediaChat,mid=+b.dataset.mediaId;closeSheet();openChat(id);setTimeout(()=>jump(mid),80)});
+ });
+}
+function redesignedSettings(){
+ const t=prof.theme||{},md=t.mode||'auto',perm='Notification' in window?Notification.permission:'unsupported';
+ const row=(i,n,a,d='')=>`<button class="srow settings-row" data-a="${a}">${uiIcon(i)}<span>${n}</span>${d?`<b>${d}</b>`:'<span class="settings-chevron">›</span>'}</button>`;
+ sheet(`<div class="settings-screen">
+ <div class="settings-heading"><div><span class="settings-eyebrow">MESSAGE</span><h2>Настройки</h2></div><div class="settings-profile-mini">${av(prof,42)}<span><b>${displayName(prof)}</b><small>@${esc(prof.username||'')}</small></span></div></div>
+ <section class="settings-group"><h3>Аккаунт</h3>${row('user','Профиль','profile')}${row('devices','Устройства и сеансы','devices')}${row('user','Переключить аккаунт','accounts')}${row('folder','Папки и организация','folders',String(folders().length||'—'))}</section>
+ <section class="settings-group"><h3>Внешний вид</h3>${row('palette','Оформление чатов','cd')}<div class="settings-option"><div class="settings-option-title">${uiIcon('sliders')}<span>Тема приложения</span></div><div class="seg">${[['auto','Авто'],['light','Светлая'],['dark','Тёмная']].map(([k,n])=>`<button data-mode="${k}" class="${md===k?'on':''}">${n}</button>`).join('')}</div></div><div class="settings-option"><div class="settings-option-title">${uiIcon('palette')}<span>Акцентный цвет</span></div><div class="sw">${ACC.map(c=>`<i data-acc="${c}" style="background:${c||'linear-gradient(135deg,#151515 50%,#f2f2f4 50%)'}" class="${((t.accent==='#3e88f7'?'':t.accent)||'')===c?'on':''}"></i>`).join('')}</div></div></section>
+ <section class="settings-group"><h3>Данные</h3>${row('database','Резервная копия ключа','backup')}${row('sliders','Специальные возможности','access')}${row('help','Помощь и диагностика','support')}</section>
+ <section class="settings-group"><h3>Безопасность</h3>${row('shield','Шифрование переписки','security','Включено')}${row('key','Ключ и восстановление','backup')}</section>
+ <section class="settings-group"><h3>Уведомления</h3>${row('bell','Push-уведомления','push',perm==='granted'?'Включены':perm==='denied'?'Запрещены':perm==='unsupported'?'Недоступны':'Выключены')}${row('bell','Проверить уведомление','test')}</section>
+ <div class="settings-note">Ключ шифрования хранится на этом устройстве. Для входа с другого телефона понадобится ключевая фраза.</div><button class="settings-logout" data-a="out">${uiIcon('logout')}Выйти из аккаунта</button></div>`,s=>s.onclick=async e=>{
+ const a=e.target.closest('[data-a]')?.dataset.a,md2=e.target.dataset.mode,ac=e.target.dataset.acc;
+ if(md2||ac!==undefined){const n={...(prof.theme||{})};if(md2)n.mode=md2;if(ac!==undefined)n.accent=ac;prof.theme=applyTheme(n);await sb.from('profiles').update({theme:prof.theme}).eq('id',me.id);redesignedSettings();return}
+ if(a==='profile'){profilePage();return}if(a==='security'){toast('Переписка защищена сквозным шифрованием');return}
+ if(a==='cd'){chatDesign();return}if(a==='push')enablePush();if(a==='test')testPush();
+ if(a==='accounts')settingsAccounts();if(a==='devices')settingsDevices();if(a==='folders')settingsFolders();if(a==='backup')settingsBackup();if(a==='access')settingsAccess();if(a==='support')settingsSupport();
+ if(a==='out'&&confirm('Выйти из аккаунта?'))sb.auth.signOut()
+ });
+}
+sets=redesignedSettings;
+$('#gear').onclick=redesignedSettings;
+
 const ACCOUNT_LIST_KEY='msg.accounts.v1';
 function readLocalAccounts(){try{const a=JSON.parse(localStorage.getItem(ACCOUNT_LIST_KEY)||'[]');return Array.isArray(a)?a.filter(x=>x&&x.id&&x.storageKey):[]}catch(_){return[]}}
 function saveLocalAccount(user,profile){
