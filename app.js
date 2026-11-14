@@ -173,7 +173,6 @@ async function loadAll(){
  if(mr.error){toast('Не удалось загрузить список чатов: '+mr.error.message);return}
  const ids=(mr.data||[]).map(x=>x.conv_id);
  if(!ids.length){C={};M={};cur=null;if(SHOWN==='chat')show('home');home();return}
- const msP=sb.from('msgs').select('*').in('conv_id',ids).order('id',{ascending:false}).limit(600);
  const [cv,mm]=await Promise.all([sb.from('convs').select('*').in('id',ids),sb.from('members').select('*').in('conv_id',ids)]);
  if(cv.error||mm.error){toast('Не удалось загрузить данные чатов: '+(cv.error||mm.error).message);return}
  const uids=[...new Set((mm.data||[]).flatMap(x=>[x.user_id,x.wrapped_by]))];
@@ -182,7 +181,14 @@ async function loadAll(){
  (mm.data||[]).forEach(x=>{const c=nc[x.conv_id];if(!c)return;c.members.push(x);if(x.user_id===me.id)c.my=x});
  C=nc;M={};if(!cur)home();
  await Promise.all(Object.values(C).map(unwrap));
- const ms=await msP;if(ms.error){toast('Не удалось загрузить сообщения: '+ms.error.message);return}const list=(ms.data||[]).reverse();
+ // Load each conversation independently so a busy chat cannot hide history from other chats.
+ const lists=[];
+ for(let i=0;i<ids.length;i+=8){
+  const part=await Promise.all(ids.slice(i,i+8).map(id=>sb.from('msgs').select('*').eq('conv_id',id).order('id',{ascending:false}).limit(600)));
+  const failed=part.find(x=>x.error);if(failed){toast('Не удалось загрузить сообщения: '+failed.error.message);return}
+  lists.push(...part.map(x=>(x.data||[]).reverse()));
+ }
+ const list=lists.flat();
  for(let i=0;i<list.length;i+=60)await Promise.all(list.slice(i,i+60).map(dc));
  for(const m of list)(M[m.conv_id]=M[m.conv_id]||[]).push(m);
  if(cur&&!C[cur])cur=null;
