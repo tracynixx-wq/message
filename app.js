@@ -48,7 +48,7 @@ const CR={
 
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function creatorBadge(p){return p&&p.id&&window.CFG&&CFG.creator&&p.id===CFG.creator?'<span class="creator-badge" title="Создатель PinBox · подтверждённый профиль" aria-label="Создатель PinBox"><svg viewBox="0 0 20 20" aria-hidden="true"><path class="seal" d="M10.00 0.00 L10.64 0.17 L11.23 0.63 L11.74 1.27 L12.16 1.93 L12.55 2.47 L12.98 2.79 L13.52 2.87 L14.17 2.77 L14.94 2.60 L15.75 2.50 L16.50 2.59 L17.07 2.93 L17.41 3.50 L17.50 4.25 L17.40 5.06 L17.23 5.82 L17.13 6.48 L17.21 7.02 L17.53 7.45 L18.07 7.84 L18.73 8.26 L19.37 8.77 L19.83 9.36 L20.00 10.00 L19.83 10.64 L19.37 11.23 L18.73 11.74 L18.07 12.16 L17.53 12.55 L17.21 12.98 L17.13 13.52 L17.23 14.17 L17.40 14.94 L17.50 15.75 L17.41 16.50 L17.07 17.07 L16.50 17.41 L15.75 17.50 L14.94 17.40 L14.17 17.23 L13.52 17.13 L12.98 17.21 L12.55 17.53 L12.16 18.07 L11.74 18.73 L11.23 19.37 L10.64 19.83 L10.00 20.00 L9.36 19.83 L8.77 19.37 L8.26 18.73 L7.84 18.07 L7.45 17.53 L7.02 17.21 L6.48 17.13 L5.83 17.23 L5.06 17.40 L4.25 17.50 L3.50 17.41 L2.93 17.07 L2.59 16.50 L2.50 15.75 L2.60 14.94 L2.77 14.18 L2.87 13.52 L2.79 12.98 L2.47 12.55 L1.93 12.16 L1.27 11.74 L0.63 11.23 L0.17 10.64 L0.00 10.00 L0.17 9.36 L0.63 8.77 L1.27 8.26 L1.93 7.84 L2.47 7.45 L2.79 7.02 L2.87 6.48 L2.77 5.82 L2.60 5.06 L2.50 4.25 L2.59 3.50 L2.93 2.93 L3.50 2.59 L4.25 2.50 L5.06 2.60 L5.82 2.77 L6.48 2.87 L7.02 2.79 L7.45 2.47 L7.84 1.93 L8.26 1.27 L8.77 0.63 L9.36 0.17Z"/><path class="tick" d="M6 10.3l2.8 2.8L14.2 7.4"/></svg></span>':''}
+function creatorBadge(p){return p&&p.id&&window.CFG&&CFG.creator&&p.id===CFG.creator?'<button type="button" class="creator-badge" data-creator-info aria-label="Информация о подтверждённом профиле" title="Подтверждённый профиль"><svg viewBox="0 0 20 20" aria-hidden="true"><path class="seal" d="M10.00 0.00 L10.64 0.17 L11.23 0.63 L11.74 1.27 L12.16 1.93 L12.55 2.47 L12.98 2.79 L13.52 2.87 L14.17 2.77 L14.94 2.60 L15.75 2.50 L16.50 2.59 L17.07 2.93 L17.41 3.50 L17.50 4.25 L17.40 5.06 L17.23 5.82 L17.13 6.48 L17.21 7.02 L17.53 7.45 L18.07 7.84 L18.73 8.26 L19.37 8.77 L19.83 9.36 L20.00 10.00 L19.83 10.64 L19.37 11.23 L18.73 11.74 L18.07 12.16 L17.53 12.55 L17.21 12.98 L17.13 13.52 L17.23 14.17 L17.40 14.94 L17.50 15.75 L17.41 16.50 L16.50 17.41 L15.75 17.50 L14.94 17.40 L14.17 17.23 L13.52 17.13 L12.98 17.21 L12.55 17.53 L12.16 18.07 L11.74 18.73 L11.23 19.37 L10.64 19.83 L10.00 20.00 L9.36 19.83 L8.77 19.37 L8.26 18.73 L7.84 18.07 L7.45 17.53 L7.02 17.21 L6.48 17.13 L5.83 17.23 L5.06 17.40 L4.25 17.50 L3.50 17.41 L2.93 17.07 L2.59 16.50 L2.50 15.75 L2.60 14.94 L2.77 14.18 L2.87 13.52 L2.79 12.98 L2.47 12.55 L1.93 12.16 L1.27 11.74 L0.63 11.23 L0.17 10.64 L0.00 10.00 L0.17 9.36 L0.63 8.77 L1.27 8.26 L1.93 7.84 L2.47 7.45 L2.79 7.02 L2.77 5.82 L2.60 5.06 L2.50 4.25 L2.59 3.50 L2.93 2.93 L3.50 2.59 L4.25 2.50 L5.06 2.60 L5.82 2.77 L6.48 2.87 L7.02 2.79 L7.45 2.47 L7.84 1.93 L8.26 1.27 L8.77 0.63 L9.36 0.17Z"/><path class="tick" d="M6 10.3l2.8 2.8L14.2 7.4"/></svg></button>':''}
 function displayName(p,name){return esc(name??p?.name??'')+creatorBadge(p)}
 
 const COL=['#4a7ec2','#569c3a','#b8763a','#ae5148','#8654c8','#56a1ad','#a84d7e','#7d8896'];
@@ -106,6 +106,25 @@ function releaseSheetMedia(){const s=$('#sheet');s.querySelectorAll('img[src^="b
 function sheet(html,mount){const s=$('#sheet');releaseSheetMedia();s.innerHTML=`<div class="sh">${html}</div>`;s.hidden=false;
  s.onclick=e=>{if(e.target===s)closeSheet()};if(mount)mount(s.firstChild);return s.firstChild}
 function closeSheet(){releaseSheetMedia();$('#sheet').hidden=true;$('#sheet').innerHTML=''}
+function creatorInfo(){
+ const username='durov',link='https://fragment.com/username/durov';
+ const panel=sheet(`<div class="creator-info-sheet">
+  <div class="creator-info-mark">@</div>
+  <h3>@durov — коллекционное имя пользователя, принадлежащее</h3>
+  <div class="creator-info-owner">${av({id:CFG.creator,name:'Pavel Durov',username:'durov',avatar_url:prof?.avatar_url},48)}<b>Pavel Durov</b></div>
+  <p class="creator-info-description">Имя @durov приобретено на платформе Fragment 24 сент. 2023 г. за 💎20 000 ($21 925,37).</p>
+  <button class="creator-info-more" type="button" data-creator-more>Подробнее</button>
+  <button class="creator-info-copy" type="button" data-creator-copy>Копировать ссылку</button>
+ </div>`,root=>{
+  let startY=0;
+  root.addEventListener('touchstart',e=>{startY=e.touches[0]?.clientY||0},{passive:true});
+  root.addEventListener('touchend',e=>{const endY=e.changedTouches[0]?.clientY||0;if(endY-startY>85)closeSheet()},{passive:true});
+  root.querySelector('[data-creator-more]').onclick=()=>window.open(link,'_blank','noopener');
+  root.querySelector('[data-creator-copy]').onclick=async()=>{try{await navigator.clipboard.writeText(link);toast('Ссылка скопирована')}catch(_){toast('Не удалось скопировать ссылку')}};
+ });
+}
+document.addEventListener('click',e=>{if(e.target.closest('[data-creator-info]')){e.preventDefault();e.stopPropagation();creatorInfo()}});
+
 const idb=(()=>{let d;const open=()=>d||(d=new Promise((res,rej)=>{const r=indexedDB.open('chat2',1);r.onupgradeneeded=()=>r.result.createObjectStore('k');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}));
  const tx=async(m,f)=>{const db=await open();return new Promise((res,rej)=>{const t=db.transaction('k',m),q=f(t.objectStore('k'));t.oncomplete=()=>res(q.result);t.onerror=()=>rej(t.error)})};
  return{get:k=>tx('readonly',s=>s.get(k)),set:(k,v)=>tx('readwrite',s=>s.put(v,k))}})();
@@ -898,7 +917,7 @@ function profilePage(){
   const accounts=readLocalAccounts(),active=window.__authStorageKey||defaultAuthStorageKey();
   const accountRows=accounts.map(x=>`<button class="account-switch-row" data-account-key="${esc(x.storageKey)}">${av({id:x.id,name:x.name,username:x.username,avatar_url:x.avatar_url},40)}<span><b>${esc(x.name||x.username||x.email||'Аккаунт')}</b><small>${esc(x.email||(x.username?'@'+x.username:''))}</small></span><i>${x.storageKey===active?'✓':'Переключить'}</i></button>`).join('');
   renderSectionPage('Профиль',`<div class="profile-screen">
-  <div class="profile-hero">${av(prof,88)}<div class="profile-identity"><h2>${displayName(prof)} ${esc(prof.status_emoji||'')}</h2><span class="profile-status"><i></i>${stat(prof)||'в сети'}</span><small>@${esc(prof.username||'')}</small></div></div>
+  <div class="profile-hero">${av(prof,88)}<div class="profile-identity"><h2>${displayName(prof)} ${esc(prof.status_emoji||'')}</h2><span class="profile-status"><i></i>${stat(prof)||'в сети'}</span>${prof.id===CFG.creator?'<small class="creator-followers">9 998 968 подписчиков</small>':''}<small>@${esc(prof.username||'')}</small></div></div>
   
   <button class="profile-edit-button" id="profileEdit">${uiIcon('edit')}Редактировать профиль</button>
   <section class="profile-section-new account-switch-section"><div class="profile-section-head"><b>Смена профиля</b>${uiIcon('user')}</div><div class="account-switch-list">${accountRows||'<div class="profile-empty">Сохранённых профилей пока нет</div>'}</div><button class="btn" id="addProfile">＋ Добавить профиль</button></section>
