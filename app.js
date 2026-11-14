@@ -202,7 +202,7 @@ async function loadAllImpl(){
  const pr=await sb.from('profiles').select('*').in('id',uids);if(pr.error){toast('Не удалось загрузить профили участников: '+pr.error.message);return}(pr.data||[]).forEach(p=>P[p.id]=p);P[me.id]=prof;
  const nc={};(cv.data||[]).forEach(c=>nc[c.id]={...c,members:[],my:null});
  (mm.data||[]).forEach(x=>{const c=nc[x.conv_id];if(!c)return;c.members.push(x);if(x.user_id===me.id)c.my=x});
- C=nc;M={};for(const id of Object.keys(K))if(!nc[id])delete K[id];if(cur&&!nc[cur]){cur=null;if(SHOWN==='chat')show('home')}if(!cur)home();
+ C=nc;for(const id of Object.keys(K))if(!nc[id])delete K[id];if(cur&&!nc[cur]){cur=null;if(SHOWN==='chat')show('home')}if(!cur)home();
  await Promise.all(Object.values(C).map(unwrap));
  // Load each conversation independently so a busy chat cannot hide history from other chats.
  const lists=[];
@@ -213,7 +213,7 @@ async function loadAllImpl(){
  }
  const list=lists.flat();
  for(let i=0;i<list.length;i+=60)await Promise.all(list.slice(i,i+60).map(dc));
- for(const m of list)(M[m.conv_id]=M[m.conv_id]||[]).push(m);
+ const nm={};for(const m of list)(nm[m.conv_id]=nm[m.conv_id]||[]).push(m);M=nm;
  if(cur&&!C[cur])cur=null;
  if(cur){render();head();markRead()}else home()}
 async function enter(){applyTheme(prof.theme);P[me.id]=prof;show('home');await loadAll();
@@ -319,7 +319,7 @@ function storyCompose(kind,blob){let bg=1;const prev=blob?URL.createObjectURL(bl
   sh.querySelector('#svgo').onclick=async()=>{const cap=t.value.trim();if(kind==='txt'&&!cap){sh.querySelector('#svm').textContent='Введите текст';return}
    const btn=sh.querySelector('#svgo');btn.disabled=true;sh.querySelector('#svm').textContent='Публикация…';
    try{let path=null;if(kind==='img'){path=`${me.id}/story-${Date.now()}-${Math.random().toString(36).slice(2,8)}.jpg`;const u=await sb.storage.from('avatars').upload(path,blob,{contentType:'image/jpeg',cacheControl:'3600',upsert:false});if(u.error)throw new Error(u.error.message)}
-    const r=await sb.from('stories').insert({kind,path,caption:cap||null,bg:kind==='txt'?bg:0}).select().single();if(r.error)throw new Error(/stories|relation/i.test(r.error.message)?'Выполните stories.sql в Supabase':r.error.message);
+    const r=await sb.from('stories').insert({kind,path,caption:cap||null,bg:kind==='txt'?bg:0}).select().single();if(r.error){if(path){const rm=await sb.storage.from('avatars').remove([path]);if(rm.error)console.warn('[stories] orphan cleanup failed',rm.error)}throw new Error(/stories|relation/i.test(r.error.message)?'Выполните stories.sql в Supabase':r.error.message)}
     (ST[me.id]=ST[me.id]||[]).push(r.data);closeSheet();toast('История опубликована');if(TAB==='stories')home()}catch(err){btn.disabled=false;sh.querySelector('#svm').textContent=err.message}}})}
 function contactsList(f){const seen=new Set(),L=[];Object.values(C).forEach(c=>{if(c.kind!=='dm'||c.secret_ttl)return;const o=peerOf(c);if(!o||seen.has(o.id))return;seen.add(o.id);L.push({c,o})});
  const rows=L.filter(({o})=>!f||(o.name||'').toLowerCase().includes(f)||(o.username||'').toLowerCase().includes(f)).sort((a,b)=>(online(b.o)?1:0)-(online(a.o)?1:0)||(a.o.name||'').localeCompare(b.o.name||'','ru'));
