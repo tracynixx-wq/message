@@ -536,3 +536,9 @@ html.kb #list,html.kb #clist{min-height:0;overscroll-behavior:contain}
 html.kb #inp{font-size:16px;max-height:120px}
 .android-perf input,.android-perf textarea{scroll-margin-block:12px}
 .android-perf #app{height:100dvh;contain:layout paint}
+
+/* Chat appearance controls */
+.b{font-size:var(--msg-font-size,15px);box-shadow:var(--bubble-shadow,0 2px 8px rgba(0,0,0,.09))}
+#list{gap:var(--msg-gap,4px)}
+#list .row{max-width:var(--bubble-width,82%)}
+.chat-design-preview{display:flex;flex-direction:column;gap:7px;padding:12px;border-radius:16px;background:var(--card)}
