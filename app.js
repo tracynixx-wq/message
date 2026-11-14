@@ -108,6 +108,10 @@ function applyTheme(t){t={mode:'auto',accent:'',out:'',inb:'',shape:'r',wall:'no
  r.style.setProperty('--out',hx.test(t.out)?t.out:'var(--accent)');
  if(hx.test(t.inb)){r.style.setProperty('--in',t.inb);r.style.setProperty('--intx',lum(t.inb)>.6?'#14161a':'#fff')}else{r.style.removeProperty('--in');r.style.removeProperty('--intx')}
  r.style.setProperty('--br',{r:'18px',m:'12px',s:'5px'}[t.shape]||'18px');
+ r.style.setProperty('--msg-font-size',{small:'14px',normal:'15px',large:'17px'}[t.msgSize]||'15px');
+ r.style.setProperty('--msg-gap',{compact:'1px',normal:'4px',relaxed:'9px'}[t.msgGap]||'4px');
+ r.style.setProperty('--bubble-width',{narrow:'72%',normal:'82%',wide:'92%'}[t.bubbleWidth]||'82%');
+ r.style.setProperty('--bubble-shadow',t.bubbleShadow===false?'none':'0 2px 8px rgba(0,0,0,.09)');
  r.style.setProperty('--wall',t.wall==='custom'&&okStore(t.wallUrl)?`url("${t.wallUrl}") center/cover`:(WALLS[t.wall]||WALLS.none)[dark?1:0]);
  document.body.dataset.list=t.list;
  document.querySelector('meta[name=theme-color]').content=dark?'#090a0c':'#f6f6f7';
@@ -962,7 +966,7 @@ function redesignedSettings(){
  <section class="settings-group"><h3>Безопасность и конфиденциальность</h3>${row('shield','Шифрование переписки','security','Включено')}${row('key','Ключ и восстановление','backup')}</section>
  <section class="settings-group"><h3>Уведомления</h3>${row('bell','Push-уведомления','push',perm==='granted'?'Включены':perm==='denied'?'Запрещены':perm==='unsupported'?'Недоступны':'Выключены')}${row('bell','Проверить уведомление','test')}</section>
  <div class="settings-note">Ключ шифрования хранится на этом устройстве. Для входа с другого телефона понадобится ключевая фраза.</div><button class="settings-logout" data-a="out">${uiIcon('logout')}Выйти из аккаунта</button></div>`,s=>s.onclick=async e=>{
- const a=e.target.closest('[data-a]')?.dataset.a,md2=e.target.dataset.mode,ac=e.target.dataset.acc;
+ const a=e.target.closest('[data-a]')?.dataset.a,md2=e.target.closest('[data-mode]')?.dataset.mode,accEl=e.target.closest('[data-acc]'),ac=accEl?.dataset.acc;
  if(md2!==undefined||accEl){const n={...(prof.theme||{})};if(md2!==undefined)n.mode=md2;if(accEl)n.accent=ac;prof.theme=applyTheme(n);const saved=await sb.from('profiles').update({theme:prof.theme}).eq('id',me.id);if(saved.error)toast('Настройка применена на этом устройстве, но не сохранена в аккаунте: '+saved.error.message,8000);redesignedSettings();return}
  if(a==='profile'){setTab('profile');return}if(a==='security'){toast('Переписка защищена сквозным шифрованием');return}
  if(a==='cd'){chatDesign();return}if(a==='push'){await enablePush();return}if(a==='test'){await testPush();return}
@@ -1007,27 +1011,32 @@ function chatDesign(){let t=applyTheme(prof.theme);const dk=document.documentEle
  const sw=(arr,k,cur)=>arr.map(c=>`<i data-${k}="${c}" class="${c===cur?'on':''}" style="background:${c||'var(--card)'}">${c?'':'A'}</i>`).join('');
  const seg=(arr,k,cur)=>arr.map(([v,n])=>`<button data-${k}="${v}" class="${cur===v?'on':''}">${n}</button>`).join('');
  sheet(`<h3>Оформление чатов</h3>
-  <div class="demo"><div class="row th"><div class="b">Привет! Как дела?</div></div><div class="row me"><div class="b">Отлично 👍</div></div></div>
-  <div class="lbl">Обои</div><div class="sw" id="cw1">${Object.keys(WALLS).map(k=>`<i data-w="${k}" class="${t.wall===k?'on':''}" style="background:${k==='none'?'var(--card)':WALLS[k][dk]}"></i>`).join('')}</div>
+  <div class="demo chat-design-preview"><div class="row th"><div class="b">Привет! Как дела?</div></div><div class="row me"><div class="b">Отлично 👍</div></div><div class="row th"><div class="b">Теперь чат выглядит по-новому ✨</div></div></div>
+  <div class="lbl">Обои переписки</div><div class="sw" id="cw1">${Object.keys(WALLS).map(k=>`<i data-w="${k}" class="${t.wall===k?'on':''}" style="background:${k==='none'?'var(--card)':WALLS[k][dk]}"></i>`).join('')}</div>
   <div style="display:flex;gap:22px"><button class="link" id="wch">Своё фото</button><button class="link" id="wcl">Сбросить</button></div><input type="file" id="wf" accept="image/*" hidden>
-  <div class="lbl">Мои пузыри</div><div class="sw" id="co">${sw(OUTC,'o',t.out||'')}</div>
-  <div class="lbl">Чужие пузыри</div><div class="sw" id="ci2">${sw(INC,'i',t.inb||'')}</div>
-  <div class="lbl">Форма пузырей</div><div class="seg" id="csh">${seg([['r','Круглые'],['m','Мягкие'],['s','Острые']],'sh',t.shape)}</div>
-  <div class="lbl">Список чатов</div><div class="seg" id="cls">${seg([['plain','Список'],['cards','Карточки'],['compact','Компактно']],'ls',t.list)}</div>
+  <div class="lbl">Цвет моих сообщений</div><div class="sw" id="co">${sw(OUTC,'o',t.out||'')}</div>
+  <div class="lbl">Цвет входящих сообщений</div><div class="sw" id="ci2">${sw(INC,'i',t.inb||'')}</div>
+  <div class="lbl">Форма пузырей</div><div class="seg" id="csh">${seg([['r','Круглые'],['m','Мягкие'],['s','Острые']],'sh',t.shape||'r')}</div>
+  <div class="lbl">Размер текста сообщений</div><div class="seg" id="cms">${seg([['small','Маленький'],['normal','Обычный'],['large','Крупный']],'ms',t.msgSize||'normal')}</div>
+  <div class="lbl">Расстояние между сообщениями</div><div class="seg" id="cmg">${seg([['compact','Плотно'],['normal','Обычно'],['relaxed','Свободно']],'mg',t.msgGap||'normal')}</div>
+  <div class="lbl">Ширина пузырей</div><div class="seg" id="cbw">${seg([['narrow','Узкие'],['normal','Обычные'],['wide','Широкие']],'bw',t.bubbleWidth||'normal')}</div>
+  <div class="srow" id="cshadow">Тень у сообщений<b>${t.bubbleShadow===false?'Выключена':'Включена'}</b></div>
+  <div class="lbl">Список чатов</div><div class="seg" id="cls">${seg([['plain','Список'],['cards','Карточки'],['compact','Компактно']],'ls',t.list||'plain')}</div>
   <button class="btn" id="cdn">Готово</button>`,s=>{
   const q=x=>s.querySelector(x),set=(k,v)=>{t={...t,[k]:v};applyTheme(t)},mark=(id,fn)=>q(id).querySelectorAll('i,button').forEach(x=>x.classList.toggle('on',fn(x)));
+  const bindSeg=(id,key,attr)=>{q(id).onclick=e=>{const v=e.target.closest('[data-'+attr+']')?.dataset[attr];if(!v)return;set(key,v);mark(id,x=>x.dataset[attr]===v)}};
   q('#cw1').onclick=e=>{const w=e.target.dataset.w;if(!w)return;set('wall',w);mark('#cw1',x=>x.dataset.w===w)};
   q('#co').onclick=e=>{const v=e.target.dataset.o;if(v===undefined)return;set('out',v);mark('#co',x=>x.dataset.o===v)};
   q('#ci2').onclick=e=>{const v=e.target.dataset.i;if(v===undefined)return;set('inb',v);mark('#ci2',x=>x.dataset.i===v)};
-  q('#csh').onclick=e=>{const v=e.target.dataset.sh;if(!v)return;set('shape',v);mark('#csh',x=>x.dataset.sh===v)};
-  q('#cls').onclick=e=>{const v=e.target.dataset.ls;if(!v)return;set('list',v);mark('#cls',x=>x.dataset.ls===v)};
+  bindSeg('#csh','shape','sh');bindSeg('#cms','msgSize','ms');bindSeg('#cmg','msgGap','mg');bindSeg('#cbw','bubbleWidth','bw');bindSeg('#cls','list','ls');
+  q('#cshadow').onclick=()=>{set('bubbleShadow',t.bubbleShadow===false);q('#cshadow b').textContent=t.bubbleShadow===false?'Включена':'Выключена'};
   q('#wch').onclick=()=>q('#wf').click();
   q('#wf').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;toast('Загрузка…',20000);
    try{const b=await scaleImg(f,1280),path=`${me.id}/wall-${Date.now()}.jpg`,u=await sb.storage.from('avatars').upload(path,b,{contentType:'image/jpeg'});
     if(u.error)throw new Error(u.error.message);t={...t,wallUrl:sb.storage.from('avatars').getPublicUrl(path).data.publicUrl};set('wall','custom');mark('#cw1',()=>false);toast('Готово')}
    catch(err){toast('Не получилось: '+err.message,5000)}};
   q('#wcl').onclick=()=>{t={...t,wallUrl:''};set('wall','none');mark('#cw1',x=>x.dataset.w==='none')};
-  q('#cdn').onclick=async()=>{prof.theme=t;P[me.id]=prof;closeSheet();await sb.from('profiles').update({theme:t}).eq('id',me.id);cur?render():home()}})}
+  q('#cdn').onclick=async()=>{prof.theme=t;P[me.id]=prof;const b=q('#cdn');b.disabled=true;b.textContent='Сохраняю…';const saved=await sb.from('profiles').update({theme:t}).eq('id',me.id);closeSheet();if(saved.error)toast('Оформление применено на устройстве, но не сохранено в аккаунте: '+saved.error.message,8000);else toast('Оформление чата сохранено');cur?render():home()}})}
 
 function groupStyle(c){let col=c.color||'',pend=null,previewUrl=null;
  const s=sheet(`<h3>Оформление группы</h3><div id="gp" style="display:grid;justify-items:center"></div>
