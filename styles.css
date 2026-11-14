@@ -371,3 +371,6 @@ html,body,#clist,#list{scroll-behavior:auto!important}
 .row.new{animation:message-arrive .18s ease-out both}
 @keyframes message-arrive{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 @media(hover:none) and (pointer:coarse){.crow:active,.srow:active,.btn:active,.ib:active{filter:none}}
+
+/* Keep the viewport anchored while delayed media replaces its placeholders. */
+#list{overflow-anchor:auto!important}

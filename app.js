@@ -413,15 +413,15 @@ function bubble(m,c){const p=m.p||{},mine=m.sender===me.id;let h='';
  const rh=Object.keys(rx).length?`<div class="rx">${Object.entries(rx).map(([e,n])=>`<span class="${mineR===e?'on':''}" data-id="${m.id}" data-e="${e}">${e} ${n}</span>`).join('')}</div>`:'';
  return`<div class="row ${mine?'me':'th'}${SEL&&SEL.has(m.id)?' sel':''}">${!mine&&c.kind!=='dm'?`<div class="snd">${displayName(P[m.sender],P[m.sender]?.name||'…')}</div>`:''}<div class="b ${media&&!p.t&&(p.k==='img'||p.k==='vid')?'nopad':''}" data-id="${m.id}">${h}${t}</div>${rh}</div>`}
 let chatScrollRevision=0;
-function scrollChatBottom(id=cur,revision=chatScrollRevision){
+function scrollChatBottom(id=cur,revision=chatScrollRevision,behavior='auto'){
  if(!id||cur!==id||revision!==chatScrollRevision)return;
  const box=$('#list');
  requestAnimationFrame(()=>{
   if(cur!==id||revision!==chatScrollRevision||$('#chat').hidden||!box.isConnected)return;
-  box.scrollTop=box.scrollHeight;
+  box.scrollTo({top:box.scrollHeight,behavior});
  });
 }
-function render(sc){
+function render(sc,behavior='auto'){
  const c=C[cur];if(!c)return;pruneSecret();
  const box=$('#list'),near=box.scrollHeight-box.scrollTop-box.clientHeight<180;
  const stick=!!sc||near||pendingChatBottom===cur;
@@ -434,23 +434,17 @@ function render(sc){
   pd=m.created_at;h+=bubble(m,c);
  }
  const nextHtml=h||'<div class="empty">🔒 Сообщения защищены сквозным шифрованием.<br>Напишите первым.</div>';
-  if(box.innerHTML===nextHtml){if(stick){scrollChatBottom(opening,revision);pendingChatBottom=null}return}
+  if(box.innerHTML===nextHtml){if(stick){scrollChatBottom(opening,revision,behavior);pendingChatBottom=null}return}
   box.innerHTML=nextHtml;
  const seen=RL[cur],maxId=a.length?a[a.length-1].id:0;
  if(seen!==undefined)box.querySelectorAll('.b').forEach(b=>{if(+b.dataset.id>seen)b.parentElement.classList.add('new')});
  RL[cur]=maxId;
  const mediaLoads=[...box.querySelectorAll('[data-m]')].map(el=>loadMedia(el));
+ // Set the opening position before the browser paints the rebuilt history.
+ // Media decoding must never trigger a second forced jump to the bottom.
  if(stick){
-  const imageLoads=[...box.querySelectorAll('img.mi')].map(img=>img.decode?img.decode().catch(()=>{}):Promise.resolve());
-  const videoLoads=[...box.querySelectorAll('video')].map(video=>video.readyState>=1?Promise.resolve():new Promise(resolve=>{
-   const done=()=>resolve();video.addEventListener('loadedmetadata',done,{once:true});video.addEventListener('error',done,{once:true});
-   setTimeout(done,1800);
-  }));
-  Promise.allSettled([...mediaLoads,...imageLoads,...videoLoads]).then(()=>{
-   if(cur!==opening||revision!==chatScrollRevision||pendingChatBottom!==opening)return;
-   scrollChatBottom(opening,revision);
-   pendingChatBottom=null;
-  });
+  box.scrollTo({top:box.scrollHeight,behavior});
+  pendingChatBottom=null;
  }
 }
 $('#list').onclick=e=>{
@@ -541,7 +535,7 @@ async function forward(ms,t){const sv=reply;reply=null;let n=0;toast('Перес
     if(await upload(t,raw,p.k,p.n,p.y,{f:from,...(p.t?{t:p.t}:{})}))n++}
    else if(await sendPayload(t,{...(p.t?{t:p.t}:{}),f:from}))n++}catch(e){}}
  reply=sv;toast(n?'Переслано: '+n:'Не удалось переслать');
- if(n){if(cur!==t.id)openChat(t.id);else render(true)}}
+ if(n){if(cur!==t.id)openChat(t.id);else render(true,'smooth')}}
 function bar(t){$('#bt').textContent=t;$('#bar').hidden=false}
 function unbar(){reply=editing=null;$('#bar').hidden=true}
 $('#bx').onclick=()=>{if(editing)$('#inp').value='';unbar();fit()};
@@ -553,7 +547,7 @@ inp.oninput=fit;
 async function sendPayload(c,payload){if(!K[c.id]){toast('Нет ключа этого чата');return null}
  const r=await sb.from('msgs').insert({conv_id:c.id,sender:me.id,data:await CR.seal(K[c.id],c.id,payload)}).select().single();
  if(r.error){toast(r.error.message);return null}
- await dc(r.data);const a=M[c.id]=M[c.id]||[];if(!a.some(x=>x.id===r.data.id))a.push(r.data);if(cur===c.id){pendingChatBottom=c.id;render(true)}else home();return r.data}
+ await dc(r.data);const a=M[c.id]=M[c.id]||[];if(!a.some(x=>x.id===r.data.id))a.push(r.data);if(cur===c.id){pendingChatBottom=c.id;render(true,'smooth')}else home();return r.data}
 $('#sendb').onclick=async()=>{const t=inp.value.trim(),c=C[cur];if(!t||!c)return;
  if(editing){const m=editing;unbar();inp.value='';fit();const np={...m.p,t};
   const r=await sb.from('msgs').update({data:await CR.seal(K[c.id],c.id,np),edited_at:new Date().toISOString()}).eq('id',m.id).select().single();
