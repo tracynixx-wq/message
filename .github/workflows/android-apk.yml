@@ -13,6 +13,10 @@ on:
       - 'config.js'
       - 'manifest.webmanifest'
 
+concurrency:
+  group: message-android-apk-release
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
