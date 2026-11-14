@@ -8,7 +8,7 @@ begin
  if p_user_ids is null or cardinality(p_user_ids)<1 or array_position(p_user_ids,null) is not null or jsonb_typeof(p_wrapped_keys)<>'object' then
   raise exception 'Invalid key rotation request' using errcode='22023';
  end if;
- if (select count(distinct x) from unnest(p_user_ids) x)<>cardinality(p_user_ids) then raise exception 'Duplicate users in request' using errcode='22023'; end if;
+ if (select count(distinct u.user_id) from unnest(p_user_ids) as u(user_id))<>cardinality(p_user_ids) then raise exception 'Duplicate users in request' using errcode='22023'; end if;
  select kind into v_kind from public.convs where id=p_conv_id for update;
  if not found or v_kind not in ('group','channel') then raise exception 'Group or channel not found' using errcode='P0002'; end if;
  select role into v_role from public.members where conv_id=p_conv_id and user_id=v_actor;
@@ -23,12 +23,12 @@ begin
   raise exception 'A fresh wrapped key is required for every current and new member' using errcode='22023';
  end if;
  if exists(select 1 from public.members m where m.conv_id=p_conv_id and not(p_wrapped_keys ? m.user_id::text))
-  or exists(select 1 from unnest(p_user_ids) x where not(p_wrapped_keys ? x::text)) then
+  or exists(select 1 from unnest(p_user_ids) as u(user_id) where not(p_wrapped_keys ? u.user_id::text)) then
   raise exception 'Missing wrapped key for a member' using errcode='22023';
  end if;
  update public.members m set wrapped_key=p_wrapped_keys->>m.user_id::text,wrapped_by=v_actor where m.conv_id=p_conv_id;
  insert into public.members(conv_id,user_id,role,wrapped_by,wrapped_key)
- select p_conv_id,x,'member',v_actor,p_wrapped_keys->>x::text from unnest(p_user_ids) x;
+ select p_conv_id,u.user_id,'member',v_actor,p_wrapped_keys->>u.user_id::text from unnest(p_user_ids) as u(user_id);
 end $$;
 revoke all on function public.rotate_group_add_members_key(uuid,uuid[],jsonb) from public,anon;
 grant execute on function public.rotate_group_add_members_key(uuid,uuid[],jsonb) to authenticated;
