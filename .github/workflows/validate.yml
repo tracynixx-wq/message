@@ -1,0 +1,28 @@
+name: Validate Message
+
+on:
+  push:
+    branches: [main, "rebuild/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check application JavaScript
+        run: node --check app.js
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Check deployed Push Edge Function source
+        run: deno check --no-lock supabase/functions/bright-endpoint/index.ts
+      - name: Check app shell assets
+        run: |
+          grep -q 'href="styles.css"' index.html
+          grep -q 'src="app.js"' index.html
+          grep -q "'styles.css','app.js'" sw.js

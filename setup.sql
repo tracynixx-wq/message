@@ -1,3 +1,9 @@
+-- ⚠️ OBSOLETE / DO NOT APPLY TO THE CURRENT APP.
+-- The client uses msgs/convs/members/keybackup/stories and related tables,
+-- not this legacy profiles/messages schema. This file also contains a
+-- profiles INSERT policy capped at two rows. See docs/backend-contract-audit.md.
+-- Kept only as historical reference; it is not a supported installation script.
+
 create table profiles(
  id uuid primary key references auth.users on delete cascade,
  name text not null, username text unique, bio text default '',
