@@ -406,12 +406,12 @@ function bubble(m,c){const p=m.p||{},mine=m.sender===me.id;let h='';
   else if(p.k==='vid')h+=u?`<video src="${u}" controls playsinline preload="metadata"></video>`:`<div class="ph" data-m="${mid}">🎞</div>`;
   else if(p.k==='aud')h+=u?audHtml(u):`<div class="ph" data-m="${mid}" style="height:44px;width:200px">🎤</div>`;
   else h+=u?`<a class="file" href="${u}" download="${esc(p.n||'file')}">📎 ${esc(p.n||'Файл')}</a>`:`<a class="file" data-m="${mid}">📎 ${esc(p.n||'Файл')}</a>`}
- if(p.t)h+=esc(p.t);
+ if(p.t)h+=`<div class="mc">${esc(p.t)}</div>`;
  const t=`<div class="mt">${m.edited_at?'изм. ':''}${hm(m.created_at)}${mine&&c.kind==='dm'?tick(c.members.some(x=>x.user_id!==me.id&&x.last_read_at>=m.created_at)):''}</div>`;
  const rx={};Object.values(m.reactions||{}).forEach(e=>rx[e]=(rx[e]||0)+1);
  const mineR=(m.reactions||{})[me.id];
  const rh=Object.keys(rx).length?`<div class="rx">${Object.entries(rx).map(([e,n])=>`<span class="${mineR===e?'on':''}" data-id="${m.id}" data-e="${e}">${e} ${n}</span>`).join('')}</div>`:'';
- return`<div class="row ${mine?'me':'th'}${SEL&&SEL.has(m.id)?' sel':''}">${!mine&&c.kind!=='dm'?`<div class="snd">${displayName(P[m.sender],P[m.sender]?.name||'…')}</div>`:''}<div class="b ${media&&!p.t&&(p.k==='img'||p.k==='vid')?'nopad':''}" data-id="${m.id}">${h}${t}</div>${rh}</div>`}
+ return`<div class="row ${mine?'me':'th'}${SEL&&SEL.has(m.id)?' sel':''}">${!mine&&c.kind!=='dm'?`<div class="snd">${displayName(P[m.sender],P[m.sender]?.name||'…')}</div>`:''}<div class="b ${media?'media-bubble':''}" data-id="${m.id}">${h}${t}</div>${rh}</div>`}
 let chatScrollRevision=0;
 function scrollChatBottom(id=cur,revision=chatScrollRevision,behavior='auto'){
  if(!id||cur!==id||revision!==chatScrollRevision)return;
