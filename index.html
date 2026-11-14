@@ -6,7 +6,7 @@
 <title>Чат</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#090a0c">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Чат">
@@ -325,6 +325,12 @@ html.tt *,html.tt{transition:background-color .35s ease,color .35s ease,border-c
 .cb.red{background:#e5483c}.cb.grn{background:#2fb36b}.cb.off{background:rgba(255,255,255,.34)}
 #cvoice,#cvideo{flex:none}#cvoice[hidden],#cvideo[hidden]{display:none}
 #call video{max-width:none;max-height:none}#call #rv{border-radius:0}
+
+/* ===== v12: instant shell ===== */
+.crow.sk{pointer-events:none}.sk .av{width:50px;height:50px;border-radius:50%;background:var(--card2);flex:none}
+.sk .ci{flex:1}.sk b,.sk small{display:block;height:12px;border-radius:6px;background:var(--card2);margin:6px 0}.sk small{height:10px;opacity:.7}
+.sk{animation:skp 1.2s ease-in-out infinite}@keyframes skp{50%{opacity:.45}}
+#load{background:var(--bg)}
 </style>
 </head>
 <body>
@@ -386,6 +392,12 @@ html.tt *,html.tt{transition:background-color .35s ease,color .35s ease,border-c
 <div id="call" hidden></div>
 <div id="toast" hidden></div>
 
+<script>/* мгновенная оболочка: показываем интерфейс до загрузки скриптов */
+(function(){try{var has=false;for(var i=0;i<localStorage.length;i++){if(/^sb-.+-auth-token$/.test(localStorage.key(i))){has=true;break}}
+var th={};try{th=JSON.parse(localStorage.getItem('th')||'{}')||{}}catch(e){}var m=th.mode||'auto',d=m==='dark'||(m!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.t=d?'dark':'light';
+document.getElementById('load').hidden=true;
+if(has){window.__shell=1;document.getElementById('home').hidden=false;var h='';for(var j=0;j<8;j++)h+='<div class="crow sk"><div class="av"></div><div class="ci"><b style="width:'+(40+(j*13)%35)+'%"></b><small style="width:'+(55+(j*17)%35)+'%"></small></div></div>';document.getElementById('clist').innerHTML=h}
+else{document.getElementById('auth').hidden=false}}catch(e){document.getElementById('load').hidden=false}})();</script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
@@ -501,16 +513,17 @@ $('#go').onclick=async()=>{const email=$('#em').value.trim(),password=$('#pw').v
 $('#pw').onkeydown=e=>{if(e.key==='Enter')$('#go').click()};
 
 async function boot(){
- if(!window.CFG||!window.supabase){$('#load').innerHTML='<div class="box"><p>Не удалось загрузить приложение. Проверьте интернет и config.js</p></div>';return}
+ if(!window.CFG||!window.supabase){$('#load').innerHTML='<div class="box"><p>Не удалось загрузить приложение. Проверьте интернет и config.js</p></div>';show('load');return}
  sb=supabase.createClient(CFG.url,CFG.key);
  sb.auth.onAuthStateChange((ev,s)=>{if(ev==='SIGNED_OUT')location.reload()});
  const {data}=await sb.auth.getSession();
  if(data.session)start(data.session);else{authUI();show('auth')}
  if(/iphone|ipad/i.test(navigator.userAgent)&&!navigator.standalone)$('#hint').textContent='Чтобы получать уведомления: «Поделиться» → «На экран Домой»'}
 
-async function start(s){if(me)return;me=s.user;show('load');
- const pr=await sb.from('profiles').select('*').eq('id',me.id).maybeSingle();
- if(pr.error){$('#load').innerHTML='<div class="box"><p>Ошибка базы: '+esc(pr.error.message)+'</p><p>Выполните setup2.sql в Supabase</p></div>';return}
+let BK0=null;
+async function start(s){if(me)return;me=s.user;if(!window.__shell)show('load');
+ const [pr,bk0]=await Promise.all([sb.from('profiles').select('*').eq('id',me.id).maybeSingle(),sb.from('keybackup').select('data').eq('user_id',me.id).maybeSingle()]);BK0=bk0;
+ if(pr.error){$('#load').innerHTML='<div class="box"><p>Ошибка базы: '+esc(pr.error.message)+'</p><p>Выполните setup2.sql в Supabase</p></div>';show('load');return}
  prof=pr.data;
  if(!await ensureKeys())return;
  if(!prof||!prof.name||!prof.username){show('home');await editor(true)}
@@ -526,7 +539,7 @@ function askPhrase(create,err){return new Promise(res=>{
  $('#kgo').onclick=go;$('#kp').onkeydown=$('#kp2').onkeydown=e=>{if(e.key==='Enter')go()}})}
 async function ensureKeys(){
  try{ID=await idb.get('id:'+me.id)}catch(e){ID=null}
- const bk=await sb.from('keybackup').select('data').eq('user_id',me.id).maybeSingle();
+ const bk=BK0||await sb.from('keybackup').select('data').eq('user_id',me.id).maybeSingle();BK0=null;
  if(bk.error){toast(bk.error.message);return false}
  if(ID&&bk.data){}
  else if(bk.data){let err='';
@@ -554,14 +567,17 @@ async function loadAll(){
  const mr=await sb.from('members').select('*').eq('user_id',me.id);
  const ids=(mr.data||[]).map(x=>x.conv_id);
  if(!ids.length){C={};M={};cur?render():home();return}
+ const msP=sb.from('msgs').select('*').in('conv_id',ids).order('id',{ascending:false}).limit(600);
  const [cv,mm]=await Promise.all([sb.from('convs').select('*').in('id',ids),sb.from('members').select('*').in('conv_id',ids)]);
  const uids=[...new Set((mm.data||[]).flatMap(x=>[x.user_id,x.wrapped_by]))];
  const pr=await sb.from('profiles').select('*').in('id',uids);(pr.data||[]).forEach(p=>P[p.id]=p);P[me.id]=prof;
  const nc={};(cv.data||[]).forEach(c=>nc[c.id]={...c,members:[],my:null});
  (mm.data||[]).forEach(x=>{const c=nc[x.conv_id];if(!c)return;c.members.push(x);if(x.user_id===me.id)c.my=x});
- C=nc;await Promise.all(Object.values(C).map(unwrap));
- const ms=await sb.from('msgs').select('*').in('conv_id',Object.keys(C)).order('id',{ascending:false}).limit(600);
- M={};for(const m of (ms.data||[]).reverse()){await dc(m);(M[m.conv_id]=M[m.conv_id]||[]).push(m)}
+ C=nc;M={};if(!cur)home();
+ await Promise.all(Object.values(C).map(unwrap));
+ const ms=await msP;const list=(ms.data||[]).reverse();
+ for(let i=0;i<list.length;i+=60)await Promise.all(list.slice(i,i+60).map(dc));
+ for(const m of list)(M[m.conv_id]=M[m.conv_id]||[]).push(m);
  if(cur&&!C[cur])cur=null;
  if(cur){render();head();markRead()}else home()}
 async function enter(){applyTheme(prof.theme);P[me.id]=prof;show('home');await loadAll();
@@ -1129,7 +1145,7 @@ async function testPush(){try{const reg=await navigator.serviceWorker.ready;
 if(window.visualViewport){const vv=visualViewport,app=$('#app'),f=()=>{const ae=document.activeElement,ed=!!ae&&/^(INPUT|TEXTAREA)$/.test(ae.tagName),kb=ed||innerHeight-vv.height>120;document.documentElement.classList.toggle('kb',kb);
  app.style.height=vv.height+'px';app.style.top=vv.offsetTop+'px';if(kb){scrollTo(0,0);const l=$('#list');if(l&&!$('#chat').hidden)l.scrollTop=l.scrollHeight}};
  vv.addEventListener('resize',f);vv.addEventListener('scroll',f);addEventListener('focusin',()=>setTimeout(f,60));addEventListener('focusout',()=>setTimeout(()=>{scrollTo(0,0);f()},60))}
-if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});let had=!!navigator.serviceWorker.controller;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!had){had=true;return}if(sessionStorage.getItem('swr'))return;sessionStorage.setItem('swr','1');if(!CALL&&!(document.activeElement&&/INPUT|TEXTAREA/.test(document.activeElement.tagName)))location.reload()})}
 boot();
 </script>
 </body>
