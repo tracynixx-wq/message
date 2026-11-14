@@ -408,16 +408,40 @@ function bubble(m,c){const p=m.p||{},mine=m.sender===me.id;let h='';
  const mineR=(m.reactions||{})[me.id];
  const rh=Object.keys(rx).length?`<div class="rx">${Object.entries(rx).map(([e,n])=>`<span class="${mineR===e?'on':''}" data-id="${m.id}" data-e="${e}">${e} ${n}</span>`).join('')}</div>`:'';
  return`<div class="row ${mine?'me':'th'}${SEL&&SEL.has(m.id)?' sel':''}">${!mine&&c.kind!=='dm'?`<div class="snd">${displayName(P[m.sender],P[m.sender]?.name||'…')}</div>`:''}<div class="b ${media&&!p.t&&(p.k==='img'||p.k==='vid')?'nopad':''}" data-id="${m.id}">${h}${t}</div>${rh}</div>`}
-function render(sc){const c=C[cur];if(!c)return;pruneSecret();const box=$('#list'),near=box.scrollHeight-box.scrollTop-box.clientHeight<160;
+function scrollChatBottom(id=cur){
+ if(!id||cur!==id)return;
+ const box=$('#list');
+ const go=()=>{if(cur!==id||$('#chat').hidden||!box.isConnected)return;
+  const anchor=$('#chat-bottom-anchor');
+  if(anchor?.isConnected)anchor.scrollIntoView({block:'end',behavior:'auto'});
+  box.scrollTop=box.scrollHeight;
+ };
+ requestAnimationFrame(()=>requestAnimationFrame(go));
+}
+function render(sc){
+ const c=C[cur];if(!c)return;pruneSecret();
+ const box=$('#list'),near=box.scrollHeight-box.scrollTop-box.clientHeight<180;
+ const stick=!!sc||near||pendingChatBottom===cur;
+ if(sc)pendingChatBottom=cur;
  const a=M[cur]||[];let h='',pd=null;
- for(const m of a){if(!pd||!sameDay(pd,m.created_at))h+=`<div class="day">${sameDay(m.created_at,Date.now())?'Сегодня':new Date(m.created_at).toLocaleDateString('ru',{day:'numeric',month:'long'})}</div>`;pd=m.created_at;h+=bubble(m,c)}
- box.innerHTML=h||'<div class="empty">🔒 Сообщения защищены сквозным шифрованием.<br>Напишите первым.</div>';
+ for(const m of a){
+  if(!pd||!sameDay(pd,m.created_at))h+=`<div class="day">${sameDay(m.created_at,Date.now())?'Сегодня':new Date(m.created_at).toLocaleDateString('ru',{day:'numeric',month:'long'})}</div>`;
+  pd=m.created_at;h+=bubble(m,c);
+ }
+ box.innerHTML=(h||'<div class="empty">🔒 Сообщения защищены сквозным шифрованием.<br>Напишите первым.</div>')+'<div id="chat-bottom-anchor" aria-hidden="true"></div>';
  const seen=RL[cur],maxId=a.length?a[a.length-1].id:0;
  if(seen!==undefined)box.querySelectorAll('.b').forEach(b=>{if(+b.dataset.id>seen)b.parentElement.classList.add('new')});
  RL[cur]=maxId;
- if(sc||near){if(seen!==undefined&&maxId>seen)box.scrollTo({top:box.scrollHeight,behavior:'smooth'});else box.scrollTop=box.scrollHeight}
+ if(stick)scrollChatBottom(cur);
  const mediaLoads=[...box.querySelectorAll('[data-m]')].map(el=>loadMedia(el));
- if(pendingChatBottom===cur){const opening=cur;Promise.allSettled(mediaLoads).then(()=>{if(pendingChatBottom!==opening||cur!==opening)return;requestAnimationFrame(()=>requestAnimationFrame(()=>{if(pendingChatBottom!==opening||cur!==opening)return;box.scrollTop=box.scrollHeight;pendingChatBottom=null}))})}
+ if(stick){
+  const opening=cur;
+  Promise.allSettled(mediaLoads).then(()=>{
+   if(cur!==opening||pendingChatBottom!==opening)return;
+   scrollChatBottom(opening);
+   requestAnimationFrame(()=>{if(cur===opening&&pendingChatBottom===opening){scrollChatBottom(opening);pendingChatBottom=null}});
+  });
+ }
 }
 $('#list').onclick=e=>{
  const rx=e.target.closest('.rx span');if(rx){react(+rx.dataset.id,rx.dataset.e);return}
@@ -519,7 +543,7 @@ inp.oninput=fit;
 async function sendPayload(c,payload){if(!K[c.id]){toast('Нет ключа этого чата');return null}
  const r=await sb.from('msgs').insert({conv_id:c.id,sender:me.id,data:await CR.seal(K[c.id],c.id,payload)}).select().single();
  if(r.error){toast(r.error.message);return null}
- await dc(r.data);const a=M[c.id]=M[c.id]||[];if(!a.some(x=>x.id===r.data.id))a.push(r.data);if(cur===c.id)render(true);else home();return r.data}
+ await dc(r.data);const a=M[c.id]=M[c.id]||[];if(!a.some(x=>x.id===r.data.id))a.push(r.data);if(cur===c.id){pendingChatBottom=c.id;render(true)}else home();return r.data}
 $('#sendb').onclick=async()=>{const t=inp.value.trim(),c=C[cur];if(!t||!c)return;
  if(editing){const m=editing;unbar();inp.value='';fit();const np={...m.p,t};
   const r=await sb.from('msgs').update({data:await CR.seal(K[c.id],c.id,np),edited_at:new Date().toISOString()}).eq('id',m.id).select().single();
