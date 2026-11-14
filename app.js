@@ -159,6 +159,14 @@ async function ensureKeys(){
  return true}
 
 /* ---------- загрузка данных ---------- */
+/* Serialize realtime/foreground refreshes to prevent overlapping loads from overwriting newer state. */
+let loadPromise=null,loadAgain=false;
+async function loadAll(){
+ if(loadPromise){loadAgain=true;return loadPromise}
+ loadPromise=(async()=>{do{loadAgain=false;await loadAllImpl()}while(loadAgain)})();
+ try{return await loadPromise}finally{loadPromise=null}
+}
+
 const peerId=c=>(c.members.find(x=>x.user_id!==me.id)||{}).user_id;
 const peerOf=c=>P[peerId(c)];
 const title=c=>c.kind==='dm'?(peerOf(c)?.name||'…'):(c.title||'Без названия');
@@ -168,7 +176,7 @@ async function unwrap(c){if(K[c.id]||!c.my)return;const by=P[c.my.wrapped_by];if
  try{K[c.id]=await CR.unwrap(ID.priv,by.pubkey,c.my.wrapped_key,c.id)}catch(e){}}
 async function dc(m){const k=K[m.conv_id];m.p=null;if(!k){m.p={t:'🔒 Нет ключа'};return}
  try{m.p=await CR.open(k,m.conv_id,m.data)}catch(e){m.p={t:'🔒 Не удалось расшифровать'}}}
-async function loadAll(){
+async function loadAllImpl(){
  const mr=await sb.from('members').select('*').eq('user_id',me.id);
  if(mr.error){toast('Не удалось загрузить список чатов: '+mr.error.message);return}
  const ids=(mr.data||[]).map(x=>x.conv_id);
@@ -499,7 +507,7 @@ async function upload(c,bytes,kind,name,mime,extra){
  const sealed=await CR.sealB(K[c.id],c.id,bytes),path=`${c.id}/${crypto.randomUUID()}`;
  const r=await sb.storage.from('media').upload(path,new Blob([sealed]),{contentType:'application/octet-stream'});
  if(r.error){toast('Не загрузилось: '+r.error.message);return}
- const pl={k:kind,p:path,n:name,y:mime,s:bytes.length,...extra};if(reply){pl.r=reply.id;unbar()}const sent=await sendPayload(c,pl);if(!sent){const cleanup=await sb.storage.from('media').remove([path]);if(cleanup.error)console.warn('[media] orphan cleanup failed',cleanup.error);return null}return sent}
+ const pl={k:kind,p:path,n:name,y:mime,s:bytes.length,...extra};if(reply){pl.r=reply.id;unbar()}let sent;try{sent=await sendPayload(c,pl)}catch(err){const cleanup=await sb.storage.from('media').remove([path]);if(cleanup.error)console.warn('[media] orphan cleanup failed',cleanup.error);throw err}if(!sent){const cleanup=await sb.storage.from('media').remove([path]);if(cleanup.error)console.warn('[media] orphan cleanup failed',cleanup.error);return null}return sent}
 function shrink(file,max=1600){return new Promise((res,rej)=>{const im=new Image(),u=URL.createObjectURL(file);let done=false;
  const finish=(fn,v)=>{if(done)return;done=true;URL.revokeObjectURL(u);fn(v)};
  im.onload=()=>{try{if(!im.naturalWidth||!im.naturalHeight)throw new Error('Некорректное изображение');
