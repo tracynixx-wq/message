@@ -310,7 +310,7 @@ function storiesList(){
  if(STERR)h+=`<div class="empty">${esc(STERR)}</div>`;
  else if(!STLOADED)h+='<div class="empty">Загрузка…</div>';
  else h+=ids.length?'<div class="lbl" style="padding:8px 18px 2px">Недавние</div>'+ids.map(u=>{const o=P[u],L=ST[u],un=L.some(x=>!SV.has(x.id));return`<div class="crow" data-sopen="${u}"><div class="avw sr ${un?'':'seen'}">${av(o,56)}</div><div class="ci"><b class="nm"><span class="t">${displayName(o,o?.name||'…')}</span></b><small>${ago(L.at(-1).created_at)}${L.length>1?' · '+L.length:''}</small></div></div>`}).join(''):'<div class="empty">Пока нет историй от ваших собеседников.<br>Их видят только люди, с которыми у вас есть личный чат.</div>';
- $('#clist').innerHTML=h}
+ if(CL.innerHTML!==h)CL.innerHTML=h}
 let SVQ=null;
 function openStory(uid,start){const L=ST[uid];if(!L||!L.length)return;let i=start??0;if(start==null&&uid!==me.id){const k=L.findIndex(x=>!SV.has(x.id));i=k<0?0:k}
  SVQ={uid,L,i,t:null};$('#sv').hidden=false;showStory()}
@@ -349,7 +349,7 @@ function contactsList(f){const seen=new Set(),L=[];Object.values(C).forEach(c=>{
  $('#clist').innerHTML=h}
 function setTab(t){if(t==='profile'){sets();return}TAB=t;showArch=false;document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab===TAB));$('#home .top h2').textContent=TAB==='chats'?'Чаты':TAB==='contacts'?'Контакты':'Истории';home();if(TAB==='stories')loadStories()}
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
-function home(){if(!me)return;pruneSecret();const f=$('#q').value.trim().toLowerCase();CH.hidden=TAB!=='chats';if(TAB==='contacts'){contactsList(f);return}if(TAB==='stories'){storiesList();return}CH.innerHTML=chipsHtml();
+function home(){if(!me)return;pruneSecret();const f=$('#q').value.trim().toLowerCase();CH.hidden=TAB!=='chats';if(TAB==='contacts'){contactsList(f);return}if(TAB==='stories'){storiesList();return}const chipHtml=chipsHtml();if(CH.innerHTML!==chipHtml)CH.innerHTML=chipHtml;
  const all=Object.values(C),inArch=all.filter(c=>c.my?.archived);
  const rows=all.filter(c=>!!c.my?.archived===showArch).map(c=>({c,l:lastOf(c),u:unread(c)})).filter(r=>(!f||title(r.c).toLowerCase().includes(f))&&passF(r))
   .sort((a,b)=>(b.c.my?.pinned?1:0)-(a.c.my?.pinned?1:0)||new Date(b.l?b.l.created_at:b.c.created_at)-new Date(a.l?a.l.created_at:a.c.created_at));
@@ -433,7 +433,9 @@ function render(sc){
   if(!pd||!sameDay(pd,m.created_at))h+=`<div class="day">${sameDay(m.created_at,Date.now())?'Сегодня':new Date(m.created_at).toLocaleDateString('ru',{day:'numeric',month:'long'})}</div>`;
   pd=m.created_at;h+=bubble(m,c);
  }
- box.innerHTML=h||'<div class="empty">🔒 Сообщения защищены сквозным шифрованием.<br>Напишите первым.</div>';
+ const nextHtml=h||'<div class="empty">🔒 Сообщения защищены сквозным шифрованием.<br>Напишите первым.</div>';
+  if(box.innerHTML===nextHtml){if(stick){scrollChatBottom(opening,revision);pendingChatBottom=null}return}
+  box.innerHTML=nextHtml;
  const seen=RL[cur],maxId=a.length?a[a.length-1].id:0;
  if(seen!==undefined)box.querySelectorAll('.b').forEach(b=>{if(+b.dataset.id>seen)b.parentElement.classList.add('new')});
  RL[cur]=maxId;

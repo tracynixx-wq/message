@@ -352,3 +352,22 @@ html.tt *,html.tt{transition:background-color .35s ease,color .35s ease,border-c
 .reduce-motion *, .reduce-motion *::before, .reduce-motion *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}
 .high-contrast{--mut:#b8bec8;--line:#747b86;--card:#25282d}
 .high-contrast[data-t=light]{--fg:#000;--mut:#343a40;--line:#555;--card:#eceff2}
+
+
+/* v8 smoothness: avoid replaying animations and expensive effects on every list refresh */
+html,body,#clist,#list{scroll-behavior:auto!important}
+#clist,#list{-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.crow{animation:none!important;transition:background-color .16s ease,opacity .16s ease!important;will-change:auto}
+.crow:active{transform:scale(.992)!important}
+.row .b{transition:transform .16s ease,background-color .16s ease!important}
+.row .b:active{transform:scale(.99)!important;filter:none!important}
+.btn,.ib,#sendb,#mic{transition:transform .16s ease,opacity .16s ease,background-color .16s ease!important}
+.srow{transition:background-color .16s ease,opacity .16s ease!important}
+.slR,.slL{animation-duration:.2s!important;animation-timing-function:cubic-bezier(.2,.75,.25,1)!important}
+@keyframes slR{from{transform:translate3d(12px,0,0);opacity:0}to{transform:translate3d(0,0,0);opacity:1}}
+@keyframes slL{from{transform:translate3d(-12px,0,0);opacity:0}to{transform:translate3d(0,0,0);opacity:1}}
+@keyframes up{from{transform:translate3d(0,18px,0);opacity:.75}to{transform:translate3d(0,0,0);opacity:1}}
+@keyframes pop{from{opacity:0;transform:translate3d(0,5px,0) scale(.99)}to{opacity:1;transform:translate3d(0,0,0) scale(1)}}
+.row.new{animation:message-arrive .18s ease-out both}
+@keyframes message-arrive{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+@media(hover:none) and (pointer:coarse){.crow:active,.srow:active,.btn:active,.ib:active{filter:none}}
