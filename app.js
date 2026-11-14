@@ -368,7 +368,7 @@ function home(){if(!me)return;pruneSecret();const f=$('#q').value.trim().toLower
  const all=Object.values(C),inArch=all.filter(c=>c.my?.archived);
  const rows=all.filter(c=>!!c.my?.archived===showArch).map(c=>({c,l:lastOf(c),u:unread(c)})).filter(r=>(!f||title(r.c).toLowerCase().includes(f))&&passF(r))
   .sort((a,b)=>(b.c.my?.pinned?1:0)-(a.c.my?.pinned?1:0)||new Date(b.l?b.l.created_at:b.c.created_at)-new Date(a.l?a.l.created_at:a.c.created_at));
- const au=inArch.reduce((n,c)=>n+(c.my.muted?0:unread(c)),0);let h=(!f&&!showArch&&TAB==='chats')?storiesStripHtml():'';
+ const au=inArch.reduce((n,c)=>n+(c.my.muted?0:unread(c)),0);let h='';
  if(!f&&!showArch&&FILT==='all'&&inArch.length)h+=`<div class="crow arch" data-arch="1"><div class="av" style="width:56px;height:56px">📦</div><div class="ci"><b>Архив</b><small>Чатов: ${inArch.length}</small></div>${au?`<div class="cm"><span class="badge">${au}</span></div>`:''}</div>`;
  if(showArch)h+=`<div class="crow arch" data-arch="0"><div class="av" style="width:56px;height:56px">←</div><div class="ci"><b>Архив</b><small>Назад к чатам</small></div></div>`;
  h+=rows.length?rows.map(({c,l,u})=>{const o=c.kind==='dm'?peerOf(c):c,mu=c.my?.muted;
@@ -882,7 +882,7 @@ function sets(){const t=prof.theme||{},md=t.mode||'auto';const perm='Notificatio
   if(md2||ac!==undefined){const n={...(prof.theme||{})};if(md2)n.mode=md2;if(ac!==undefined)n.accent=ac;prof.theme=applyTheme(n);await sb.from('profiles').update({theme:prof.theme}).eq('id',me.id);sets();return}
   if(a==='cd'){chatDesign();return}if(a==='ed')editor(false);if(a==='push')enablePush();if(a==='test')testPush();
 
-  if(a==='accounts')settingsAccounts();if(a==='devices')settingsDevices();if(a==='folders')settingsFolders();if(a==='backup')settingsBackup();if(a==='access')settingsAccess();if(a==='support')settingsSupport();
+  if(a==='devices')settingsDevices();if(a==='folders')settingsFolders();if(a==='backup')settingsBackup();if(a==='access')settingsAccess();if(a==='support')settingsSupport();
   if(a==='out'&&confirm('Выйти из аккаунта?'))sb.auth.signOut()})}
 function uiIcon(name){
  const d={user:'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21c1-4 3.5-6 8-6s7 2 8 6',devices:'M3 4h13v12H3zM7 20h5m-2-4v4M18 8h3v12h-3z',folder:'M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9H3z',palette:'M12 3a9 9 0 1 0 0 18h1a2 2 0 0 0 1-4 2 2 0 0 1 2-3h1a4 4 0 0 0 4-4c0-4-4-7-9-7',database:'M12 3c5 0 9 1 9 3s-4 3-9 3-9-1-9-3 4-3 9-3ZM3 6v12c0 2 4 3 9 3s9-1 9-3V6M3 12c0 2 4 3 9 3s9-1 9-3',sliders:'M4 7h16M4 17h16M14 4v6M9 14v6',shield:'M12 3 20 6v5c0 5-3 8-8 10-5-2-8-5-8-10V6zM9 12l2 2 4-4',key:'M8 15a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm3-5 9-7 2 2-3 3 2 2-3 3-2-2-3 3',bell:'M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4',help:'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM9 9a3 3 0 1 1 5 2c-1 1-2 1-2 3M12 17v.1',logout:'M10 17l5-5-5-5M15 12H3M12 3h6v18h-6',edit:'m4 16-1 5 5-1L20 8l-4-4zM14 6l4 4',heart:'M20 9c0 5-8 10-8 10S4 14 4 9a4 4 0 0 1 8-2 4 4 0 0 1 8 2',image:'M3 4h18v16H3zM8 9h.1M3 17l6-6 4 4 3-3 5 5',music:'M9 18V5l12-2v13M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6M18 19a3 3 0 1 0 0-6 3 3 0 0 0 0 6'};
@@ -909,7 +909,7 @@ function redesignedSettings(){
  const row=(i,n,a,d='')=>`<button class="srow settings-row" data-a="${a}">${uiIcon(i)}<span>${n}</span>${d?`<b>${d}</b>`:'<span class="settings-chevron">›</span>'}</button>`;
  sheet(`<div class="settings-screen">
  <div class="settings-heading"><div><span class="settings-eyebrow">MESSAGE</span><h2>Настройки</h2></div><div class="settings-profile-mini">${av(prof,42)}<span><b>${displayName(prof)}</b><small>@${esc(prof.username||'')}</small></span></div></div>
- <section class="settings-group"><h3>Аккаунт</h3>${row('user','Профиль','profile')}${row('devices','Устройства и сеансы','devices')}${row('user','Переключить аккаунт','accounts')}${row('folder','Папки и организация','folders',String(folders().length||'—'))}</section>
+ <section class="settings-group"><h3>Аккаунт</h3>${row('user','Профиль','profile')}${row('devices','Устройства и сеансы','devices')}${row('folder','Папки и организация','folders',String(folders().length||'—'))}</section>
  <section class="settings-group"><h3>Внешний вид</h3>${row('palette','Оформление чатов','cd')}<div class="settings-option"><div class="settings-option-title">${uiIcon('sliders')}<span>Тема приложения</span></div><div class="seg">${[['auto','Авто'],['light','Светлая'],['dark','Тёмная']].map(([k,n])=>`<button data-mode="${k}" class="${md===k?'on':''}">${n}</button>`).join('')}</div></div><div class="settings-option"><div class="settings-option-title">${uiIcon('palette')}<span>Акцентный цвет</span></div><div class="sw">${ACC.map(c=>`<i data-acc="${c}" style="background:${c||'linear-gradient(135deg,#151515 50%,#f2f2f4 50%)'}" class="${((t.accent==='#3e88f7'?'':t.accent)||'')===c?'on':''}"></i>`).join('')}</div></div></section>
  <section class="settings-group"><h3>Данные</h3>${row('database','Резервная копия ключа','backup')}${row('sliders','Специальные возможности','access')}${row('help','Помощь и диагностика','support')}</section>
  <section class="settings-group"><h3>Безопасность</h3>${row('shield','Шифрование переписки','security','Включено')}${row('key','Ключ и восстановление','backup')}</section>
