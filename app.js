@@ -697,7 +697,7 @@ async function addMembers(c,users,role='member'){
     if(!user?.pubkey)throw new Error('У пользователя нет открытого ключа');
     wrapped[user.id]=await CR.wrap(ID.priv,user.pubkey,nextKey,c.id);
    }
-   const result=await sb.rpc('rotate_group_add_member_key',{p_conv_id:c.id,p_user_id:users[0].id,p_wrapped_keys:wrapped});
+   const result=await sb.rpc('rotate_group_add_members_key',{p_conv_id:c.id,p_user_ids:users.map(u=>u.id),p_wrapped_keys:wrapped});
    if(result.error)return result;
    K[c.id]=nextKey;
    return {data:null,error:null};
