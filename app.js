@@ -287,16 +287,17 @@ CH.addEventListener('pointerdown',e=>{const b=e.target.closest('[data-fl^="f:"]'
 /* ---------- истории ---------- */
 let ST={},SV=new Set(),STERR='',STLOADED=false,stCleaned=false;
 const SBG=[['#2b2d33','#0b0c0e'],['#4b6cb7','#182848'],['#c33764','#1d2671'],['#11998e','#38ef7d'],['#f12711','#f5af19'],['#7f00ff','#e100ff']];
-const stPath=x=>/^[0-9a-f-]{36}\/story-[\w.-]+$/.test(x||'')?sb.storage.from('avatars').getPublicUrl(x).data.publicUrl:'';
+const stPath=x=>x?.signed_url||'';
 const ago=d=>{const m=Math.max(0,Math.round((Date.now()-new Date(d))/60000));return m<1?'только что':m<60?m+' мин назад':Math.floor(m/60)+' ч назад'};
 async function loadStories(){
  const r=await sb.from('stories').select('*').gt('expires_at',new Date().toISOString()).order('created_at',{ascending:true});
  if(r.error){STERR=/stories|relation|does not exist|schema/i.test(r.error.message)?'Выполните stories.sql в Supabase (SQL Editor)':r.error.message;STLOADED=true;if(TAB==='stories')home();return}
  STERR='';ST={};(r.data||[]).forEach(x=>(ST[x.user_id]=ST[x.user_id]||[]).push(x));
+ await Promise.all((r.data||[]).filter(x=>x.kind==='img'&&x.path).map(async x=>{try{const q=await sb.storage.from('stories').createSignedUrl(x.path,3600);if(!q.error)x.signed_url=q.data.signedUrl}catch(e){}}));
  const need=Object.keys(ST).filter(u=>!P[u]);if(need.length){const q=await sb.from('profiles').select('*').in('id',need);(q.data||[]).forEach(x=>P[x.id]=x)}
  const v=await sb.from('story_views').select('story_id').eq('viewer_id',me.id);SV=new Set((v.data||[]).map(x=>x.story_id));STLOADED=true;if(TAB==='stories'&&SHOWN==='home')home();
  if(!stCleaned){stCleaned=true;const old=await sb.from('stories').select('id,path').eq('user_id',me.id).lt('expires_at',new Date().toISOString());
-  if(old.data&&old.data.length){const ps=old.data.map(x=>x.path).filter(Boolean);if(ps.length)sb.storage.from('avatars').remove(ps).then(()=>{});sb.from('stories').delete().in('id',old.data.map(x=>x.id)).then(()=>{})}}}
+  if(old.data&&old.data.length){const ps=old.data.map(x=>x.path).filter(Boolean);if(ps.length)sb.storage.from('stories').remove(ps).then(()=>{});sb.from('stories').delete().in('id',old.data.map(x=>x.id)).then(()=>{})}}}
 setInterval(()=>{if(me&&TAB==='stories'&&SHOWN==='home'&&!document.hidden)loadStories()},60000);
 function storiesList(){
  const mine=ST[me.id]||[];
@@ -317,7 +318,7 @@ function showStory(){const q=SVQ;if(!q)return;clearTimeout(q.t);const x=q.L[q.i]
  else{const g=SBG[x.bg]||SBG[0];body=`<div class="svtxt" style="background:linear-gradient(160deg,${g[0]},${g[1]})"><div>${esc(x.caption||'')}</div></div>`}
  $('#sv').innerHTML=`<div class="svbars">${bars}</div><div class="svhead">${av(o,36)}<div><b>${displayName(o,o?.name||'…')}</b><small>${ago(x.created_at)}</small></div><button id="svx" aria-label="Закрыть">✕</button></div>${body}<div class="svl" id="svl"></div><div class="svr" id="svr"></div>${mineS?`<div class="svfoot"><span id="svv">👁 …</span><button id="svd">🗑 Удалить</button></div>`:''}`;
  $('#svx').onclick=closeStory;$('#svl').onclick=()=>{if(q.i>0){q.i--;showStory()}else showStory()};$('#svr').onclick=nextStory;
- if(mineS){$('#svd').onclick=async()=>{if(!confirm('Удалить эту историю?'))return;clearTimeout(q.t);const r=await sb.from('stories').delete().eq('id',x.id);if(r.error){toast(r.error.message);return}if(x.path)sb.storage.from('avatars').remove([x.path]).then(()=>{});
+ if(mineS){$('#svd').onclick=async()=>{if(!confirm('Удалить эту историю?'))return;clearTimeout(q.t);const r=await sb.from('stories').delete().eq('id',x.id);if(r.error){toast(r.error.message);return}if(x.path)sb.storage.from('stories').remove([x.path]).then(()=>{});
    ST[me.id]=(ST[me.id]||[]).filter(y=>y.id!==x.id);if(!ST[me.id].length)delete ST[me.id];q.L=ST[me.id]||[];if(!q.L.length){closeStory();return}q.i=Math.min(q.i,q.L.length-1);showStory()};
   sb.from('story_views').select('viewer_id').eq('story_id',x.id).then(r=>{if(SVQ===q&&q.L[q.i]===x&&$('#svv'))$('#svv').textContent='👁 '+((r.data||[]).filter(v=>v.viewer_id!==me.id).length)})}
  else if(!SV.has(x.id)){SV.add(x.id);sb.from('story_views').upsert({story_id:x.id}).then(()=>{})}
@@ -334,8 +335,8 @@ function storyCompose(kind,blob){let bg=1;const prev=blob?URL.createObjectURL(bl
   const t=sh.querySelector('#svt');if(kind==='txt'){t.oninput=()=>sh.querySelector('#svpt').textContent=t.value||'Ваш текст';sh.querySelector('#svc').onclick=e=>{const b=e.target.dataset.b;if(b===undefined)return;bg=+b;sh.querySelectorAll('#svc i').forEach(i=>i.classList.toggle('on',i.dataset.b===b));sh.querySelector('#svp').style.background=`linear-gradient(160deg,${SBG[bg][0]},${SBG[bg][1]})`}}
   sh.querySelector('#svgo').onclick=async()=>{const cap=t.value.trim();if(kind==='txt'&&!cap){sh.querySelector('#svm').textContent='Введите текст';return}
    const btn=sh.querySelector('#svgo');btn.disabled=true;sh.querySelector('#svm').textContent='Публикация…';
-   try{let path=null;if(kind==='img'){path=`${me.id}/story-${Date.now()}-${Math.random().toString(36).slice(2,8)}.jpg`;const u=await sb.storage.from('avatars').upload(path,blob,{contentType:'image/jpeg',cacheControl:'3600',upsert:false});if(u.error)throw new Error(u.error.message)}
-    const r=await sb.from('stories').insert({kind,path,caption:cap||null,bg:kind==='txt'?bg:0}).select().single();if(r.error){if(path){const rm=await sb.storage.from('avatars').remove([path]);if(rm.error)console.warn('[stories] orphan cleanup failed',rm.error)}throw new Error(/stories|relation/i.test(r.error.message)?'Выполните stories.sql в Supabase':r.error.message)}
+   try{let path=null;if(kind==='img'){path=`${me.id}/story-${Date.now()}-${Math.random().toString(36).slice(2,8)}.jpg`;const u=await sb.storage.from('stories').upload(path,blob,{contentType:'image/jpeg',cacheControl:'3600',upsert:false});if(u.error)throw new Error(u.error.message)}
+    const r=await sb.from('stories').insert({kind,path,caption:cap||null,bg:kind==='txt'?bg:0}).select().single();if(r.error){if(path){const rm=await sb.storage.from('stories').remove([path]);if(rm.error)console.warn('[stories] orphan cleanup failed',rm.error)}throw new Error(/stories|relation/i.test(r.error.message)?'Выполните stories.sql в Supabase':r.error.message)}
     (ST[me.id]=ST[me.id]||[]).push(r.data);closeSheet();toast('История опубликована');if(TAB==='stories')home()}catch(err){btn.disabled=false;sh.querySelector('#svm').textContent=err.message}}})}
 function contactsList(f){const seen=new Set(),L=[];Object.values(C).forEach(c=>{if(c.kind!=='dm'||c.secret_ttl)return;const o=peerOf(c);if(!o||seen.has(o.id))return;seen.add(o.id);L.push({c,o})});
  const rows=L.filter(({o})=>!f||(o.name||'').toLowerCase().includes(f)||(o.username||'').toLowerCase().includes(f)).sort((a,b)=>(online(b.o)?1:0)-(online(a.o)?1:0)||(a.o.name||'').localeCompare(b.o.name||'','ru'));
