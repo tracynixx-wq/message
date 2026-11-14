@@ -1,4 +1,4 @@
-const C='chat-v21',CDN='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js',A=['./','index.html','config.js','manifest.webmanifest','icon-192.png'];
+const C='chat-v22',CDN='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js',A=['./','index.html','config.js','manifest.webmanifest','styles.css','app.js','icon-192.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(async c=>{await Promise.all(A.map(u=>c.add(new Request(u,{cache:'reload'})).catch(()=>{})));await c.add(new Request(CDN,{mode:'no-cors'})).catch(()=>{})}).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x)))).then(()=>self.clients.claim()))});
 self.addEventListener('fetch',e=>{const r=e.request;if(r.method!=='GET')return;const u=new URL(r.url);
