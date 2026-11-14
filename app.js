@@ -128,7 +128,9 @@ $('#pw').onkeydown=e=>{if(e.key==='Enter')$('#go').click()};
 async function boot(){
  if(!window.CFG||!window.supabase){$('#load').innerHTML='<div class="box"><p>Не удалось загрузить приложение. Проверьте интернет и config.js</p></div>';show('load');return}
  try{
-  sb=supabase.createClient(CFG.url,CFG.key);
+  const activeAuthKey=localStorage.getItem('msg.activeAuthKey')||`sb-${new URL(CFG.url).hostname.split('.')[0]}-auth-token`;
+  window.__authStorageKey=activeAuthKey;
+  sb=supabase.createClient(CFG.url,CFG.key,{auth:{storageKey:activeAuthKey}});
   sb.auth.onAuthStateChange((ev)=>{if(ev==='SIGNED_OUT')location.reload()});
   const {data,error}=await sb.auth.getSession();if(error)throw error;
   if(data.session)await start(data.session);else{authUI();show('auth')}
@@ -138,10 +140,12 @@ async function boot(){
 function showStartError(e){$('#load').innerHTML='<div class="box"><p>Не удалось открыть аккаунт: '+esc(e?.message||'ошибка соединения')+'</p><button class="btn" id="retryStart">Повторить</button></div>';show('load');$('#retryStart').onclick=()=>{me=null;start(window.__lastSession).catch(showStartError)}}
 let BK0=null;
 async function start(s){if(me)return;window.__lastSession=s;me=s.user;if(!window.__shell)show('load');
+ try{localStorage.setItem('msg.activeAuthKey',window.__authStorageKey||'')}catch(_){}
  try{
   const [pr,bk0]=await Promise.all([sb.from('profiles').select('*').eq('id',me.id).maybeSingle(),sb.from('keybackup').select('data').eq('user_id',me.id).maybeSingle()]);BK0=bk0;
   if(pr.error)throw pr.error;
   prof=pr.data;
+  saveLocalAccount(s.user,prof);
   if(!await ensureKeys())throw new Error('Не удалось проверить ключи аккаунта');
   if(!prof||!prof.name||!prof.username){show('home');await editor(true)}
   await enter()
@@ -843,6 +847,7 @@ function sets(){const t=prof.theme||{},md=t.mode||'auto';const perm='Notificatio
   <div class="srow" data-a="cd">🎨 Оформление чатов</div>
   <div class="lbl">Дополнительные возможности</div>
   <div class="srow" data-a="devices">📱 Устройства и сеансы</div>
+  <div class="srow" data-a="accounts">🔁 Переключить аккаунт</div>
   <div class="srow" data-a="folders">🗂 Папки и организация<b>${folders().length||'Нет'}</b></div>
   <div class="srow" data-a="backup">🔐 Резервная копия ключа</div>
   <div class="srow" data-a="access">♿ Специальные возможности</div>
@@ -858,8 +863,23 @@ function sets(){const t=prof.theme||{},md=t.mode||'auto';const perm='Notificatio
   if(md2||ac!==undefined){const n={...(prof.theme||{})};if(md2)n.mode=md2;if(ac!==undefined)n.accent=ac;prof.theme=applyTheme(n);await sb.from('profiles').update({theme:prof.theme}).eq('id',me.id);sets();return}
   if(a==='cd'){chatDesign();return}if(a==='ed')editor(false);if(a==='push')enablePush();if(a==='test')testPush();
 
-  if(a==='devices')settingsDevices();if(a==='folders')settingsFolders();if(a==='backup')settingsBackup();if(a==='access')settingsAccess();if(a==='support')settingsSupport();
+  if(a==='accounts')settingsAccounts();if(a==='devices')settingsDevices();if(a==='folders')settingsFolders();if(a==='backup')settingsBackup();if(a==='access')settingsAccess();if(a==='support')settingsSupport();
   if(a==='out'&&confirm('Выйти из аккаунта?'))sb.auth.signOut()})}
+const ACCOUNT_LIST_KEY='msg.accounts.v1';
+function readLocalAccounts(){try{const a=JSON.parse(localStorage.getItem(ACCOUNT_LIST_KEY)||'[]');return Array.isArray(a)?a.filter(x=>x&&x.id&&x.storageKey):[]}catch(_){return[]}}
+function saveLocalAccount(user,profile){
+ try{const list=readLocalAccounts().filter(x=>x.id!==user.id);list.push({id:user.id,email:user.email||'',name:profile?.name||'',username:profile?.username||'',storageKey:window.__authStorageKey||''});localStorage.setItem(ACCOUNT_LIST_KEY,JSON.stringify(list))}catch(e){console.warn('[accounts] local registry unavailable',e)}
+}
+function defaultAuthStorageKey(){return `sb-${new URL(CFG.url).hostname.split('.')[0]}-auth-token`}
+function settingsAccounts(){
+ const list=readLocalAccounts(),active=window.__authStorageKey||defaultAuthStorageKey();
+ const rows=list.map(x=>`<div class="srow" data-account-key="${esc(x.storageKey)}"><div style="min-width:0;flex:1"><b>${esc(x.name||x.username||x.email||'Аккаунт')}</b><div class="muted" style="font-size:12px">${esc(x.email|| (x.username?'@'+x.username:''))}</div></div><b>${x.storageKey===active?'Активен':'Переключить'}</b></div>`).join('');
+ sheet(`<h3>Аккаунты</h3><div class="msg">Сохранённые аккаунты остаются авторизованными на этом устройстве. При переключении текущий аккаунт не удаляется.</div>${rows||'<div class="empty">Список аккаунтов пока пуст</div>'}<button class="btn" id="addAccount">＋ Добавить аккаунт</button><button class="btn sec" id="accountsBack">Назад</button>`,el=>{
+  el.querySelector('#accountsBack').onclick=sets;
+  el.querySelector('#addAccount').onclick=()=>{try{const key=defaultAuthStorageKey()+'-account-'+crypto.randomUUID();localStorage.setItem('msg.activeAuthKey',key);location.reload()}catch(e){toast('Не удалось создать новый профиль входа')}};
+  el.querySelectorAll('[data-account-key]').forEach(row=>row.onclick=()=>{const key=row.dataset.accountKey;if(!key||key===active)return;localStorage.setItem('msg.activeAuthKey',key);location.reload()});
+ })
+}
 function sessionDevice(ua=''){if(/iPhone/i.test(ua))return 'iPhone';if(/iPad/i.test(ua))return 'iPad';if(/Android/i.test(ua)){const m=ua.match(/Android[^;)]*(?:;\s*([^;)]+))?/i);return 'Android'+(m?.[1]?' · '+m[1].trim():'')}if(/Windows NT/i.test(ua))return 'Windows PC';if(/Macintosh|Mac OS X/i.test(ua))return 'Mac';if(/Linux/i.test(ua))return 'Linux';return 'Неизвестное устройство'}
 function sessionBrowser(ua=''){const m=ua.match(/(YaBrowser|Edg|Chrome|CriOS|Firefox|FxiOS|Version|Safari)(?:\/|\s)?([\d.]+)/i);if(!m)return 'Браузер не определён';const n={YaBrowser:'Яндекс Браузер',Edg:'Microsoft Edge',Chrome:'Chrome',CriOS:'Chrome',Firefox:'Firefox',FxiOS:'Firefox',Version:'Safari',Safari:'Safari'};return (n[m[1]]||m[1])+' '+m[2]}
 function sessionDate(v){if(!v)return 'Нет данных';const d=new Date(v);return Number.isNaN(+d)?'Нет данных':d.toLocaleString('ru-RU',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}
