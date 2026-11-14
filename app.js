@@ -621,7 +621,7 @@ async function startDm(u,ttl){closeSheet();const key=[me.id,u.id].sort().join('_
  const c=r.data,k=await CR.newKey();K[c.id]=k;
  const mr=await sb.from('members').insert([{conv_id:c.id,user_id:me.id,role:'owner',wrapped_by:me.id,wrapped_key:await CR.wrap(ID.priv,ID.pub,k,c.id)},
   {conv_id:c.id,user_id:u.id,role:'member',wrapped_by:me.id,wrapped_key:await CR.wrap(ID.priv,u.pubkey,k,c.id)}]);
- if(mr.error){toast(mr.error.message);return}P[u.id]=u;await loadAll();openChat(c.id)}
+ if(mr.error){await sb.from('convs').delete().eq('id',c.id);delete K[c.id];toast('Не удалось добавить участника: '+mr.error.message);return}P[u.id]=u;await loadAll();openChat(c.id)}
 let NG={kind:'group',title:'',sel:[]};
 function newConv(kind,keep){if(!keep)NG={kind,title:'',sel:[]};
  sheet(`<h3>${NG.kind==='group'?'Новая группа':'Новый канал'}</h3><input id="gt" placeholder="Название" maxlength="60" value="${esc(NG.title)}"><div class="lbl">Участники</div>
@@ -633,8 +633,8 @@ function newConv(kind,keep){if(!keep)NG={kind,title:'',sel:[]};
    const r=await sb.from('convs').insert({kind:NG.kind,title:t}).select().single();if(r.error){toast(r.error.message);return}
    const c=r.data,k=await CR.newKey();K[c.id]=k;
    const m1=await sb.from('members').insert({conv_id:c.id,user_id:me.id,role:'owner',wrapped_by:me.id,wrapped_key:await CR.wrap(ID.priv,ID.pub,k,c.id)});
-   if(m1.error){toast(m1.error.message);return}
-   if(NG.sel.length){const m2=await addMembers(c,NG.sel);if(m2.error)toast(m2.error.message)}
+   if(m1.error){await sb.from('convs').delete().eq('id',c.id);delete K[c.id];toast('Не удалось создать группу: '+m1.error.message);return}
+   if(NG.sel.length){const m2=await addMembers(c,NG.sel);if(m2.error){await sb.from('convs').delete().eq('id',c.id);delete K[c.id];toast('Не удалось добавить участников: '+m2.error.message);return}}
    NG.sel.forEach(u=>P[u.id]=u);closeSheet();await loadAll();openChat(c.id)}})}
 
 /* ---------- информация о чате ---------- */
