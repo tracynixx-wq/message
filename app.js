@@ -667,8 +667,29 @@ function pickUser(cb,exclude=[]){sheet(`<h3>Поиск по @имени или �
    box.onclick=ev=>{const r=ev.target.closest('[data-u]');if(!r)return;const u=us.find(x=>String(x.id)===r.dataset.u);if(!u)return;if(!u.pubkey){toast('Этот человек ещё не открыл новое приложение');return}cb(u)}
   }catch(err){if(request===seq)box.innerHTML='<p class="msg">Не удалось выполнить поиск. Попробуйте ещё раз.</p>'}
  },250)}})}
-async function addMembers(c,users,role='member'){const rows=[];
- for(const u of users)rows.push({conv_id:c.id,user_id:u.id,role,wrapped_by:me.id,wrapped_key:await CR.wrap(ID.priv,u.pubkey,K[c.id],c.id)});return sb.from('members').insert(rows)}
+async function addMembers(c,users,role='member'){
+ if((c.kind==='group'||c.kind==='channel')&&Array.isArray(c.members)&&c.members.length){
+  try{
+   const nextKey=await CR.newKey(),wrapped={};
+   for(const member of c.members){
+    const user=P[member.user_id];
+    if(!user?.pubkey)throw new Error('Нет открытого ключа участника '+(user?.username||member.user_id));
+    wrapped[member.user_id]=await CR.wrap(ID.priv,user.pubkey,nextKey,c.id);
+   }
+   for(const user of users){
+    if(!user?.pubkey)throw new Error('У пользователя нет открытого ключа');
+    wrapped[user.id]=await CR.wrap(ID.priv,user.pubkey,nextKey,c.id);
+   }
+   const result=await sb.rpc('rotate_group_add_member_key',{p_conv_id:c.id,p_user_id:users[0].id,p_wrapped_keys:wrapped});
+   if(result.error)return result;
+   K[c.id]=nextKey;
+   return {data:null,error:null};
+  }catch(error){return {data:null,error}}
+ }
+ const rows=[];
+ for(const u of users)rows.push({conv_id:c.id,user_id:u.id,role,wrapped_by:me.id,wrapped_key:await CR.wrap(ID.priv,u.pubkey,K[c.id],c.id)});
+ return sb.from('members').insert(rows)
+}
 const TTL=[[3600,'1 час'],[86400,'1 день'],[604800,'1 неделя']];const ttlName=n=>(TTL.find(x=>x[0]===n)||[0,Math.round(n/3600)+' ч'])[1];
 function secretStart(){pickUser(u=>sheet(`<h3>🔒 Секретный чат с ${esc(u.name||'@'+u.username)}</h3><div class="msg">Сообщения исчезают сами. В этом чате нет пересылки и копирования. Выберите время жизни сообщений:</div>${TTL.map(([n,t])=>`<div class="srow" data-t="${n}">⏳ ${t}</div>`).join('')}`,sh=>sh.onclick=e=>{const t=+e.target.closest('[data-t]')?.dataset.t;if(t)startDm(u,t)}))}
 function pruneSecret(){let ch=false;Object.values(C).forEach(c=>{if(!c.secret_ttl)return;const a=M[c.id];if(!a)return;const f=a.filter(m=>Date.now()-new Date(m.created_at)<c.secret_ttl*1000);if(f.length!==a.length){M[c.id]=f;ch=true}});return ch}
@@ -753,6 +774,7 @@ function info(c){
   }
   if(a==='gst'){groupStyle(c);return}if(a==='ren'){const t=prompt('Новое название',c.title||'');if(t&&t.trim()){const r=await sb.from('convs').update({title:t.trim()}).eq('id',c.id);if(r.error)toast(r.error.message);else{c.title=t.trim();head();info(c)}}}
   if(a==='add')pickUser(async u=>{if(c.members.some(x=>x.user_id===u.id)){toast('Уже в чате');return}const r=await addMembers(c,[u]);if(r.error)toast(r.error.message);else{P[u.id]=u;await loadAll();info(C[c.id])}},c.members.map(x=>x.user_id));
+  if(a==='leave'&&(c.kind==='group'||c.kind==='channel')){toast('Чтобы безопасно обновить ключ шифрования, попросите владельца или администратора удалить вас',6500);return}
   if(a==='leave'&&confirm('Выйти из чата?')){const r=await sb.from('members').delete().eq('conv_id',c.id).eq('user_id',me.id);if(r.error)toast(r.error.message);else{closeSheet();cur=null;delete C[c.id];show('home');home()}}
   if(a==='del'&&confirm('Удалить для всех?')){const r=await sb.from('convs').delete().eq('id',c.id);if(r.error)toast(r.error.message);else{closeSheet();cur=null;delete C[c.id];show('home');home()}}})}
 
