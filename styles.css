@@ -418,3 +418,17 @@ html,body,#clist,#list{scroll-behavior:auto!important}
 [data-t=light] .settings-row,[data-t=light] .settings-option,[data-t=light] .profile-section-new{background:#fff!important;border-color:#e8e8ee!important}
 [data-t=light] .settings-screen,[data-t=light] .profile-screen{color:#17171d}[data-t=light] .settings-logout{background:#fff2f3}
 @media(max-width:380px){.settings-heading h2{font-size:25px}.settings-profile-mini b{max-width:85px}.settings-row{padding:9px 10px!important;gap:9px}.ui-icon{width:30px;height:30px}}
+
+
+/* Telegram-style stories row above the chat list */
+.story-strip{display:flex;align-items:flex-start;gap:15px;overflow-x:auto;overflow-y:hidden;padding:13px 15px 15px;margin:0 0 5px;scrollbar-width:none;border-bottom:1px solid var(--line);-webkit-overflow-scrolling:touch}
+.story-strip::-webkit-scrollbar{display:none}
+.story-tile{display:flex;flex:0 0 64px;min-width:64px;flex-direction:column;align-items:center;gap:6px;padding:0;background:transparent;color:var(--fg);border:0}
+.story-avatar{position:relative;display:grid;place-items:center;width:64px;height:64px;border-radius:50%;padding:3px;background:conic-gradient(from -45deg,#8a63ef,#4f9cff,#32c88b,#8a63ef)}
+.story-avatar.unseen{background:conic-gradient(from -45deg,#8a63ef,#4f9cff,#32c88b,#8a63ef)}
+.story-avatar.seen{background:var(--line)}
+.story-avatar>.av,.story-own-avatar>.av{width:58px!important;height:58px!important;border:3px solid var(--bg);box-sizing:border-box}
+.story-own-avatar{display:grid;place-items:center;width:64px;height:64px;border-radius:50%;background:var(--line);padding:3px}
+.story-plus{position:absolute;right:-1px;bottom:0;width:21px;height:21px;border:2px solid var(--bg);border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--onacc);font-style:normal;font-size:17px;line-height:1}
+.story-name{display:block;width:68px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;font-size:11px;color:var(--fg)}
+.story-tile:active{transform:scale(.96)}

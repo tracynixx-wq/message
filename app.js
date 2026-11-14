@@ -238,7 +238,7 @@ async function loadAllImpl(){
  if(cur){render();head();markRead()}else home()}
 async function enter(){applyTheme(prof.theme);P[me.id]=prof;show('home');await loadAll();
  const q=new URLSearchParams(location.search).get('c');if(q&&C[q])openChat(q);
- realtime();presence();pushSync();
+ realtime();presence();pushSync();loadStories().catch(e=>console.warn('[stories] initial load failed',e));
  if(navigator.serviceWorker&&!window.__swMessageBound){window.__swMessageBound=true;navigator.serviceWorker.addEventListener('message',e=>{const id=e.data?.open;if(typeof id!=='string'||!id)return;(async()=>{if(!C[id])await loadAll();if(C[id])openChat(id);else toast('Этот чат больше недоступен')})().catch(err=>console.warn('[notification] open failed',err))})}}
 function realtime(){
  sb.channel('room')
@@ -296,14 +296,27 @@ async function signStory(x){if(!x?.path)throw new Error('У истории не�
 const ago=d=>{const m=Math.max(0,Math.round((Date.now()-new Date(d))/60000));return m<1?'только что':m<60?m+' мин назад':Math.floor(m/60)+' ч назад'};
 async function loadStories(){
  const r=await sb.from('stories').select('*').gt('expires_at',new Date().toISOString()).order('created_at',{ascending:true});
- if(r.error){STERR=/stories|relation|does not exist|schema/i.test(r.error.message)?'Выполните stories.sql в Supabase (SQL Editor)':r.error.message;STLOADED=true;if(TAB==='stories')home();return}
+ if(r.error){STERR=/stories|relation|does not exist|schema/i.test(r.error.message)?'Выполните stories.sql в Supabase (SQL Editor)':r.error.message;STLOADED=true;if(TAB==='stories'||TAB==='chats')home();return}
  STERR='';ST={};(r.data||[]).forEach(x=>(ST[x.user_id]=ST[x.user_id]||[]).push(x));
  await Promise.all((r.data||[]).filter(x=>x.kind==='img'&&x.path).map(async x=>{try{await signStory(x)}catch(e){console.warn('[stories] signed URL failed',e)}}));
  const need=Object.keys(ST).filter(u=>!P[u]);if(need.length){const q=await sb.from('profiles').select('*').in('id',need);(q.data||[]).forEach(x=>P[x.id]=x)}
- const v=await sb.from('story_views').select('story_id').eq('viewer_id',me.id);SV=new Set((v.data||[]).map(x=>x.story_id));STLOADED=true;if(TAB==='stories'&&SHOWN==='home')home();
+ const v=await sb.from('story_views').select('story_id').eq('viewer_id',me.id);SV=new Set((v.data||[]).map(x=>x.story_id));STLOADED=true;if((TAB==='stories'||TAB==='chats')&&SHOWN==='home')home();
  if(!stCleaned){stCleaned=true;const old=await sb.from('stories').select('id,path').eq('user_id',me.id).lt('expires_at',new Date().toISOString());
   if(old.data&&old.data.length){const ps=old.data.map(x=>x.path).filter(Boolean);if(ps.length)sb.storage.from('stories').remove(ps).then(()=>{});sb.from('stories').delete().in('id',old.data.map(x=>x.id)).then(()=>{})}}}
-setInterval(()=>{if(me&&TAB==='stories'&&SHOWN==='home'&&!document.hidden)loadStories()},60000);
+setInterval(()=>{if(me&&(TAB==='stories'||TAB==='chats')&&SHOWN==='home'&&!document.hidden)loadStories()},60000);
+function storiesStripHtml(){
+  const ids=Object.keys(ST).filter(u=>u!==me.id).sort((a,b)=>{
+   const ua=ST[a].some(x=>!SV.has(x.id)),ub=ST[b].some(x=>!SV.has(x.id));
+   return (ub-ua)||(new Date(ST[b].at(-1).created_at)-new Date(ST[a].at(-1).created_at));
+  });
+  let h='<div class="story-strip" aria-label="Истории">';
+  h+=`<button class="story-tile story-add" data-sadd="1"><span class="story-avatar"><span class="story-own-avatar">${av(prof,58)}</span><i class="story-plus">+</i></span><span class="story-name">Моя история</span></button>`;
+  h+=ids.map(u=>{
+   const p=P[u]||{},un=ST[u].some(x=>!SV.has(x.id));
+   return `<button class="story-tile" data-sopen="${esc(u)}"><span class="story-avatar ${un?'unseen':'seen'}">${av(p,58)}</span><span class="story-name">${esc((p.name||p.username||'Пользователь').split(' ')[0])}</span></button>`;
+  }).join('');
+  return h+'</div>';
+ }
 function storiesList(){
  const mine=ST[me.id]||[];
  let h=`<div class="crow" data-sadd="1"><div class="avw ${mine.length?'sr seen':''}">${av(prof,56)}<i class="plus">+</i></div><div class="ci"><b>Моя история</b><small>${mine.length?mine.length+' · '+ago(mine[mine.length-1].created_at):'Добавить историю на 24 часа'}</small></div>${mine.length?'<button class="sbtn" data-sopen="'+me.id+'">Смотреть</button>':''}</div>`;
@@ -343,7 +356,7 @@ function storyCompose(kind,blob){let bg=1;const prev=blob?URL.createObjectURL(bl
    const btn=sh.querySelector('#svgo');btn.disabled=true;sh.querySelector('#svm').textContent='Публикация…';
    try{let path=null;if(kind==='img'){path=`${me.id}/story-${Date.now()}-${Math.random().toString(36).slice(2,8)}.jpg`;const u=await sb.storage.from('stories').upload(path,blob,{contentType:'image/jpeg',cacheControl:'3600',upsert:false});if(u.error)throw new Error(u.error.message)}
     const r=await sb.from('stories').insert({kind,path,caption:cap||null,bg:kind==='txt'?bg:0}).select().single();if(r.error){if(path){const rm=await sb.storage.from('stories').remove([path]);if(rm.error)console.warn('[stories] orphan cleanup failed',rm.error)}throw new Error(/stories|relation/i.test(r.error.message)?'Выполните stories.sql в Supabase':r.error.message)}
-    if(kind==='img'){try{await signStory(r.data)}catch(e){console.warn('[stories] newly published photo URL failed',e)}}(ST[me.id]=ST[me.id]||[]).push(r.data);closeSheet();toast('История опубликована');if(TAB==='stories')home()}catch(err){btn.disabled=false;sh.querySelector('#svm').textContent=err.message}}})}
+    if(kind==='img'){try{await signStory(r.data)}catch(e){console.warn('[stories] newly published photo URL failed',e)}}(ST[me.id]=ST[me.id]||[]).push(r.data);closeSheet();toast('История опубликована');if(TAB==='stories'||TAB==='chats')home()}catch(err){btn.disabled=false;sh.querySelector('#svm').textContent=err.message}}})}
 function contactsList(f){const seen=new Set(),L=[];Object.values(C).forEach(c=>{if(c.kind!=='dm'||c.secret_ttl)return;const o=peerOf(c);if(!o||seen.has(o.id))return;seen.add(o.id);L.push({c,o})});
  const rows=L.filter(({o})=>!f||(o.name||'').toLowerCase().includes(f)||(o.username||'').toLowerCase().includes(f)).sort((a,b)=>(online(b.o)?1:0)-(online(a.o)?1:0)||(a.o.name||'').localeCompare(b.o.name||'','ru'));
  let h=`<div class="crow" data-find="1"><div class="av" style="width:50px;height:50px;font-size:24px">+</div><div class="ci"><b>Найти пользователя</b><small>Написать новому человеку</small></div></div>`;
@@ -355,7 +368,7 @@ function home(){if(!me)return;pruneSecret();const f=$('#q').value.trim().toLower
  const all=Object.values(C),inArch=all.filter(c=>c.my?.archived);
  const rows=all.filter(c=>!!c.my?.archived===showArch).map(c=>({c,l:lastOf(c),u:unread(c)})).filter(r=>(!f||title(r.c).toLowerCase().includes(f))&&passF(r))
   .sort((a,b)=>(b.c.my?.pinned?1:0)-(a.c.my?.pinned?1:0)||new Date(b.l?b.l.created_at:b.c.created_at)-new Date(a.l?a.l.created_at:a.c.created_at));
- const au=inArch.reduce((n,c)=>n+(c.my.muted?0:unread(c)),0);let h='';
+ const au=inArch.reduce((n,c)=>n+(c.my.muted?0:unread(c)),0);let h=(!f&&!showArch&&TAB==='chats')?storiesStripHtml():'';
  if(!f&&!showArch&&FILT==='all'&&inArch.length)h+=`<div class="crow arch" data-arch="1"><div class="av" style="width:56px;height:56px">📦</div><div class="ci"><b>Архив</b><small>Чатов: ${inArch.length}</small></div>${au?`<div class="cm"><span class="badge">${au}</span></div>`:''}</div>`;
  if(showArch)h+=`<div class="crow arch" data-arch="0"><div class="av" style="width:56px;height:56px">←</div><div class="ci"><b>Архив</b><small>Назад к чатам</small></div></div>`;
  h+=rows.length?rows.map(({c,l,u})=>{const o=c.kind==='dm'?peerOf(c):c,mu=c.my?.muted;
