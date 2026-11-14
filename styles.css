@@ -42,6 +42,13 @@ section.full{position:absolute;inset:0;display:flex;flex-direction:column;backgr
 .b{background:var(--in);border-radius:18px;padding:7px 12px 5px;word-break:break-word;white-space:pre-wrap;cursor:pointer;max-width:100%}
 .me .b{background:var(--out);color:#fff}
 .b.nopad{padding:3px}
+.b.media-bubble{background:transparent!important;color:var(--fg)!important;padding:0!important;border-radius:14px;overflow:hidden}
+.me .b.media-bubble{color:var(--fg)!important}
+.b.media-bubble .mi,.b.media-bubble video,.b.media-bubble .vp,.b.media-bubble .ph{border-radius:14px;display:block;max-width:100%}
+.b.media-bubble .mc{padding:6px 10px 2px;white-space:pre-wrap;word-break:break-word}
+.b.media-bubble .mt{padding:2px 8px 4px;color:var(--mut);opacity:1}
+.b.media-bubble .file{padding:10px 12px;background:var(--card);border-radius:14px}
+
 .mt{font-size:11px;opacity:.65;text-align:right;margin-top:1px;display:flex;gap:4px;justify-content:flex-end;align-items:center;white-space:nowrap}
 .rp{border-left:3px solid var(--accent);padding:1px 8px;margin-bottom:4px;font-size:13px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px}
 .me .rp{border-color:#fff}
