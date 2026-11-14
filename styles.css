@@ -510,3 +510,7 @@ html{overflow:hidden;overscroll-behavior:none}
 .pcard .pcard-status.is-online i{background:#45d49a;box-shadow:0 0 0 3px rgba(69,212,154,.18)}
 .pcard .pbio{margin:12px 16px 4px;padding:12px 14px;border:1px solid var(--line);border-radius:15px;background:var(--card);color:var(--fg);text-align:left;overflow-wrap:anywhere}
 @media(max-width:380px){.pcard .pcard-identity{left:13px;bottom:14px;gap:10px}.pcard .pcard-cover .pav{width:70px;height:70px}.pcard .pcard-copy h3{font-size:19px}}
+
+/* Animated covers keep their original brightness; GIF preview is not rebuilt on every keystroke. */
+.pcard-cover:has(.cover-media[data-animated-cover="1"]) .pcard-shade{background:linear-gradient(180deg,rgba(0,0,0,.01) 20%,rgba(0,0,0,.18) 100%)}
+.profile-cover-hero:has(.cover-media[data-animated-cover="1"]) .profile-banner-shade{background:linear-gradient(180deg,rgba(0,0,0,.01) 25%,rgba(0,0,0,.2) 100%)}
