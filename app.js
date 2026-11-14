@@ -379,7 +379,7 @@ function contactsList(f){const seen=new Set(),L=[];Object.values(C).forEach(c=>{
  let h=`<div class="crow" data-find="1"><div class="av" style="width:50px;height:50px;font-size:24px">+</div><div class="ci"><b>Найти пользователя</b><small>Написать новому человеку</small></div></div>`;
  h+=rows.length?rows.map(({c,o})=>`<div class="crow" data-c="${c.id}"><div class="avw">${av(o,50)}${online(o)?'<i class="dot"></i>':''}</div><div class="ci"><b class="nm"><span class="t">${displayName(o,title(c))} ${esc(o.status_emoji||'')}</span></b><small>${online(o)?'в сети':(o.last_seen?'был(а) '+tm(o.last_seen):'@'+esc(o.username||''))}</small></div></div>`).join(''):'<div class="empty">Пока нет контактов.<br>Начните личный чат — человек появится здесь.</div>';
  $('#clist').innerHTML=h}
-function setTab(t){TAB=t;showArch=false;document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab===TAB));if(TAB==='profile'){profilePage();return}if(TAB==='settings'){redesignedSettings();return}$('#newb').hidden=false;$('#gear').hidden=false;$('.sbox').hidden=false;$('#chips').hidden=false;$('#home .top h2').textContent=TAB==='chats'?'Чаты':TAB==='contacts'?'Контакты':'Истории';home();if(TAB==='stories')loadStories()}
+function setTab(t){TAB=t;showArch=false;document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab===TAB));show('home');if(TAB==='profile'){profilePage();return}if(TAB==='settings'){redesignedSettings();return}$('#newb').hidden=false;$('#gear').hidden=false;$('.sbox').hidden=false;$('#chips').hidden=false;$('#home .top h2').textContent=TAB==='chats'?'Чаты':TAB==='contacts'?'Контакты':'Истории';home();if(TAB==='stories')loadStories()}
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 function home(){if(!me)return;if(TAB==='profile'){profilePage();return}if(TAB==='settings'){redesignedSettings();return}$('#newb').hidden=false;$('.sbox').hidden=false;pruneSecret();const f=$('#q').value.trim().toLowerCase();CH.hidden=true;if(TAB==='contacts'){contactsList(f);return}if(TAB==='stories'){storiesList();return}
  const all=Object.values(C),inArch=all.filter(c=>c.my?.archived);
@@ -421,7 +421,7 @@ const stat=p=>!p?'':online(p)?'в сети':'был(а) '+(sameDay(p.last_seen,D
 const RL={};
 let pendingChatBottom=null;
 function openChat(id){cur=id;pendingChatBottom=id;if(C[id]&&C[id].secret_ttl)purge();delete RL[id];if(SEL){SEL=null;selUI()}unbar();$('#inp').value='';fit();show('chat');head();render(true);markRead();setComposer()}
-$('#back').onclick=()=>{cur=null;unbar();if(SEL){SEL=null;selUI()}show('home');home()};
+$('#back').onclick=()=>{cur=null;unbar();if(SEL){SEL=null;selUI()}TAB='chats';document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab==='chats'));show('home');$('#newb').hidden=false;$('#gear').hidden=false;$('.sbox').hidden=false;$('#chips').hidden=false;home()};
 function setComposer(){const c=C[cur];const ok=c&&canPost(c);$('#comp').hidden=!ok;$('#ro').hidden=ok;if(!ok)unbar()}
 function head(){const c=C[cur];if(!c)return;$('#cvoice').hidden=$('#cvideo').hidden=c.kind!=='dm';$('#chat').classList.toggle('secret',!!c.secret_ttl);const o=c.kind==='dm'?peerOf(c):c;$('#hav').innerHTML=av(o,40);
  const sub=c.kind==='dm'?(c.secret_ttl?'🔒 исчезают через '+ttlName(c.secret_ttl):stat(o)):c.kind==='channel'?c.members.length+' подписчиков':c.members.length+' участников';
@@ -1070,9 +1070,9 @@ function groupStyle(c){let col=c.color||'',pend=null,previewUrl=null;
  }catch(e){toast('Проверка не пройдена: '+(e.message||e),7000)}}
  
  /* ---------- клавиатура ---------- */
-if(window.visualViewport){const vv=visualViewport,app=$('#app');let keyboardOpen=false;const f=()=>{const ae=document.activeElement,ed=!!ae&&/^(INPUT|TEXTAREA)$/.test(ae.tagName),kb=ed||innerHeight-vv.height>120;keyboardOpen=kb;document.documentElement.classList.toggle('kb',kb);
- if(kb){app.style.height=vv.height+'px';app.style.top=vv.offsetTop+'px';if(window.scrollY)window.scrollTo(0,0)}else{app.style.height='100dvh';app.style.top='0px'}};
- vv.addEventListener('resize',f);vv.addEventListener('scroll',()=>{if(keyboardOpen)f()});addEventListener('focusin',()=>setTimeout(f,60));addEventListener('focusout',()=>setTimeout(()=>{window.scrollTo(0,0);f()},80));f()}
+if(window.visualViewport){const vv=window.visualViewport,app=$('#app'),android=/Android/i.test(navigator.userAgent);let keyboardOpen=false,frame=0;const f=()=>{if(frame)return;frame=requestAnimationFrame(()=>{frame=0;const ae=document.activeElement,ed=!!ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName),delta=Math.max(0,window.innerHeight-vv.height),kb=ed&&delta>100;keyboardOpen=kb;document.documentElement.classList.toggle('kb',kb);
+ if(kb){app.style.height=Math.max(0,vv.height)+'px';app.style.top=android?'0px':Math.max(0,vv.offsetTop)+'px'}else{app.style.height='100dvh';app.style.top='0px'}if(android&&window.scrollY)window.scrollTo(0,0)})};
+ vv.addEventListener('resize',f,{passive:true});vv.addEventListener('scroll',f,{passive:true});addEventListener('resize',f,{passive:true});addEventListener('focusin',f,{passive:true});addEventListener('focusout',()=>requestAnimationFrame(f),{passive:true});f()}
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});let had=!!navigator.serviceWorker.controller;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!had){had=true;return}if(sessionStorage.getItem('swr'))return;sessionStorage.setItem('swr','1');if(!CALL&&!(document.activeElement&&/INPUT|TEXTAREA/.test(document.activeElement.tagName)))location.reload()})}
 
 let updateCheckAt=0;
