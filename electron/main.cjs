@@ -90,11 +90,6 @@ app.whenReady().then(() => {
   app.setAppUserModelId('com.message.desktop');
   registerUpdater();
   createWindow();
-  if (app.isPackaged) {
-    setTimeout(() => autoUpdater.checkForUpdates().catch(error => {
-      console.warn('[desktop-updater] check failed:', error.message);
-    }), 8000);
-  }
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
