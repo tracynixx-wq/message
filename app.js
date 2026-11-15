@@ -424,12 +424,56 @@ const online=p=>p&&p.last_seen&&Date.now()-new Date(p.last_seen)<70000;
 const stat=p=>!p?'':online(p)?'в сети':'был(а) '+(sameDay(p.last_seen,Date.now())?'в '+hm(p.last_seen):new Date(p.last_seen).toLocaleDateString('ru',{day:'numeric',month:'short'}));
 const RL={};
 let pendingChatBottom=null;
-function openChat(id){cur=id;pendingChatBottom=id;if(C[id]&&C[id].secret_ttl)purge();delete RL[id];if(SEL){SEL=null;selUI()}unbar();$('#inp').value='';fit();show('chat');head();render(true);markRead();setComposer()}
-$('#back').onclick=()=>{cur=null;unbar();if(SEL){SEL=null;selUI()}TAB='chats';document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab==='chats'));show('home');$('#newb').hidden=false;$('#gear').hidden=false;$('.sbox').hidden=false;$('#chips').hidden=false;home()};
+let typingChannel=null,typingRoom=null,typingPeerIds=new Set(),typingPeerTimers=new Map(),typingLocalActive=false,typingLocalTimer=null,typingLastSent=0,typingBaseLabel='';
+function updateTypingLabel(){
+ const el=$('#chat-subtitle');if(!el)return;
+ const c=C[cur];const active=typingPeerIds.size>0;
+ el.textContent=active?(c?.kind==='dm'?'Печатает…':'Кто-то печатает…'):typingBaseLabel;
+ el.classList.toggle('typing',active);
+}
+function setTypingState(active){
+ clearTimeout(typingLocalTimer);typingLocalTimer=null;
+ if(!active){
+  if(typingLocalActive&&typingChannel)typingChannel.send({type:'broadcast',event:'typing',payload:{user_id:me.id,typing:false}}).catch(()=>{});
+  typingLocalActive=false;return;
+ }
+ if(!cur||!$('#inp').value.trim()||!typingChannel)return;
+ const now=Date.now();
+ if(!typingLocalActive||now-typingLastSent>1200){
+  typingChannel.send({type:'broadcast',event:'typing',payload:{user_id:me.id,typing:true}}).catch(()=>{});
+  typingLastSent=now;
+ }
+ typingLocalActive=true;
+ typingLocalTimer=setTimeout(()=>setTypingState(false),2200);
+}
+function stopTypingRoom(){
+ setTypingState(false);
+ const old=typingChannel;typingChannel=null;typingRoom=null;
+ typingPeerTimers.forEach(t=>clearTimeout(t));typingPeerTimers.clear();typingPeerIds.clear();
+ if(old&&sb)sb.removeChannel(old).catch(()=>{});
+ updateTypingLabel();
+}
+function joinTypingRoom(id){
+ stopTypingRoom();typingRoom=String(id);
+ const ch=sb.channel('typing:'+id,{config:{broadcast:{self:false}}});
+ ch.on('broadcast',{event:'typing'},({payload})=>{
+  if(cur!==id||!payload||String(payload.user_id)===String(me.id))return;
+  const uid=String(payload.user_id||'');if(!uid)return;
+  clearTimeout(typingPeerTimers.get(uid));
+  if(payload.typing){
+   typingPeerIds.add(uid);
+   typingPeerTimers.set(uid,setTimeout(()=>{typingPeerIds.delete(uid);typingPeerTimers.delete(uid);updateTypingLabel()},2400));
+  }else{typingPeerIds.delete(uid);typingPeerTimers.delete(uid)}
+  updateTypingLabel();
+ }).subscribe(status=>{if(status==='SUBSCRIBED'&&typingChannel===ch&&typingRoom===String(id)&&cur===id&&$('#inp').value.trim())setTypingState(true)});
+ typingChannel=ch;
+}
+function openChat(id){stopTypingRoom();cur=id;pendingChatBottom=id;if(C[id]&&C[id].secret_ttl)purge();delete RL[id];if(SEL){SEL=null;selUI()}unbar();$('#inp').value='';fit();show('chat');head();joinTypingRoom(id);render(true);markRead();setComposer()}
+$('#back').onclick=()=>{stopTypingRoom();cur=null;unbar();if(SEL){SEL=null;selUI()}TAB='chats';document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab==='chats'));show('home');$('#newb').hidden=false;$('#gear').hidden=false;$('.sbox').hidden=false;$('#chips').hidden=false;home()};
 function setComposer(){const c=C[cur];const ok=c&&canPost(c);$('#comp').hidden=!ok;$('#ro').hidden=ok;if(!ok)unbar()}
 function head(){const c=C[cur];if(!c)return;$('#cvoice').hidden=$('#cvideo').hidden=c.kind!=='dm';$('#chat').classList.toggle('secret',!!c.secret_ttl);const o=c.kind==='dm'?peerOf(c):c;$('#hav').innerHTML=av(o,40);
  const sub=c.kind==='dm'?(c.secret_ttl?'🔒 исчезают через '+ttlName(c.secret_ttl):stat(o)):c.kind==='channel'?c.members.length+' подписчиков':c.members.length+' участников';
- $('#who').innerHTML=`<b>${c.kind==='dm'?displayName(o,title(c)):esc(title(c))} ${c.kind==='dm'?esc(o?.status_emoji||''):''}</b><small>${sub}</small>`;setComposer();
+ typingBaseLabel=sub;$('#who').innerHTML=`<b>${c.kind==='dm'?displayName(o,title(c)):esc(title(c))} ${c.kind==='dm'?esc(o?.status_emoji||''):''}</b><small id="chat-subtitle">${sub}</small>`;updateTypingLabel();setComposer();
  const pm=c.pinned_id&&(M[cur]||[]).find(x=>x.id===c.pinned_id);$('#pin').hidden=!c.pinned_id;if(c.pinned_id)$('#pt').textContent=pm?preview(pm):'Сообщение';}
 $('#who').onclick=$('#hav').onclick=()=>{const c=C[cur];if(c)info(c)};
 async function markRead(){const c=C[cur];if(!c||document.hidden)return;const l=lastOf(c);
@@ -613,14 +657,17 @@ $('#bx').onclick=()=>{if(editing)$('#inp').value='';unbar();fit()};
 /* ---------- отправка ---------- */
 const inp=$('#inp');
 function fit(){inp.style.height='auto';inp.style.height=Math.max(44,Math.min(inp.scrollHeight,130))+'px';const has=!!inp.value.trim();$('#sendb').hidden=!has;if(!rec)$('#mic').hidden=has}
-inp.oninput=fit;
+inp.oninput=()=>{fit();setTypingState(true)};
+inp.onblur=()=>setTypingState(false);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)setTypingState(false)});
+addEventListener('pagehide',()=>setTypingState(false));
 $('#sendb').addEventListener('mousedown',e=>e.preventDefault());
 function keepComposerFocused(){if(cur&&!$('#chat').hidden&&document.visibilityState==='visible'){try{inp.focus({preventScroll:true})}catch(_){inp.focus()}}}
 async function sendPayload(c,payload){if(!K[c.id]){toast('Нет ключа этого чата');return null}
  const r=await sb.from('msgs').insert({conv_id:c.id,sender:me.id,data:await CR.seal(K[c.id],c.id,payload)}).select().single();
  if(r.error){toast(r.error.message);return null}
  await dc(r.data);const a=M[c.id]=M[c.id]||[];if(!a.some(x=>x.id===r.data.id))a.push(r.data);messageIndex.set(String(r.data.id),r.data);if(cur===c.id){pendingChatBottom=c.id;render(true,'smooth')}else home();return r.data}
-$('#sendb').onclick=async()=>{const t=inp.value.trim(),c=C[cur];if(!t||!c)return;
+$('#sendb').onclick=async()=>{setTypingState(false);const t=inp.value.trim(),c=C[cur];if(!t||!c)return;
  if(editing){const m=editing;unbar();inp.value='';fit();const np={...m.p,t};
   const r=await sb.from('msgs').update({data:await CR.seal(K[c.id],c.id,np),edited_at:new Date().toISOString()}).eq('id',m.id).select().single();
   if(r.error){toast(r.error.message);keepComposerFocused();return}Object.assign(m,r.data);m.p=np;render();keepComposerFocused();return}
