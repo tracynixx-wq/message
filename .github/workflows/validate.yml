@@ -20,7 +20,7 @@ jobs:
         with:
           deno-version: v2.x
       - name: Check deployed Push Edge Function source
-        run: deno check --no-lock supabase/functions/bright-endpoint/index.ts
+        run: deno check --node-modules-dir=auto --no-lock supabase/functions/bright-endpoint/index.ts
       - name: Check app shell assets
         run: |
           grep -q 'href="styles.css"' index.html
