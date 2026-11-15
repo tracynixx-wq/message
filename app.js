@@ -1309,35 +1309,46 @@ async function checkAndroidUpdate(){
   banner.querySelector('#appUpdateClose').onclick=()=>{sessionStorage.setItem('msg.update.actioned',latest);banner.hidden=true};
  }catch(e){console.warn('[app-update] check failed',e);toast('Не удалось проверить обновления: '+(e.message||e),6000)}
  }
-let desktopUpdateCheckAt=0;
-async function checkDesktopUpdate(){
- const params=new URLSearchParams(location.search),isDesktop=params.has('desktopBuild')||/Electron\//i.test(navigator.userAgent);
- const current=Number(params.get('desktopBuild')||0);
- if(!isDesktop||!Number.isInteger(current)||current<0||Date.now()-desktopUpdateCheckAt<300000)return;
- desktopUpdateCheckAt=Date.now();
- try{
-  const res=await fetch('https://api.github.com/repos/tracynixx-wq/message/releases?per_page=100',{headers:{Accept:'application/vnd.github+json'},cache:'no-store'});
-  if(!res.ok)throw new Error('GitHub Releases: HTTP '+res.status);
-  const releases=await res.json();
-  const rel=(Array.isArray(releases)?releases:[]).map(r=>({...r,build:Number(String(r.tag_name||'').match(/^desktop-build-(\d+)$/i)?.[1]||0)})).filter(r=>r.build>0).sort((x,y)=>y.build-x.build)[0];
-  if(!rel||rel.build<=current){const old=$('#appUpdate');if(old)old.hidden=true;return}
-  if(sessionStorage.getItem('msg.desktop-update.actioned')===String(rel.build))return;
-  const asset=(rel.assets||[]).find(x=>/Message\.Setup.*\.exe$/i.test(x.name||''))||(rel.assets||[]).find(x=>/\.exe$/i.test(x.name||''));
-  if(!asset||!asset.browser_download_url)return;
+function checkDesktopUpdate(){
+ const bridge=window.messageDesktop;
+ if(!bridge||typeof bridge.onUpdateStatus!=='function')return;
+ if(window.__messageDesktopUpdateBound)return;
+ window.__messageDesktopUpdateBound=true;
+ const ensureBanner=()=>{
   let banner=$('#appUpdate');
   if(!banner){banner=document.createElement('aside');banner.id='appUpdate';banner.setAttribute('role','status');banner.setAttribute('aria-live','polite');document.body.appendChild(banner)}
-  banner.innerHTML='<div class="app-update-copy"><b>Доступно обновление Message для ПК</b><span>Версия сборки '+rel.build+'. Скачайте установщик и запустите его после закрытия приложения.</span></div><button type="button" id="appUpdateInstall">Скачать</button><button type="button" id="appUpdateClose" aria-label="Закрыть">×</button>';
+  return banner;
+ };
+ bridge.onUpdateStatus((info)=>{
+  if(!info||!info.status)return;
+  const banner=ensureBanner();
+  if(info.status==='not-available'){banner.hidden=true;return}
+  let title='Обновление Message для ПК';
+  let message='Проверка обновлений…';
+  let action='';
+  if(info.status==='available'){message='Доступна версия '+esc(String(info.version||''))+'. Загрузятся только изменившиеся блоки.';action='download'}
+  else if(info.status==='downloading'){message='Загрузка обновления: '+Math.max(0,Math.min(100,Math.round(info.percent||0)))+'%';}
+  else if(info.status==='downloaded'){message='Обновление загружено. Перезапустите Message для установки.';action='install'}
+  else if(info.status==='checking'){message='Проверяем наличие обновлений…'}
+  else if(info.status==='error'){message='Не удалось обновить Message: '+esc(String(info.error||'неизвестная ошибка'));action='retry'}
+  else return;
+  banner.innerHTML='<div class="app-update-copy"><b>'+title+'</b><span>'+message+'</span></div>'+(action?'<button type="button" id="appUpdateInstall">'+(action==='download'?'Загрузить':action==='install'?'Перезапустить':'Повторить')+'</button>':'')+'<button type="button" id="appUpdateClose" aria-label="Закрыть">×</button>';
   banner.hidden=false;
-  banner.querySelector('#appUpdateInstall').onclick=()=>{
-   window.open(asset.browser_download_url,'_blank','noopener');
-   sessionStorage.setItem('msg.desktop-update.actioned',String(rel.build));banner.hidden=true;
+  const button=banner.querySelector('#appUpdateInstall');
+  if(button)button.onclick=async()=>{
+   button.disabled=true;
+   try{
+    if(action==='download')await bridge.downloadUpdate();
+    else if(action==='install')bridge.installUpdate();
+    else await bridge.checkForUpdates();
+   }catch(e){console.warn('[desktop-update] action failed',e);button.disabled=false}
   };
-  banner.querySelector('#appUpdateClose').onclick=()=>{sessionStorage.setItem('msg.desktop-update.actioned',String(rel.build));banner.hidden=true};
- }catch(e){console.warn('[desktop-update] check failed',e)}
+  banner.querySelector('#appUpdateClose').onclick=()=>{banner.hidden=true};
+ });
+ bridge.checkForUpdates().catch(e=>console.warn('[desktop-update] check failed',e));
 }
 
 boot();checkAndroidUpdate();checkDesktopUpdate();
 addEventListener('online',checkAndroidUpdate);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkAndroidUpdate()});
-addEventListener('online',checkDesktopUpdate);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkDesktopUpdate()});
+
