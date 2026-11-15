@@ -620,10 +620,8 @@ html.kb #inp{font-size:16px;max-height:120px}
  #desktopMore{display:none}
  /* Profile becomes a centered full-window workspace, not a narrow rail page. */
  #home:has(.profile-screen){position:absolute;inset:14px;width:auto;height:auto;z-index:12;border-radius:22px;animation:desktopPageIn .32s cubic-bezier(.2,.8,.2,1) both}
- #home:has(.profile-screen)>.top,
  #home:has(.profile-screen)>.sbox,
- #home:has(.profile-screen)>#chips,
- #home:has(.profile-screen)>#nav{display:none!important}
+ #home:has(.profile-screen)>#chips{display:none!important}
  #home:has(.profile-screen)>#clist{display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:42px 32px 56px}
  #home:has(.profile-screen) .profile-screen{width:min(100%,820px);margin:0 auto;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(260px,.85fr);gap:20px;align-content:start}
  #home:has(.profile-screen) .profile-cover-hero{grid-column:1/-1;min-height:250px;border-radius:22px;overflow:hidden}
@@ -635,10 +633,8 @@ html.kb #inp{font-size:16px;max-height:120px}
  #home:has(.profile-screen) .account-switch-row{border:1px solid var(--line);border-radius:13px;padding:12px}
  /* Settings and other section pages use the full workspace width too. */
  #home:has(.settings-screen){position:absolute;inset:14px;width:auto;height:auto;z-index:12;border-radius:22px}
- #home:has(.settings-screen)>.top,
  #home:has(.settings-screen)>.sbox,
- #home:has(.settings-screen)>#chips,
- #home:has(.settings-screen)>#nav{display:none!important}
+ #home:has(.settings-screen)>#chips{display:none!important}
  #home:has(.settings-screen)>#clist{width:min(100%,1050px);margin:0 auto;padding:38px 42px;overflow:auto}
  #home:has(.settings-screen) .settings-screen{max-width:900px;margin:0 auto}
 }
