@@ -465,7 +465,7 @@ function joinTypingRoom(id){
    typingPeerTimers.set(uid,setTimeout(()=>{typingPeerIds.delete(uid);typingPeerTimers.delete(uid);updateTypingLabel()},2400));
   }else{typingPeerIds.delete(uid);typingPeerTimers.delete(uid)}
   updateTypingLabel();
- }).subscribe(status=>{if(status==='SUBSCRIBED'&&typingChannel===ch&&typingRoom===String(id)&&cur===id&&$('#inp').value.trim())setTypingState(true)});
+ }).subscribe(status=>{if(status==='SUBSCRIBED'&&typingChannel===ch&&typingRoom===String(id)&&cur===id&&$('#inp').value.trim()){typingLocalActive=false;typingLastSent=0;setTypingState(true)}});
  typingChannel=ch;
 }
 function openChat(id){stopTypingRoom();cur=id;pendingChatBottom=id;if(C[id]&&C[id].secret_ttl)purge();delete RL[id];if(SEL){SEL=null;selUI()}unbar();$('#inp').value='';fit();show('chat');head();joinTypingRoom(id);render(true);markRead();setComposer()}
