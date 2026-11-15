@@ -90,7 +90,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  app.setAppUserModelId('com.loom.desktop');
+  app.setAppUserModelId('com.message.desktop');
   registerUpdater();
   createWindow();
   app.on('activate', () => {
