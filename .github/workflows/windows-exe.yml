@@ -10,7 +10,7 @@ on:
       - '.github/workflows/windows-exe.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -33,3 +33,12 @@ jobs:
           path: dist/*.exe
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish Windows EXE release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: desktop-build-${{ github.run_number }}
+          name: Message Desktop build ${{ github.run_number }}
+          prerelease: true
+          files: dist/*.exe
+          fail_on_unmatched_files: true
