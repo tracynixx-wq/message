@@ -56,11 +56,15 @@ Deno.serve(async (req: Request) => {
       return json({ sent: 0, reason: "message_too_old" });
     }
 
-    // Keep push payloads metadata-minimal: do not disclose sender, chat title,
-    // conversation ID, or message content to the push service/provider.
-    const { data: members, error: membersError } = await db
-      .from("members").select("user_id,muted").eq("conv_id", message.conv_id).neq("user_id", message.sender);
-    if (membersError) throw membersError;
+    // Include only the sender's display name; never include chat identifiers,
+    // chat titles, message content, or attachment data in the push payload.
+    const [membersResult, senderResult] = await Promise.all([
+      db.from("members").select("user_id,muted").eq("conv_id", message.conv_id).neq("user_id", message.sender),
+      db.from("profiles").select("name,username").eq("id", message.sender).maybeSingle(),
+    ]);
+    if (membersResult.error) throw membersResult.error;
+    if (senderResult.error) throw senderResult.error;
+    const members = membersResult.data;
 
     const recipientIds = [...new Set((members ?? [])
       .filter((member) => !member.muted && member.user_id)
@@ -71,8 +75,9 @@ Deno.serve(async (req: Request) => {
       .from("push_subs").select("id,sub").in("user_id", recipientIds);
     if (subscriptionError) throw subscriptionError;
 
+    const senderName = senderResult.data?.name || senderResult.data?.username || "Новое сообщение";
     const payload = JSON.stringify({
-      title: "Новое сообщение",
+      title: senderName,
       body: "Откройте приложение, чтобы прочитать его",
     });
 
