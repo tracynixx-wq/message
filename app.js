@@ -1339,3 +1339,5 @@ async function checkDesktopUpdate(){
 boot();checkAndroidUpdate();checkDesktopUpdate();
 addEventListener('online',checkAndroidUpdate);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkAndroidUpdate()});
+addEventListener('online',checkDesktopUpdate);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkDesktopUpdate()});
