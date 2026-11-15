@@ -1,6 +1,7 @@
 const { app, BrowserWindow, shell } = require('electron');
 
-const APP_URL = 'https://tracynixx-wq.github.io/message/';\n// Increase this build number when publishing a new Windows desktop release.\nconst DESKTOP_BUILD = 4;
+const APP_URL = 'https://tracynixx-wq.github.io/message/';
+// The Windows build workflow replaces this value with its release number.\nconst DESKTOP_BUILD = 4;
 let mainWindow;
 
 function createWindow() {
