@@ -1080,6 +1080,8 @@ function redesignedSettings(){
   const previous={...(prof.theme||{})},scrollTop=$('#clist').scrollTop,n={...previous};
   if(md2!==undefined)n.mode=md2;if(accEl)n.accent=ac;
   prof.theme=applyTheme(n);P[me.id]=prof;
+  // Reflect the selected option immediately; network latency must not make settings feel unresponsive.
+  redesignedSettings();$('#clist').scrollTop=scrollTop;
   try{
    const saved=await sb.from('profiles').update({theme:prof.theme}).eq('id',me.id);
    if(saved.error)throw saved.error;
@@ -1087,8 +1089,9 @@ function redesignedSettings(){
   }catch(err){
    prof.theme=applyTheme(previous);P[me.id]=prof;
    toast('Не удалось сохранить настройку: '+(err.message||err),8000);
+   redesignedSettings();$('#clist').scrollTop=scrollTop;
   }
-  redesignedSettings();$('#clist').scrollTop=scrollTop;return
+  return
  }
  if(a==='profile'){setTab('profile');return}if(a==='security'){toast('Переписка защищена сквозным шифрованием');return}
  if(a==='cd'){chatDesign();return}if(a==='push'){await enablePush();return}if(a==='test'){await testPush();return}
