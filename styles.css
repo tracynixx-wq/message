@@ -656,3 +656,13 @@ html.kb #inp{font-size:16px;max-height:120px}
  #home .top,#chat #chead,#home #nav,#home .crow,#chat .ib,#chat #sendb{transition:background .24s,color .24s,border-color .24s,transform .24s,box-shadow .24s}
  #chat .ib:hover{transform:translateY(-1px);background:var(--card)}
 }
+
+@media(min-width:900px){
+ #appUpdate{left:auto;right:24px;top:20px;width:min(520px,calc(100vw - 48px));padding:14px 16px;border-radius:16px;gap:12px;animation:desktopUpdateIn .28s cubic-bezier(.2,.8,.2,1) both}
+ #appUpdate .app-update-copy b{font-size:14px}
+ #appUpdate .app-update-copy span{font-size:12px;line-height:1.4}
+ #appUpdate button{padding:10px 16px;font-size:13px;cursor:pointer;transition:transform .2s,filter .2s}
+ #appUpdate button:hover{filter:brightness(1.08);transform:translateY(-1px)}
+}
+@keyframes desktopUpdateIn{from{opacity:0;transform:translateY(-8px) scale(.98)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){#appUpdate{animation:none!important}}
