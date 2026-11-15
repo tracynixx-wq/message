@@ -1,6 +1,8 @@
 const { app, BrowserWindow, shell } = require('electron');
 
 const APP_URL = 'https://tracynixx-wq.github.io/message/';
+// Replaced by the Windows build workflow with the published build number.
+const DESKTOP_BUILD = 0;
 let mainWindow;
 
 function createWindow() {
@@ -33,7 +35,7 @@ function createWindow() {
       if (url.startsWith('https://')) shell.openExternal(url);
     }
   });
-  mainWindow.loadURL(APP_URL);
+  mainWindow.loadURL(APP_URL + '?desktopBuild=' + DESKTOP_BUILD);
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 
