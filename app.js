@@ -1309,5 +1309,6 @@ async function checkDesktopUpdate(){
  }catch(e){console.warn('[desktop-update] check failed',e)}
 }
 \nboot();checkAndroidUpdate();checkDesktopUpdate();
-addEventListener('online',checkAndroidUpdate);\naddEventListener('online',checkDesktopUpdate);
+addEventListener('online',checkAndroidUpdate);
+addEventListener('online',checkDesktopUpdate);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){checkAndroidUpdate();checkDesktopUpdate()}});
