@@ -1,6 +1,6 @@
 const { app, BrowserWindow, shell } = require('electron');
 
-const APP_URL = 'https://tracynixx-wq.github.io/message/';
+const APP_URL = 'https://tracynixx-wq.github.io/message/';\n// Increase this build number when publishing a new Windows desktop release.\nconst DESKTOP_BUILD = 4;
 let mainWindow;
 
 function createWindow() {
@@ -33,7 +33,7 @@ function createWindow() {
       if (url.startsWith('https://')) shell.openExternal(url);
     }
   });
-  mainWindow.loadURL(APP_URL);
+  mainWindow.loadURL(APP_URL + '?desktopBuild=' + DESKTOP_BUILD);
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 
