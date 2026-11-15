@@ -12,6 +12,9 @@ autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
 autoUpdater.allowDowngrade = false;
 autoUpdater.allowPrerelease = false;
+// This project currently ships unsigned Windows installers. TLS and the SHA-512
+// hash in latest.yml still protect transport and artifact integrity.
+autoUpdater.verifyUpdateCodeSignature = false;
 
 function sendUpdateStatus(status, extra = {}) {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -37,12 +40,12 @@ function registerUpdater() {
 
   ipcMain.handle('message:update-check', async event => {
     if (!isTrustedSender(event)) throw new Error('Untrusted update request');
-    if (!app.isPackaged) return { skipped: true };
+    if (!app.isPackaged || process.env.PORTABLE_EXECUTABLE_DIR) return { skipped: true };
     return autoUpdater.checkForUpdates();
   });
   ipcMain.handle('message:update-download', async event => {
     if (!isTrustedSender(event)) throw new Error('Untrusted update request');
-    if (!app.isPackaged) throw new Error('Обновление доступно только в установленной версии');
+    if (!app.isPackaged || process.env.PORTABLE_EXECUTABLE_DIR) throw new Error('Автообновление доступно только в установленной версии Message Setup');
     return autoUpdater.downloadUpdate();
   });
   ipcMain.on('message:update-install', event => {
