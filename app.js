@@ -101,7 +101,7 @@ let sb,me=null,prof=null,ID=null,P={},C={},K={},KH={},H={},M={},MORE={},OLDER_LO
 const messageIndex=new Map();
 if(/Android/i.test(navigator.userAgent))document.documentElement.classList.add('android-perf');
 const desktopMedia=matchMedia('(min-width:900px) and (hover:hover) and (pointer:fine)');
-const desktopRuntime=/Electron\\//i.test(navigator.userAgent);
+const desktopRuntime=/Electron\//i.test(navigator.userAgent);
 const desktopMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 const desk=!desktopMobile&&(desktopRuntime||desktopMedia.matches);
 document.documentElement.classList.toggle('p-desktop',desk);
