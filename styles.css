@@ -658,3 +658,113 @@ html.kb #inp{font-size:16px;max-height:120px}
 }
 
 @media (min-width:900px){#appUpdate{left:auto;right:28px;top:24px;width:min(560px,calc(100vw - 56px));}}
+
+
+/* Desktop-only motion and pointer interactions */
+@media (hover:hover) and (pointer:fine){
+ html.p-desktop .crow{transition:background-color .2s ease,transform .2s ease,box-shadow .2s ease}
+ html.p-desktop .crow:hover{background:var(--card);transform:translateX(2px)}
+ html.p-desktop .ib,html.p-desktop .btn,html.p-desktop #sendb{transition:background-color .2s ease,color .2s ease,transform .2s ease,box-shadow .2s ease,filter .2s ease}
+ html.p-desktop .ib:hover{background:color-mix(in srgb,var(--accent) 10%,var(--card));transform:translateY(-1px)}
+ html.p-desktop .btn:hover,html.p-desktop #sendb:hover{filter:brightness(1.04);box-shadow:0 8px 22px color-mix(in srgb,var(--accent) 22%,transparent)}
+ html.p-desktop .srow,html.p-desktop .desktop-menu-item{transition:background-color .2s ease,transform .2s ease,box-shadow .2s ease}
+ html.p-desktop .srow:hover,html.p-desktop .desktop-menu-item:hover{background:var(--line);transform:translateX(2px)}
+ html.p-desktop .b{transition:transform .18s ease,box-shadow .18s ease}
+ html.p-desktop .b:hover{box-shadow:0 4px 14px rgba(0,0,0,.08)}
+}
+html.p-desktop .over:not(#viewer){align-items:center;animation:fade .2s ease}
+html.p-desktop .over:not(#viewer) .sh{border-radius:20px;max-height:min(88vh,820px);animation:sheetSoft .28s cubic-bezier(.2,.8,.2,1) both}
+html.p-desktop #ctx{animation:fade .18s ease}
+html.p-desktop .row.new{animation:msgInDesk .22s cubic-bezier(.2,.8,.2,1) both}
+html.p-desktop #bar{animation:barIn .2s ease both}
+html.p-desktop #sendb{animation:popIn .22s cubic-bezier(.2,.8,.2,1) both}
+@keyframes sheetSoft{from{opacity:0;transform:translateY(12px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes scrimOut{from{opacity:1}to{opacity:0}}
+@keyframes msgInDesk{from{opacity:0;transform:translateY(7px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes barIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@keyframes popIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){
+ html.p-desktop .over:not(#viewer),html.p-desktop .over:not(#viewer) .sh,html.p-desktop .row.new,html.p-desktop #bar,html.p-desktop #sendb{animation:none!important}
+}
+
+
+/* ==========================================================================
+   v9 motion system: iPhone / Android
+   Compositor-friendly transforms and opacity; no changes to the color palette.
+   ========================================================================== */
+:root{--m-ios:cubic-bezier(.32,.72,0,1);--m-spring:cubic-bezier(.34,1.45,.64,1);--m-mat:cubic-bezier(.2,0,0,1);--m-out:cubic-bezier(.16,1,.3,1);--nav-ms:300ms}
+html.p-mobile :is(button,.crow,.srow,.ib,.btn,.cx-i,#nav button){touch-action:manipulation}
+html.p-mobile .crow{contain:layout style}
+.ghost-out{pointer-events:none}
+
+@keyframes navInFwd{from{transform:translate3d(100%,0,0)}to{transform:translate3d(0,0,0)}}
+@keyframes navUnder{from{transform:translate3d(0,0,0);opacity:1}to{transform:translate3d(-24%,0,0);opacity:.55}}
+@keyframes navInBack{from{transform:translate3d(-24%,0,0);opacity:.55}to{transform:translate3d(0,0,0);opacity:1}}
+@keyframes navOutBack{from{transform:translate3d(0,0,0)}to{transform:translate3d(100%,0,0)}}
+@keyframes sheetUp{from{transform:translate3d(0,100%,0)}to{transform:translate3d(0,0,0)}}
+@keyframes sheetDown{from{transform:translate3d(0,0,0)}to{transform:translate3d(0,100%,0)}}
+@keyframes mobileScrimOut{from{opacity:1}to{opacity:0}}
+@keyframes mobilePopIn{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
+@keyframes mobileBarIn{from{opacity:0;transform:translate3d(0,8px,0)}to{opacity:1;transform:none}}
+@keyframes overlayIn{from{opacity:0;transform:scale(1.04)}to{opacity:1;transform:none}}
+@keyframes viewerImg{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
+@keyframes tabIn{from{opacity:0;transform:translate3d(0,8px,0)}to{opacity:1;transform:none}}
+@keyframes rowIn{from{opacity:0;transform:translate3d(0,10px,0)}to{opacity:1;transform:none}}
+@keyframes msgInIos{0%{opacity:0;transform:translate3d(0,14px,0) scale(.92)}60%{opacity:1}100%{opacity:1;transform:none}}
+@keyframes msgInMat{from{opacity:0;transform:translate3d(0,10px,0) scale(.96)}to{opacity:1;transform:none}}
+
+@media (max-width:899.98px){
+ html.p-mobile:not(.reduce-motion) .nav-in-fwd,html.p-mobile:not(.reduce-motion) .nav-out-back{background:linear-gradient(160deg,rgba(255,255,255,.18),transparent 42%),var(--bg)!important;z-index:3}
+ html.p-mobile:not(.reduce-motion):not(.perf-low) .nav-in-fwd,html.p-mobile:not(.reduce-motion):not(.perf-low) .nav-out-back{box-shadow:-10px 0 32px rgba(0,0,0,.14)}
+ html.p-mobile:not(.reduce-motion) .nav-under,html.p-mobile:not(.reduce-motion) .nav-in-back{z-index:1}
+ html.p-mobile:not(.reduce-motion) .nav-in-fwd,html.p-mobile:not(.reduce-motion) .nav-under,html.p-mobile:not(.reduce-motion) .nav-in-back,html.p-mobile:not(.reduce-motion) .nav-out-back{pointer-events:none;will-change:transform}
+ html.p-mobile:not(.reduce-motion) .nav-in-fwd{animation:navInFwd var(--nav-ms) var(--m-mat) both}
+ html.p-mobile:not(.reduce-motion) .nav-under{animation:navUnder var(--nav-ms) var(--m-mat) both}
+ html.p-mobile:not(.reduce-motion) .nav-in-back{animation:navInBack var(--nav-ms) var(--m-mat) both}
+ html.p-mobile:not(.reduce-motion) .nav-out-back{animation:navOutBack var(--nav-ms) var(--m-mat) both}
+ html.p-ios:not(.reduce-motion) .nav-in-fwd{animation-timing-function:var(--m-ios)}
+ html.p-ios:not(.reduce-motion) .nav-under{animation-timing-function:var(--m-ios)}
+ html.p-ios:not(.reduce-motion) .nav-in-back{animation-timing-function:var(--m-ios)}
+ html.p-ios:not(.reduce-motion) .nav-out-back{animation-timing-function:var(--m-ios)}
+}
+
+@media (prefers-reduced-motion:no-preference){
+ html.p-mobile:not(.reduce-motion) .over:not(#viewer) .sh{animation:sheetUp .34s var(--m-mat) backwards}
+ html.p-ios:not(.reduce-motion) .over:not(#viewer) .sh{animation:sheetUp .42s var(--m-ios) backwards}
+ html.p-mobile.perf-low:not(.reduce-motion) .over:not(#viewer) .sh{animation-duration:.22s}
+ html.p-mobile:not(.reduce-motion) .ghost-out{animation:mobileScrimOut .24s ease both!important}
+ html.p-mobile:not(.reduce-motion) .ghost-out .sh{animation:sheetDown .26s var(--m-mat) both!important}
+ html.p-ios:not(.reduce-motion) .ghost-out .sh{animation-timing-function:var(--m-ios)!important}
+
+ html.p-mobile:not(.reduce-motion) #sendb:not([hidden]),html.p-mobile:not(.reduce-motion) #mic:not([hidden]):not(.rec){animation:mobilePopIn .22s var(--m-spring) backwards}
+ html.p-mobile:not(.reduce-motion) #bar:not([hidden]),html.p-mobile:not(.reduce-motion) #recbar:not([hidden]),html.p-mobile:not(.reduce-motion) #pin:not([hidden]){animation:mobileBarIn .2s var(--m-out) backwards}
+ html.p-mobile:not(.reduce-motion) #call:not([hidden]),html.p-mobile:not(.reduce-motion) #sv:not([hidden]){animation:overlayIn .28s var(--m-out) backwards}
+ html.p-mobile:not(.reduce-motion) #viewer:not([hidden]) img{animation:viewerImg .3s var(--m-out) backwards}
+
+ html.p-ios:not(.reduce-motion):not(.perf-low) .row.new{animation:msgInIos .38s var(--m-spring) backwards}
+ html.android-perf:not(.reduce-motion) .row.new{animation:msgInMat .22s var(--m-mat) backwards}
+ html.p-mobile.perf-low:not(.reduce-motion) .row.new{animation:message-arrive .14s ease-out backwards}
+
+ html.p-mobile:not(.reduce-motion) #clist.tab-in{animation:tabIn .26s var(--m-out) backwards}
+ html.p-mobile:not(.reduce-motion):not(.perf-low) #clist.tab-in .crow:not(.sk){animation:rowIn .3s var(--m-out) backwards!important}
+ html.p-mobile:not(.reduce-motion):not(.perf-low) #clist.tab-in .crow:not(.sk):nth-child(2){animation-delay:.03s!important}
+ html.p-mobile:not(.reduce-motion):not(.perf-low) #clist.tab-in .crow:not(.sk):nth-child(3){animation-delay:.06s!important}
+ html.p-mobile:not(.reduce-motion):not(.perf-low) #clist.tab-in .crow:not(.sk):nth-child(4){animation-delay:.09s!important}
+ html.p-mobile:not(.reduce-motion):not(.perf-low) #clist.tab-in .crow:not(.sk):nth-child(5){animation-delay:.12s!important}
+ html.p-mobile:not(.reduce-motion):not(.perf-low) #clist.tab-in .crow:not(.sk):nth-child(n+6){animation-delay:.15s!important}
+
+ html.p-ios:not(.reduce-motion) .btn,html.p-ios:not(.reduce-motion) .ib,html.p-ios:not(.reduce-motion) #sendb,html.p-ios:not(.reduce-motion) #mic{transition:transform .4s var(--m-spring),opacity .3s ease,background-color .2s ease!important}
+ html.p-ios:not(.reduce-motion) .btn:active,html.p-ios:not(.reduce-motion) .ib:active,html.p-ios:not(.reduce-motion) #sendb:active,html.p-ios:not(.reduce-motion) #mic:active{transform:scale(.92)!important;opacity:.75;transition-duration:.06s!important}
+ html.p-ios:not(.reduce-motion) .crow,html.p-ios:not(.reduce-motion) .srow{transition:background-color .35s ease,transform .35s var(--m-ios)!important}
+ html.p-ios:not(.reduce-motion) .crow:active,html.p-ios:not(.reduce-motion) .srow:active{background:var(--card);transform:scale(.985)!important;transition-duration:.05s!important}
+ html.p-ios:not(.reduce-motion) .row .b{transition:transform .4s var(--m-spring)!important}
+ html.p-ios:not(.reduce-motion) .row .b:active{transform:scale(.97)!important;transition-duration:.06s!important}
+
+ html.android-perf:not(.reduce-motion) .crow,html.android-perf:not(.reduce-motion) .srow,html.android-perf:not(.reduce-motion) .btn,html.android-perf:not(.reduce-motion) .ib,html.android-perf:not(.reduce-motion) #sendb,html.android-perf:not(.reduce-motion) #mic,html.android-perf:not(.reduce-motion) .row .b{transition:transform .22s var(--m-mat),opacity .2s ease,background-color .2s ease!important}
+ html.android-perf:not(.reduce-motion) .crow:active,html.android-perf:not(.reduce-motion) .srow:active{background:var(--card);transform:scale(.99)!important;transition-duration:.06s!important}
+ html.android-perf:not(.reduce-motion) .btn:active,html.android-perf:not(.reduce-motion) .ib:active,html.android-perf:not(.reduce-motion) #sendb:active,html.android-perf:not(.reduce-motion) #mic:active{transform:scale(.93)!important;transition-duration:.06s!important}
+ html.android-perf:not(.reduce-motion) .row .b:active{transform:scale(.985)!important;transition-duration:.06s!important}
+}
+
+html.p-mobile.perf-low.tt,html.p-mobile.perf-low.tt *{transition:none!important}
+html.p-mobile.perf-low .crow,html.p-mobile.perf-low .row .b,html.p-mobile.perf-low .btn,html.p-mobile.perf-low .ib{will-change:auto}

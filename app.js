@@ -100,6 +100,16 @@ const BLOB={};
 let sb,me=null,prof=null,ID=null,P={},C={},K={},KH={},H={},M={},MORE={},OLDER_LOADING={},cur=null,reply=null,editing=null,booted=false,authMode='in';
 const messageIndex=new Map();
 if(/Android/i.test(navigator.userAgent))document.documentElement.classList.add('android-perf');
+/* Mobile animation profile: iPhone/iPad/Android */
+(()=>{const r=document.documentElement,ua=navigator.userAgent,android=/Android/i.test(ua),ios=/iPhone|iPad|iPod/i.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1),c=navigator.connection,
+ low=(navigator.deviceMemory&&navigator.deviceMemory<=3)||(android&&navigator.hardwareConcurrency&&navigator.hardwareConcurrency<=4)||!!(c&&c.saveData);
+ r.classList.toggle('p-mobile',android||ios);r.classList.toggle('p-ios',ios);r.classList.toggle('perf-low',!!low)})();
+const desktopMedia=matchMedia('(min-width:900px) and (hover:hover) and (pointer:fine)');
+const desktopRuntime=/Electron\//i.test(navigator.userAgent);
+const desktopMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const desk=!desktopMobile&&(desktopRuntime||desktopMedia.matches);
+document.documentElement.classList.toggle('p-desktop',desk);
+desktopMedia.addEventListener?.('change',e=>document.documentElement.classList.toggle('p-desktop',!desktopMobile&&(desktopRuntime||e.matches)));
 
 /* ---------- утилиты ---------- */
 function toast(t,ms=2800){const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,ms)}
@@ -129,13 +139,30 @@ function applyTheme(t){t={mode:'auto',accent:'',out:'',inb:'',shape:'r',wall:'no
  try{localStorage.setItem('th',JSON.stringify(t))}catch(e){}return t}
 try{applyTheme(JSON.parse(localStorage.getItem('th')))}catch(e){applyTheme()}
 let SHOWN=null;
-function show(id){const prev=SHOWN;SHOWN=id;const split=window.matchMedia('(min-width: 900px)').matches&&id==='chat';['load','auth','keys','home','chat'].forEach(k=>$('#'+k).hidden=split?!['home','chat'].includes(k):k!==id);
- if(prev&&prev!==id&&(id==='chat'||(id==='home'&&prev==='chat'))){const el=$('#'+id);el.classList.remove('slR','slL');void el.offsetWidth;el.classList.add(id==='chat'?'slR':'slL');setTimeout(()=>el.classList.remove('slR','slL'),350)}}
+/* Mobile navigation stack: keep the previous screen mounted beneath the incoming screen. */
+let navT=0;const NAV_CLS=['slR','slL','nav-in-fwd','nav-in-back','nav-out-back','nav-under'];
+function navReset(){clearTimeout(navT);navT=0;['home','chat'].forEach(k=>{const e=$('#'+k);if(e)e.classList.remove(...NAV_CLS)})}
+function show(id){const prev=SHOWN;SHOWN=id;const wide=window.matchMedia('(min-width: 900px)').matches,split=wide&&id==='chat';navReset();
+ ['load','auth','keys','home','chat'].forEach(k=>$('#'+k).hidden=split?!['home','chat'].includes(k):k!==id);
+ if(!(prev&&prev!==id&&(id==='chat'||(id==='home'&&prev==='chat'))))return;
+ const el=$('#'+id),root=document.documentElement,reduce=matchMedia('(prefers-reduced-motion:reduce)').matches||root.classList.contains('reduce-motion');
+ void el.offsetWidth;
+ if(reduce)return;
+ if(wide||!root.classList.contains('p-mobile')){el.classList.add(id==='chat'?'slR':'slL');navT=setTimeout(()=>{navT=0;el.classList.remove('slR','slL')},350);return}
+ const other=$('#'+prev),ms=root.classList.contains('p-ios')?380:root.classList.contains('perf-low')?220:300;
+ root.style.setProperty('--nav-ms',ms+'ms');other.hidden=false;
+ if(id==='chat'){el.classList.add('nav-in-fwd');other.classList.add('nav-under')}else{el.classList.add('nav-in-back');other.classList.add('nav-out-back')}
+ navT=setTimeout(()=>{navT=0;navReset();if(SHOWN===id)other.hidden=true},ms+40)}
 window.addEventListener('resize',()=>{if(SHOWN)show(SHOWN)});
 function releaseSheetMedia(){const s=$('#sheet');s.querySelectorAll('img[src^="blob:"],video[src^="blob:"],audio[src^="blob:"]').forEach(e=>{try{URL.revokeObjectURL(e.src)}catch(_){}});s.querySelectorAll('[data-preview-url]').forEach(e=>{try{URL.revokeObjectURL(e.dataset.previewUrl)}catch(_){};delete e.dataset.previewUrl})}
-function sheet(html,mount){const s=$('#sheet');releaseSheetMedia();s.innerHTML=`<div class="sh">${html}</div>`;s.hidden=false;
+function sheet(html,mount){const s=$('#sheet');document.querySelectorAll('.ghost-out').forEach(g=>g.remove());releaseSheetMedia();s.innerHTML=`<div class="sh">${html}</div>`;s.hidden=false;
  s.onclick=e=>{if(e.target===s)closeSheet()};if(mount)mount(s.firstChild);return s.firstChild}
-function closeSheet(){releaseSheetMedia();$('#sheet').hidden=true;$('#sheet').innerHTML=''}
+/* Animate sheet dismissal on a non-interactive visual clone; close the real sheet immediately. */
+function closeSheet(){const s=$('#sheet'),root=document.documentElement;
+ if(!s.hidden&&s.firstChild&&root.classList.contains('p-mobile')&&!matchMedia('(prefers-reduced-motion:reduce)').matches&&!root.classList.contains('reduce-motion')&&!root.classList.contains('perf-low')){
+  try{const g=s.cloneNode(true);g.removeAttribute('id');g.removeAttribute('hidden');g.removeAttribute('onclick');g.querySelectorAll('[id]').forEach(n=>n.removeAttribute('id'));g.querySelectorAll('video,audio,input,textarea').forEach(n=>n.remove());g.classList.add('ghost-out');g.setAttribute('aria-hidden','true');document.body.appendChild(g);setTimeout(()=>g.remove(),320)}catch(_){}}
+ releaseSheetMedia();s.hidden=true;s.innerHTML=''}
+function tabAnim(){if(!document.documentElement.classList.contains('p-mobile'))return;const r=$('#clist');r.classList.remove('tab-in');void r.offsetWidth;r.classList.add('tab-in');clearTimeout(tabAnim.t);tabAnim.t=setTimeout(()=>r.classList.remove('tab-in'),520)}
 
 
 const idb=(()=>{let d;const open=()=>d||(d=new Promise((res,rej)=>{const r=indexedDB.open('chat2',1);r.onupgradeneeded=()=>r.result.createObjectStore('k');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}));
@@ -410,7 +437,7 @@ function contactsList(f){const seen=new Set(),L=[];Object.values(C).forEach(c=>{
  let h=`<div class="crow" data-find="1"><div class="av" style="width:50px;height:50px;font-size:24px">+</div><div class="ci"><b>Найти пользователя</b><small>Написать новому человеку</small></div></div>`;
  h+=rows.length?rows.map(({c,o})=>`<div class="crow" data-c="${c.id}"><div class="avw">${av(o,50)}${online(o)?'<i class="dot"></i>':''}</div><div class="ci"><b class="nm"><span class="t">${displayName(o,title(c))} ${esc(o.status_emoji||'')}</span></b><small>${online(o)?'в сети':(o.last_seen?'был(а) '+tm(o.last_seen):'@'+esc(o.username||''))}</small></div></div>`).join(''):'<div class="empty">Пока нет контактов.<br>Начните личный чат — человек появится здесь.</div>';
  $('#clist').innerHTML=h}
-function setTab(t){if(t!=='settings')CL.onclick=chatListClick;TAB=t;showArch=false;const root=$('#clist');if(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))document.activeElement.blur();document.documentElement.classList.remove('kb');const app=$('#app');app.style.height='100dvh';app.style.top='0px';document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab===TAB));show('home');if(TAB==='profile'){profilePage();return}if(TAB==='settings'){redesignedSettings();return}$('#newb').hidden=false;$('#gear').hidden=false;$('.sbox').hidden=false;$('#chips').hidden=false;$('#home .top h2').textContent=TAB==='chats'?'Чаты':TAB==='contacts'?'Контакты':'Истории';root.scrollTop=0;home();if(TAB==='stories')loadStories()}
+function setTab(t){const tabChanged=TAB!==t;if(t!=='settings')CL.onclick=chatListClick;TAB=t;showArch=false;const root=$('#clist');if(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))document.activeElement.blur();document.documentElement.classList.remove('kb');const app=$('#app');app.style.height='100dvh';app.style.top='0px';document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab===TAB));show('home');if(tabChanged)tabAnim();if(TAB==='profile'){profilePage();return}if(TAB==='settings'){redesignedSettings();return}$('#newb').hidden=false;$('#gear').hidden=false;$('.sbox').hidden=false;$('#chips').hidden=false;$('#home .top h2').textContent=TAB==='chats'?'Чаты':TAB==='contacts'?'Контакты':'Истории';root.scrollTop=0;home();if(TAB==='stories')loadStories()}
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 /* Desktop unified navigation menu */
 (function(){
