@@ -415,11 +415,13 @@ let clLP=0,clT=null,clXY=null;const CL=$('#clist');
  CL.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse')return;storyPull={x:e.clientX,y:e.clientY}});
  CL.addEventListener('pointermove',e=>{if(!storyPull)return;const dx=e.clientX-storyPull.x,dy=e.clientY-storyPull.y;if(dy>12&&dy>Math.abs(dx)*1.15)CL.querySelector('.story-strip')?.classList.add('pull-grow')});
  ['pointerup','pointercancel','pointerleave'].forEach(t=>CL.addEventListener(t,()=>{storyPull=null;CL.querySelector('.story-strip')?.classList.remove('pull-grow')}));
-let suppressChatClickUntil=0;CL.onclick=e=>{if(Date.now()<suppressChatClickUntil)return;if(e.target.closest('[data-find]')){$('#newb').click();return}const so=e.target.closest('[data-sopen]');if(so){openStory(so.dataset.sopen);return}if(e.target.closest('[data-sadd]')){newStory();return}const a=e.target.closest('[data-arch]');if(a){showArch=a.dataset.arch==='1';home();return}const r=e.target.closest('.crow[data-c]');if(r)openChat(r.dataset.c)};
-CL.addEventListener('pointerdown',e=>{if(e.button>0)return;const r=e.target.closest('.crow[data-c]');if(!r)return;clXY=[e.clientX,e.clientY];
- clT=setTimeout(()=>{clT=null;suppressChatClickUntil=Date.now()+700;navigator.vibrate?.(12);chatMenu(C[r.dataset.c])},450)});
-CL.addEventListener('pointermove',e=>{if(clT&&clXY&&Math.hypot(e.clientX-clXY[0],e.clientY-clXY[1])>9){clearTimeout(clT);clT=null}});
-['pointerup','pointercancel','pointerleave'].forEach(t=>CL.addEventListener(t,()=>{clearTimeout(clT);clT=null}));
+let suppressChatClickUntil=0,clPointerRow=null,clPointerStart=null,clLongPressed=false;
+CL.onclick=e=>{if(Date.now()<suppressChatClickUntil)return;if(e.target.closest('[data-find]')){$('#newb').click();return}const so=e.target.closest('[data-sopen]');if(so){openStory(so.dataset.sopen);return}if(e.target.closest('[data-sadd]')){newStory();return}const a=e.target.closest('[data-arch]');if(a){showArch=a.dataset.arch==='1';home();return}const r=e.target.closest('.crow[data-c]');if(r)openChat(r.dataset.c)};
+CL.addEventListener('pointerdown',e=>{if(e.button>0)return;const r=e.target.closest('.crow[data-c]');if(!r)return;clXY=[e.clientX,e.clientY];clPointerRow=r;clPointerStart=[e.clientX,e.clientY];clLongPressed=false;
+ clT=setTimeout(()=>{clT=null;clLongPressed=true;suppressChatClickUntil=Date.now()+700;navigator.vibrate?.(12);chatMenu(C[r.dataset.c])},450)});
+CL.addEventListener('pointermove',e=>{if(clT&&clXY&&Math.hypot(e.clientX-clXY[0],e.clientY-clXY[1])>9){clearTimeout(clT);clT=null;clPointerRow=null;clPointerStart=null}});
+CL.addEventListener('pointerup',e=>{const row=clPointerRow,start=clPointerStart,long=clLongPressed;const tap=!!(row&&start&&clT&&Math.hypot(e.clientX-start[0],e.clientY-start[1])<=9&&row.isConnected);clearTimeout(clT);clT=null;clPointerRow=null;clPointerStart=null;clXY=null;clLongPressed=false;if(tap){suppressChatClickUntil=Date.now()+700;openChat(row.dataset.c)}else if(long)suppressChatClickUntil=Date.now()+700});
+['pointercancel','pointerleave'].forEach(t=>CL.addEventListener(t,()=>{clearTimeout(clT);clT=null;clPointerRow=null;clPointerStart=null;clXY=null;clLongPressed=false}));
 CL.addEventListener('contextmenu',e=>{const r=e.target.closest('.crow[data-c]');if(r){e.preventDefault();suppressChatClickUntil=Date.now()+700;chatMenu(C[r.dataset.c])}});
 function chatMenu(c){const m=c&&c.my;if(!m)return;
  sheet(`<h3>${esc(title(c))}</h3><div class="srow" data-f="pinned">📌 ${m.pinned?'Открепить':'Закрепить вверху'}</div>
@@ -1066,7 +1068,7 @@ function profilePage(){
 function redesignedSettings(){
  const t=prof.theme||{},md=t.mode||'auto',perm='Notification' in window?Notification.permission:'unsupported';
  const row=(i,n,a,d='')=>`<button class="srow settings-row" data-a="${a}">${uiIcon(i)}<span>${n}</span>${d?`<b>${d}</b>`:'<span class="settings-chevron">›</span>'}</button>`;
- renderSectionPage('Настройки',`<div class="settings-screen"><button class="link settings-back-chats" data-a="chats">← Вернуться к чатам</button>
+ renderSectionPage('Настройки',`<div class="settings-screen">
  <div class="settings-heading"><div><span class="settings-eyebrow">MESSAGE</span><h2>Настройки</h2></div><div class="settings-profile-mini">${av(prof,42)}<span><b>${displayName(prof)}</b><small>@${esc(prof.username||'')}</small></span></div></div>
  <section class="settings-group"><h3>Аккаунт</h3>${row('user','Профиль','profile')}${row('devices','Устройства и сеансы','devices')}${row('folder','Папки и организация','folders',String(folders().length||'—'))}</section>
  <section class="settings-group"><h3>Внешний вид</h3>${row('palette','Оформление чатов','cd')}<div class="settings-option"><div class="settings-option-title">${uiIcon('sliders')}<span>Тема приложения</span></div><div class="seg">${[['auto','Авто'],['light','Светлая'],['dark','Тёмная']].map(([k,n])=>`<button data-mode="${k}" class="${md===k?'on':''}">${n}</button>`).join('')}</div></div><div class="settings-option"><div class="settings-option-title">${uiIcon('palette')}<span>Акцентный цвет</span></div><div class="sw">${ACC.map(c=>`<i data-acc="${c}" style="background:${c||'linear-gradient(135deg,#151515 50%,#f2f2f4 50%)'}" class="${((t.accent==='#3e88f7'?'':t.accent)||'')===c?'on':''}"></i>`).join('')}</div></div></section>
