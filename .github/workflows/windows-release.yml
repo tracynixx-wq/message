@@ -44,7 +44,7 @@ jobs:
         run: npm install --no-audit --no-fund
 
       - name: Build Windows installers
-        run: npm run dist
+        run: npx electron-builder --win nsis portable --x64 --publish never
 
       - name: Verify installer artifacts
         shell: pwsh
