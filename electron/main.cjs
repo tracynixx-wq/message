@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell } = require('electron');
+const { app, BrowserWindow, shell, session } = require('electron');
 
 const APP_URL = 'https://tracynixx-wq.github.io/message/';
 // Replaced by the Windows build workflow with the published build number.
@@ -18,7 +18,9 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: true
+      sandbox: true,
+      // Keep authentication and site storage in Electron's persistent default profile.
+      session: session.defaultSession
     }
   });
 
