@@ -62,5 +62,8 @@ jobs:
           tag_name: desktop-build-${{ steps.stamp.outputs.build }}
           name: Message for PC — build ${{ steps.stamp.outputs.build }}
           body: Automated Windows desktop build for Message.
-          files: dist/*.exe
+          files: |
+            dist/*.exe
+            dist/*.blockmap
+            dist/latest.yml
           make_latest: false
