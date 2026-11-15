@@ -658,3 +658,31 @@ html.kb #inp{font-size:16px;max-height:120px}
 }
 
 @media (min-width:900px){#appUpdate{left:auto;right:28px;top:24px;width:min(560px,calc(100vw - 56px));}}
+
+
+/* Desktop-only motion and pointer interactions */
+@media (hover:hover) and (pointer:fine){
+ html.p-desktop .crow{transition:background-color .2s ease,transform .2s ease,box-shadow .2s ease}
+ html.p-desktop .crow:hover{background:var(--card);transform:translateX(2px)}
+ html.p-desktop .ib,html.p-desktop .btn,html.p-desktop #sendb{transition:background-color .2s ease,color .2s ease,transform .2s ease,box-shadow .2s ease,filter .2s ease}
+ html.p-desktop .ib:hover{background:color-mix(in srgb,var(--accent) 10%,var(--card));transform:translateY(-1px)}
+ html.p-desktop .btn:hover,html.p-desktop #sendb:hover{filter:brightness(1.04);box-shadow:0 8px 22px color-mix(in srgb,var(--accent) 22%,transparent)}
+ html.p-desktop .srow,html.p-desktop .desktop-menu-item{transition:background-color .2s ease,transform .2s ease,box-shadow .2s ease}
+ html.p-desktop .srow:hover,html.p-desktop .desktop-menu-item:hover{background:var(--line);transform:translateX(2px)}
+ html.p-desktop .b{transition:transform .18s ease,box-shadow .18s ease}
+ html.p-desktop .b:hover{box-shadow:0 4px 14px rgba(0,0,0,.08)}
+}
+html.p-desktop .over:not(#viewer){align-items:center;animation:fade .2s ease}
+html.p-desktop .over:not(#viewer) .sh{border-radius:20px;max-height:min(88vh,820px);animation:sheetSoft .28s cubic-bezier(.2,.8,.2,1) both}
+html.p-desktop #ctx{animation:fade .18s ease}
+html.p-desktop .row.new{animation:msgInDesk .22s cubic-bezier(.2,.8,.2,1) both}
+html.p-desktop #bar{animation:barIn .2s ease both}
+html.p-desktop #sendb{animation:popIn .22s cubic-bezier(.2,.8,.2,1) both}
+@keyframes sheetSoft{from{opacity:0;transform:translateY(12px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes scrimOut{from{opacity:1}to{opacity:0}}
+@keyframes msgInDesk{from{opacity:0;transform:translateY(7px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes barIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@keyframes popIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){
+ html.p-desktop .over:not(#viewer),html.p-desktop .over:not(#viewer) .sh,html.p-desktop .row.new,html.p-desktop #bar,html.p-desktop #sendb{animation:none!important}
+}
