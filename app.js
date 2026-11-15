@@ -677,13 +677,21 @@ $('#sendb').addEventListener('mousedown',e=>e.preventDefault());
 function keepComposerFocused(){if(cur&&!$('#chat').hidden&&document.visibilityState==='visible'){try{inp.focus({preventScroll:true})}catch(_){inp.focus()}}}
 async function sendPayload(c,payload){if(!K[c.id]){toast('Нет ключа этого чата');return null}
  const pushPreview=typeof payload.t==='string'?payload.t.replace(/\s+/g,' ').trim().slice(0,180):'';
- const r=await sb.from('msgs').insert({conv_id:c.id,sender:me.id,data:await CR.seal(K[c.id],c.id,payload),push_preview:pushPreview}).select().single();
+ const row={conv_id:c.id,sender:me.id,data:await CR.seal(K[c.id],c.id,payload),push_preview:pushPreview};
+ let r=await sb.from('msgs').insert(row).select().single();
+ if(r.error&&/push_preview|column .* does not exist|42703/i.test(r.error.message||'')){
+  const {push_preview,...legacyRow}=row;r=await sb.from('msgs').insert(legacyRow).select().single();
+ }
  if(r.error){toast(r.error.message);return null}
  await dc(r.data);const a=M[c.id]=M[c.id]||[];if(!a.some(x=>x.id===r.data.id))a.push(r.data);messageIndex.set(String(r.data.id),r.data);if(cur===c.id){pendingChatBottom=c.id;render(true,'smooth')}else home();return r.data}
 $('#sendb').onclick=async()=>{setTypingState(false);const t=inp.value.trim(),c=C[cur];if(!t||!c)return;
  if(editing){const m=editing;unbar();inp.value='';fit();const np={...m.p,t};
   const pushPreview=typeof np.t==='string'?np.t.replace(/\s+/g,' ').trim().slice(0,180):'';
-  const r=await sb.from('msgs').update({data:await CR.seal(K[c.id],c.id,np),push_preview:pushPreview,edited_at:new Date().toISOString()}).eq('id',m.id).select().single();
+  const updateRow={data:await CR.seal(K[c.id],c.id,np),push_preview:pushPreview,edited_at:new Date().toISOString()};
+  let r=await sb.from('msgs').update(updateRow).eq('id',m.id).select().single();
+  if(r.error&&/push_preview|column .* does not exist|42703/i.test(r.error.message||'')){
+   const {push_preview,...legacyUpdate}=updateRow;r=await sb.from('msgs').update(legacyUpdate).eq('id',m.id).select().single();
+  }
   if(r.error){toast(r.error.message);keepComposerFocused();return}Object.assign(m,r.data);m.p=np;render();keepComposerFocused();return}
  const pl={t};if(reply)pl.r=reply.id;unbar();inp.value='';fit();keepComposerFocused();const sent=await sendPayload(c,pl);if(!sent&&!inp.value.trim()){inp.value=t;fit()}keepComposerFocused()};
 inp.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&matchMedia('(hover:hover)').matches){e.preventDefault();$('#sendb').click()}};
