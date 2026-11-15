@@ -1308,7 +1308,8 @@ async function checkDesktopUpdate(){
   banner.querySelector('#appUpdateClose').onclick=()=>{sessionStorage.setItem('msg.desktop-update.actioned',String(rel.build));banner.hidden=true};
  }catch(e){console.warn('[desktop-update] check failed',e)}
 }
-\nboot();checkAndroidUpdate();checkDesktopUpdate();
+
+boot();checkAndroidUpdate();checkDesktopUpdate();
 addEventListener('online',checkAndroidUpdate);
 addEventListener('online',checkDesktopUpdate);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){checkAndroidUpdate();checkDesktopUpdate()}});
