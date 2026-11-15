@@ -28,17 +28,20 @@ jobs:
 
       - name: Stamp desktop build number
         shell: pwsh
+        id: stamp
         env:
           BUILD_NUMBER: ${{ github.run_number }}
         run: |
+          $build = [int]$env:BUILD_NUMBER + 4
           $path = "electron/main.cjs"
           $source = Get-Content -Raw $path
-          $replacement = "const DESKTOP_BUILD = $env:BUILD_NUMBER;"
+          $replacement = "const DESKTOP_BUILD = $build;"
           $source = [regex]::Replace($source, 'const DESKTOP_BUILD = \d+;', $replacement)
           if (-not $source.Contains($replacement)) {
             throw "Could not stamp DESKTOP_BUILD in electron/main.cjs"
           }
           Set-Content -Path $path -Value $source -NoNewline -Encoding utf8
+          "build=$build" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
@@ -56,8 +59,8 @@ jobs:
       - name: Publish desktop release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: desktop-build-${{ github.run_number }}
-          name: Message for PC — build ${{ github.run_number }}
+          tag_name: desktop-build-${{ steps.stamp.outputs.build }}
+          name: Message for PC — build ${{ steps.stamp.outputs.build }}
           body: Automated Windows desktop build for Message.
           files: dist/*.exe
           make_latest: false
