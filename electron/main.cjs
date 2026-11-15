@@ -45,7 +45,7 @@ function registerUpdater() {
   });
   ipcMain.handle('message:update-download', async event => {
     if (!isTrustedSender(event)) throw new Error('Untrusted update request');
-    if (!app.isPackaged || process.env.PORTABLE_EXECUTABLE_DIR) throw new Error('Автообновление доступно только в установленной версии Message Setup');
+    if (!app.isPackaged || process.env.PORTABLE_EXECUTABLE_DIR) throw new Error('Автообновление доступно только в установленной версии Loom Setup');
     return autoUpdater.downloadUpdate();
   });
   ipcMain.on('message:update-install', event => {
@@ -63,7 +63,7 @@ function createWindow() {
     show: false,
     autoHideMenuBar: true,
     backgroundColor: '#090a0c',
-    title: 'Message',
+    title: 'Loom',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
@@ -90,7 +90,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  app.setAppUserModelId('com.message.desktop');
+  app.setAppUserModelId('com.loom.desktop');
   registerUpdater();
   createWindow();
   app.on('activate', () => {
