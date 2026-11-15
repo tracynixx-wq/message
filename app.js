@@ -674,6 +674,8 @@ inp.onblur=()=>setTypingState(false);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)setTypingState(false)});
 addEventListener('pagehide',()=>setTypingState(false));
 $('#sendb').addEventListener('mousedown',e=>e.preventDefault());
+// Keep the composer focused when the send control is tapped on touch devices.
+$('#sendb').addEventListener('pointerdown',e=>{if(e.pointerType==='touch'){try{inp.focus({preventScroll:true})}catch(_){inp.focus()}}});
 function keepComposerFocused(){if(cur&&!$('#chat').hidden&&document.visibilityState==='visible'){try{inp.focus({preventScroll:true})}catch(_){inp.focus()}}}
 async function sendPayload(c,payload){if(!K[c.id]){toast('Нет ключа этого чата');return null}
  const pushPreview=typeof payload.t==='string'?payload.t.replace(/\s+/g,' ').trim().slice(0,180):'';
@@ -1074,7 +1076,20 @@ function redesignedSettings(){
  <section class="settings-group"><h3>Уведомления</h3>${row('bell','Push-уведомления','push',perm==='granted'?'Включены':perm==='denied'?'Запрещены':perm==='unsupported'?'Недоступны':'Выключены')}${row('bell','Проверить уведомление','test')}</section>
  <div class="settings-note">Ключ шифрования хранится на этом устройстве. Для входа с другого телефона понадобится ключевая фраза.</div><button class="settings-logout" data-a="out">${uiIcon('logout')}Выйти из аккаунта</button></div>`,s=>s.onclick=async e=>{
  const a=e.target.closest('[data-a]')?.dataset.a,md2=e.target.closest('[data-mode]')?.dataset.mode,accEl=e.target.closest('[data-acc]'),ac=accEl?.dataset.acc;
- if(md2!==undefined||accEl){const n={...(prof.theme||{})};if(md2!==undefined)n.mode=md2;if(accEl)n.accent=ac;prof.theme=applyTheme(n);const saved=await sb.from('profiles').update({theme:prof.theme}).eq('id',me.id);if(saved.error)toast('Настройка применена на этом устройстве, но не сохранена в аккаунте: '+saved.error.message,8000);redesignedSettings();return}
+ if(md2!==undefined||accEl){
+  const previous={...(prof.theme||{})},scrollTop=$('#clist').scrollTop,n={...previous};
+  if(md2!==undefined)n.mode=md2;if(accEl)n.accent=ac;
+  prof.theme=applyTheme(n);P[me.id]=prof;
+  try{
+   const saved=await sb.from('profiles').update({theme:prof.theme}).eq('id',me.id);
+   if(saved.error)throw saved.error;
+   saveLocalAccount(me,prof);
+  }catch(err){
+   prof.theme=applyTheme(previous);P[me.id]=prof;
+   toast('Не удалось сохранить настройку: '+(err.message||err),8000);
+  }
+  redesignedSettings();$('#clist').scrollTop=scrollTop;return
+ }
  if(a==='profile'){setTab('profile');return}if(a==='security'){toast('Переписка защищена сквозным шифрованием');return}
  if(a==='cd'){chatDesign();return}if(a==='push'){await enablePush();return}if(a==='test'){await testPush();return}
  if(a==='devices')settingsDevices();if(a==='folders')settingsFolders();if(a==='backup')settingsBackup();if(a==='access')settingsAccess();if(a==='support')settingsSupport();
