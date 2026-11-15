@@ -656,3 +656,5 @@ html.kb #inp{font-size:16px;max-height:120px}
  #home .top,#chat #chead,#home #nav,#home .crow,#chat .ib,#chat #sendb{transition:background .24s,color .24s,border-color .24s,transform .24s,box-shadow .24s}
  #chat .ib:hover{transform:translateY(-1px);background:var(--card)}
 }
+
+@media (min-width:900px){#appUpdate{left:auto;right:28px;top:24px;width:min(560px,calc(100vw - 56px));}}
