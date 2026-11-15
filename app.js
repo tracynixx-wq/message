@@ -823,25 +823,46 @@ function pruneSecret(){let ch=false;Object.values(C).forEach(c=>{if(!c.secret_tt
 const purge=()=>{sb.rpc('purge_secret').then(()=>{},()=>{})};
 setInterval(()=>{if(!me)return;if(pruneSecret()){if(cur&&SHOWN==='chat')render();else if(SHOWN==='home')home()}},15000);setInterval(()=>{if(me&&Object.values(C).some(c=>c.secret_ttl))purge()},300000);
 const dmPending=new Map();
-async function startDm(u,ttl){closeSheet();const key=[me.id,u.id].sort().join('_')+(ttl?'_s':'');
+async function startDm(u,ttl){
+ closeSheet();
+ if(!u?.id||u.id===me?.id){toast('Не удалось определить собеседника');return}
+ if(!ID?.priv||!ID?.pub){toast('Ключ этого аккаунта ещё не готов. Перезайдите в аккаунт и попробуйте снова.');return}
+ if(typeof u.pubkey!=='string'||!u.pubkey){toast('У пользователя ещё не настроен ключ шифрования');return}
+ const key=[me.id,u.id].sort().join('_')+(ttl?'_s':'');
  const existing=()=>Object.values(C).find(c=>c.dm_key===key);
  const ex=existing();if(ex){openChat(ex.id);return}
- if(dmPending.has(key)){await dmPending.get(key);await loadAll();const found=existing();if(found)openChat(found.id);return}
+ if(dmPending.has(key)){
+  try{await dmPending.get(key);await loadAll();const found=existing();if(found)openChat(found.id)}
+  catch(e){toast('Не удалось открыть чат: '+(e.message||e))}
+  return
+ }
  const task=(async()=>{
-  const r=await sb.from('convs').insert(ttl?{kind:'dm',dm_key:key,secret_ttl:ttl}:{kind:'dm',dm_key:key}).select().single();
-  if(r.error){
-   if(ttl&&/secret_ttl|column/i.test(r.error.message)){toast('Выполните secret.sql в Supabase');return}
-   if(/duplicate|unique/i.test(r.error.message)){await loadAll();const found=existing();if(found)openChat(found.id);else toast('Не удалось открыть существующий чат')}
-   else toast(r.error.message);
-   return;
+  let convId=null;
+  try{
+   const r=await sb.from('convs').insert(ttl?{kind:'dm',dm_key:key,secret_ttl:ttl}:{kind:'dm',dm_key:key}).select().single();
+   if(r.error){
+    if(ttl&&/secret_ttl|column/i.test(r.error.message)){toast('Выполните secret.sql в Supabase');return}
+    if(/duplicate|unique/i.test(r.error.message)){await loadAll();const found=existing();if(found)openChat(found.id);else toast('Не удалось открыть существующий чат')}
+    else toast('Не удалось создать чат: '+r.error.message);
+    return;
+   }
+   const c=r.data;convId=c.id;
+   const k=await CR.newKey();
+   const wrappedMe=await CR.wrap(ID.priv,ID.pub,k,c.id);
+   const wrappedPeer=await CR.wrap(ID.priv,u.pubkey,k,c.id);
+   const mr=await sb.from('members').insert([
+    {conv_id:c.id,user_id:me.id,role:'owner',wrapped_by:me.id,wrapped_key:wrappedMe},
+    {conv_id:c.id,user_id:u.id,role:'member',wrapped_by:me.id,wrapped_key:wrappedPeer}
+   ]);
+   if(mr.error)throw new Error('Не удалось добавить участника: '+mr.error.message);
+   K[c.id]=k;P[u.id]=u;
+   await loadAll();if(C[c.id])openChat(c.id);else toast('Чат создан, но не удалось загрузить его. Обновите список чатов.');
+  }catch(e){
+   if(convId){const cleanup=await sb.from('convs').delete().eq('id',convId);if(cleanup.error)console.warn('[dm] cleanup failed',cleanup.error)}
+   if(convId)delete K[convId];
+   console.warn('[dm] create failed',e);
+   toast('Не удалось создать чат: '+(e.message||e));
   }
-  const c=r.data,k=await CR.newKey();K[c.id]=k;
-  const mr=await sb.from('members').insert([
-   {conv_id:c.id,user_id:me.id,role:'owner',wrapped_by:me.id,wrapped_key:await CR.wrap(ID.priv,ID.pub,k,c.id)},
-   {conv_id:c.id,user_id:u.id,role:'member',wrapped_by:me.id,wrapped_key:await CR.wrap(ID.priv,u.pubkey,k,c.id)}
-  ]);
-  if(mr.error){await sb.from('convs').delete().eq('id',c.id);delete K[c.id];toast('Не удалось добавить участника: '+mr.error.message);return}
-  P[u.id]=u;await loadAll();openChat(c.id);
  })();
  dmPending.set(key,task);
  try{await task}finally{dmPending.delete(key)}
