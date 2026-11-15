@@ -283,7 +283,7 @@ function realtime(){
 async function onMsg(p){const n=p.new;let affectsOpen=false;
  if(p.eventType==='DELETE'){const arr=M[p.old.conv_id]||[],deleted=arr.some(x=>x.id===p.old.id);if(deleted)M[p.old.conv_id]=arr.filter(x=>x.id!==p.old.id);messageIndex.delete(String(p.old.id));affectsOpen=deleted&&p.old.conv_id===cur}
  else{if(!n)return;if(!C[n.conv_id]){await loadAll();return}await dc(n);const a=M[n.conv_id]=M[n.conv_id]||[],i=a.findIndex(x=>x.id===n.id);if(i>-1)a[i]=n;else a.push(n);messageIndex.set(String(n.id),n);affectsOpen=n.conv_id===cur}
- if(cur){if(affectsOpen)render(p.eventType==='INSERT'&&n?.conv_id===cur);markRead()}else home()}
+ if(cur){if(affectsOpen)render(false);markRead()}else home()}
 function onMem(p){const x=p.new,o=p.old;
  if(p.eventType==='INSERT'){if(x.user_id===me.id||!C[x.conv_id])loadAll();else loadAll();return}
  if(p.eventType==='DELETE'){if(o.user_id===me.id){delete C[o.conv_id];delete K[o.conv_id];(M[o.conv_id]||[]).forEach(m=>messageIndex.delete(String(m.id)));delete M[o.conv_id];if(cur===o.conv_id){cur=null;show('home')}home()}else loadAll();return}
@@ -415,12 +415,12 @@ let clLP=0,clT=null,clXY=null;const CL=$('#clist');
  CL.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse')return;storyPull={x:e.clientX,y:e.clientY}});
  CL.addEventListener('pointermove',e=>{if(!storyPull)return;const dx=e.clientX-storyPull.x,dy=e.clientY-storyPull.y;if(dy>12&&dy>Math.abs(dx)*1.15)CL.querySelector('.story-strip')?.classList.add('pull-grow')});
  ['pointerup','pointercancel','pointerleave'].forEach(t=>CL.addEventListener(t,()=>{storyPull=null;CL.querySelector('.story-strip')?.classList.remove('pull-grow')}));
-let suppressChatClick=false;CL.onclick=e=>{if(suppressChatClick){suppressChatClick=false;return}if(e.target.closest('[data-find]')){$('#newb').click();return}const so=e.target.closest('[data-sopen]');if(so){openStory(so.dataset.sopen);return}if(e.target.closest('[data-sadd]')){newStory();return}const a=e.target.closest('[data-arch]');if(a){showArch=a.dataset.arch==='1';home();return}const r=e.target.closest('.crow[data-c]');if(r)openChat(r.dataset.c)};
+let suppressChatClickUntil=0;CL.onclick=e=>{if(Date.now()<suppressChatClickUntil)return;if(e.target.closest('[data-find]')){$('#newb').click();return}const so=e.target.closest('[data-sopen]');if(so){openStory(so.dataset.sopen);return}if(e.target.closest('[data-sadd]')){newStory();return}const a=e.target.closest('[data-arch]');if(a){showArch=a.dataset.arch==='1';home();return}const r=e.target.closest('.crow[data-c]');if(r)openChat(r.dataset.c)};
 CL.addEventListener('pointerdown',e=>{if(e.button>0)return;const r=e.target.closest('.crow[data-c]');if(!r)return;clXY=[e.clientX,e.clientY];
- clT=setTimeout(()=>{clT=null;suppressChatClick=true;navigator.vibrate?.(12);chatMenu(C[r.dataset.c])},450)});
+ clT=setTimeout(()=>{clT=null;suppressChatClickUntil=Date.now()+700;navigator.vibrate?.(12);chatMenu(C[r.dataset.c])},450)});
 CL.addEventListener('pointermove',e=>{if(clT&&clXY&&Math.hypot(e.clientX-clXY[0],e.clientY-clXY[1])>9){clearTimeout(clT);clT=null}});
 ['pointerup','pointercancel','pointerleave'].forEach(t=>CL.addEventListener(t,()=>{clearTimeout(clT);clT=null}));
-CL.addEventListener('contextmenu',e=>{const r=e.target.closest('.crow[data-c]');if(r){e.preventDefault();suppressChatClick=true;chatMenu(C[r.dataset.c])}});
+CL.addEventListener('contextmenu',e=>{const r=e.target.closest('.crow[data-c]');if(r){e.preventDefault();suppressChatClickUntil=Date.now()+700;chatMenu(C[r.dataset.c])}});
 function chatMenu(c){const m=c&&c.my;if(!m)return;
  sheet(`<h3>${esc(title(c))}</h3><div class="srow" data-f="pinned">📌 ${m.pinned?'Открепить':'Закрепить вверху'}</div>
   <div class="srow" data-f="muted">${m.muted?'🔔 Включить уведомления':'🔇 Отключить уведомления'}</div>
@@ -480,7 +480,7 @@ function joinTypingRoom(id){
  }).subscribe(status=>{if(status==='SUBSCRIBED'&&typingChannel===ch&&typingRoom===String(id)&&cur===id&&$('#inp').value.trim()){typingLocalActive=false;typingLastSent=0;setTypingState(true)}});
  typingChannel=ch;
 }
-function openChat(id){stopTypingRoom();cur=id;pendingChatBottom=id;if(C[id]&&C[id].secret_ttl)purge();delete RL[id];if(SEL){SEL=null;selUI()}unbar();$('#inp').value='';fit();show('chat');head();joinTypingRoom(id);render(true);markRead();setComposer()}
+function openChat(id){const target=String(id||'');if(!target||!C[target]){toast('Этот чат недоступен. Обновите список чатов');return}stopTypingRoom();cur=target;pendingChatBottom=target;if(C[target].secret_ttl)purge();delete RL[target];if(SEL){SEL=null;selUI()}unbar();$('#inp').value='';show('chat');head();joinTypingRoom(target);render(true);setComposer();scrollChatBottom(target,chatScrollRevision);markRead()}
 $('#back').onclick=()=>{stopTypingRoom();cur=null;unbar();if(SEL){SEL=null;selUI()}TAB='chats';document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab==='chats'));show('home');$('#newb').hidden=false;$('#gear').hidden=false;$('.sbox').hidden=false;$('#chips').hidden=false;home()};
 function setComposer(){const c=C[cur];const ok=c&&canPost(c);$('#comp').hidden=!ok;$('#ro').hidden=ok;if(!ok)unbar()}
 function head(){const c=C[cur];if(!c)return;$('#cvoice').hidden=$('#cvideo').hidden=c.kind!=='dm';$('#chat').classList.toggle('secret',!!c.secret_ttl);const o=c.kind==='dm'?peerOf(c):c;$('#hav').innerHTML=av(o,40);
@@ -674,6 +674,8 @@ inp.onblur=()=>setTypingState(false);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)setTypingState(false)});
 addEventListener('pagehide',()=>setTypingState(false));
 $('#sendb').addEventListener('mousedown',e=>e.preventDefault());
+// Keep the composer focused when the send control is tapped on touch devices.
+$('#sendb').addEventListener('pointerdown',e=>{if(e.pointerType==='touch'){try{inp.focus({preventScroll:true})}catch(_){inp.focus()}}});
 function keepComposerFocused(){if(cur&&!$('#chat').hidden&&document.visibilityState==='visible'){try{inp.focus({preventScroll:true})}catch(_){inp.focus()}}}
 async function sendPayload(c,payload){if(!K[c.id]){toast('Нет ключа этого чата');return null}
  const pushPreview=typeof payload.t==='string'?payload.t.replace(/\s+/g,' ').trim().slice(0,180):'';
@@ -1064,7 +1066,7 @@ function profilePage(){
 function redesignedSettings(){
  const t=prof.theme||{},md=t.mode||'auto',perm='Notification' in window?Notification.permission:'unsupported';
  const row=(i,n,a,d='')=>`<button class="srow settings-row" data-a="${a}">${uiIcon(i)}<span>${n}</span>${d?`<b>${d}</b>`:'<span class="settings-chevron">›</span>'}</button>`;
- renderSectionPage('Настройки',`<div class="settings-screen">
+ renderSectionPage('Настройки',`<div class="settings-screen"><button class="link settings-back-chats" data-a="chats">← Вернуться к чатам</button>
  <div class="settings-heading"><div><span class="settings-eyebrow">MESSAGE</span><h2>Настройки</h2></div><div class="settings-profile-mini">${av(prof,42)}<span><b>${displayName(prof)}</b><small>@${esc(prof.username||'')}</small></span></div></div>
  <section class="settings-group"><h3>Аккаунт</h3>${row('user','Профиль','profile')}${row('devices','Устройства и сеансы','devices')}${row('folder','Папки и организация','folders',String(folders().length||'—'))}</section>
  <section class="settings-group"><h3>Внешний вид</h3>${row('palette','Оформление чатов','cd')}<div class="settings-option"><div class="settings-option-title">${uiIcon('sliders')}<span>Тема приложения</span></div><div class="seg">${[['auto','Авто'],['light','Светлая'],['dark','Тёмная']].map(([k,n])=>`<button data-mode="${k}" class="${md===k?'on':''}">${n}</button>`).join('')}</div></div><div class="settings-option"><div class="settings-option-title">${uiIcon('palette')}<span>Акцентный цвет</span></div><div class="sw">${ACC.map(c=>`<i data-acc="${c}" style="background:${c||'linear-gradient(135deg,#151515 50%,#f2f2f4 50%)'}" class="${((t.accent==='#3e88f7'?'':t.accent)||'')===c?'on':''}"></i>`).join('')}</div></div></section>
@@ -1074,8 +1076,24 @@ function redesignedSettings(){
  <section class="settings-group"><h3>Уведомления</h3>${row('bell','Push-уведомления','push',perm==='granted'?'Включены':perm==='denied'?'Запрещены':perm==='unsupported'?'Недоступны':'Выключены')}${row('bell','Проверить уведомление','test')}</section>
  <div class="settings-note">Ключ шифрования хранится на этом устройстве. Для входа с другого телефона понадобится ключевая фраза.</div><button class="settings-logout" data-a="out">${uiIcon('logout')}Выйти из аккаунта</button></div>`,s=>s.onclick=async e=>{
  const a=e.target.closest('[data-a]')?.dataset.a,md2=e.target.closest('[data-mode]')?.dataset.mode,accEl=e.target.closest('[data-acc]'),ac=accEl?.dataset.acc;
- if(md2!==undefined||accEl){const n={...(prof.theme||{})};if(md2!==undefined)n.mode=md2;if(accEl)n.accent=ac;prof.theme=applyTheme(n);const saved=await sb.from('profiles').update({theme:prof.theme}).eq('id',me.id);if(saved.error)toast('Настройка применена на этом устройстве, но не сохранена в аккаунте: '+saved.error.message,8000);redesignedSettings();return}
- if(a==='profile'){setTab('profile');return}if(a==='security'){toast('Переписка защищена сквозным шифрованием');return}
+ if(md2!==undefined||accEl){
+  const previous={...(prof.theme||{})},scrollTop=$('#clist').scrollTop,n={...previous};
+  if(md2!==undefined)n.mode=md2;if(accEl)n.accent=ac;
+  prof.theme=applyTheme(n);P[me.id]=prof;
+  // Reflect the selected option immediately; network latency must not make settings feel unresponsive.
+  redesignedSettings();$('#clist').scrollTop=scrollTop;
+  try{
+   const saved=await sb.from('profiles').update({theme:prof.theme}).eq('id',me.id);
+   if(saved.error)throw saved.error;
+   saveLocalAccount(me,prof);
+  }catch(err){
+   prof.theme=applyTheme(previous);P[me.id]=prof;
+   toast('Не удалось сохранить настройку: '+(err.message||err),8000);
+   redesignedSettings();$('#clist').scrollTop=scrollTop;
+  }
+  return
+ }
+ if(a==='chats'){setTab('chats');return}if(a==='profile'){setTab('profile');return}if(a==='security'){toast('Переписка защищена сквозным шифрованием');return}
  if(a==='cd'){chatDesign();return}if(a==='push'){await enablePush();return}if(a==='test'){await testPush();return}
  if(a==='devices')settingsDevices();if(a==='folders')settingsFolders();if(a==='backup')settingsBackup();if(a==='access')settingsAccess();if(a==='support')settingsSupport();
  if(a==='out'&&confirm('Выйти из аккаунта?'))sb.auth.signOut()
