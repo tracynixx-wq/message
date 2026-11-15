@@ -13,7 +13,12 @@ const CR={
  async backup(jwk,pass){const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
   const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},await CR.pbk(pass,salt),enc.encode(JSON.stringify(jwk)));
   return{v:2,salt:b64(salt),iv:b64(iv),ct:b64(ct)}},
- async restore(bk,pass){const iterations=bk.v>=2?600000:300000;const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(bk.iv)},await CR.pbk(pass,unb64(bk.salt),iterations),unb64(bk.ct));return JSON.parse(dec.decode(pt))},
+ async restore(bk,pass){if(!bk||typeof bk!=='object'||![undefined,1,2].includes(bk.v)||typeof pass!=='string')throw new Error('Некорректный формат резервной копии');
+  const salt=unb64(bk.salt||''),iv=unb64(bk.iv||''),ct=unb64(bk.ct||'');
+  if(salt.length!==16||iv.length!==12||ct.length<17)throw new Error('Повреждённая резервная копия');
+  const iterations=bk.v===2?600000:300000;
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv},await CR.pbk(pass,salt,iterations),ct);
+  const jwk=JSON.parse(dec.decode(pt));if(!jwk||jwk.kty!=='EC'||jwk.crv!=='P-256'||typeof jwk.d!=='string'||typeof jwk.x!=='string'||typeof jwk.y!=='string')throw new Error('Некорректный ключ в резервной копии');return jwk},
  async shared(priv,theirPub,info){const pub=await crypto.subtle.importKey('raw',unb64(theirPub),EC,false,[]);
   const bits=await crypto.subtle.deriveBits({name:'ECDH',public:pub},priv,256);
   const hk=await crypto.subtle.importKey('raw',bits,'HKDF',false,['deriveKey']);
@@ -44,6 +49,12 @@ const CR={
  async seal(K,conv,obj){return b64(await CR.sealB(K,conv,enc.encode(JSON.stringify(obj))))},
  async open(K,conv,s){return JSON.parse(dec.decode(await CR.openB(K,conv,unb64(s))))}
 };
+function identityMatches(jwk,pub){try{
+ if(!jwk||jwk.kty!=='EC'||jwk.crv!=='P-256'||typeof jwk.x!=='string'||typeof jwk.y!=='string'||typeof pub!=='string')return false;
+ const coord=x=>{const b=atob(x.replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(b,c=>c.charCodeAt(0))};
+ const x=coord(jwk.x),y=coord(jwk.y),p=unb64(pub);if(x.length!==32||y.length!==32||p.length!==65||p[0]!==4)return false;
+ for(let i=0;i<32;i++)if(p[i+1]!==x[i]||p[i+33]!==y[i])return false;return true;
+ }catch(_){return false}}
 /*CRYPTO-END*/
 
 const $=s=>document.querySelector(s);
@@ -108,6 +119,10 @@ function applyTheme(t){t={mode:'auto',accent:'',out:'',inb:'',shape:'r',wall:'no
  r.style.setProperty('--out',hx.test(t.out)?t.out:'var(--accent)');
  if(hx.test(t.inb)){r.style.setProperty('--in',t.inb);r.style.setProperty('--intx',lum(t.inb)>.6?'#14161a':'#fff')}else{r.style.removeProperty('--in');r.style.removeProperty('--intx')}
  r.style.setProperty('--br',{r:'18px',m:'12px',s:'5px'}[t.shape]||'18px');
+ r.style.setProperty('--msg-font-size',{small:'14px',normal:'15px',large:'17px'}[t.msgSize]||'15px');
+ r.style.setProperty('--msg-gap',{compact:'1px',normal:'4px',relaxed:'9px'}[t.msgGap]||'4px');
+ r.style.setProperty('--bubble-width',{narrow:'72%',normal:'82%',wide:'92%'}[t.bubbleWidth]||'82%');
+ r.style.setProperty('--bubble-shadow',t.bubbleShadow===false?'none':'0 2px 8px rgba(0,0,0,.09)');
  r.style.setProperty('--wall',t.wall==='custom'&&okStore(t.wallUrl)?`url("${t.wallUrl}") center/cover`:(WALLS[t.wall]||WALLS.none)[dark?1:0]);
  document.body.dataset.list=t.list;
  document.querySelector('meta[name=theme-color]').content=dark?'#090a0c':'#f6f6f7';
@@ -183,10 +198,11 @@ async function ensureKeys(){
  if(ID&&bk.data&&bk.data.data?.pub&&ID.pub!==bk.data.data.pub){ID=null;await idb.set('id:'+me.id,null)}
  if(ID){}
  else if(bk.data){let err='';
-  for(;;){const ph=await askPhrase(false,err);try{const jwk=await CR.restore(bk.data.data,ph);const priv=await CR.importPriv(jwk);
-   ID={priv,pub:bk.data.data.pub};await idb.set('id:'+me.id,ID);break}catch(e){err='Неверная фраза'}}}
+  for(;;){const ph=await askPhrase(false,err);try{const jwk=await CR.restore(bk.data.data,ph);if(!identityMatches(jwk,bk.data.data.pub))throw new Error('Публичный ключ не соответствует приватному');const priv=await CR.importPriv(jwk);
+   ID={priv,pub:bk.data.data.pub};await idb.set('id:'+me.id,ID);break}catch(e){err=e?.message==='Публичный ключ не соответствует приватному'?'Резервная копия повреждена: ключи не совпадают':'Неверная фраза или повреждённая копия'}}}
  else{const ph=await askPhrase(true);show('load');
   const g=await CR.genIdentity(),b=await CR.backup(g.jwk,ph);b.pub=g.pub;
+  if(!identityMatches(g.jwk,g.pub))throw new Error('Не удалось проверить пару ключей');
   const r=await sb.from('keybackup').upsert({user_id:me.id,data:b});if(r.error){toast(r.error.message);return false}
   ID={priv:await CR.importPriv(g.jwk),pub:g.pub};await idb.set('id:'+me.id,ID)}
  if(!prof||prof.pubkey!==ID.pub){const r=await sb.from('profiles').upsert({id:me.id,pubkey:ID.pub}).select().single();
@@ -420,12 +436,56 @@ const online=p=>p&&p.last_seen&&Date.now()-new Date(p.last_seen)<70000;
 const stat=p=>!p?'':online(p)?'в сети':'был(а) '+(sameDay(p.last_seen,Date.now())?'в '+hm(p.last_seen):new Date(p.last_seen).toLocaleDateString('ru',{day:'numeric',month:'short'}));
 const RL={};
 let pendingChatBottom=null;
-function openChat(id){cur=id;pendingChatBottom=id;if(C[id]&&C[id].secret_ttl)purge();delete RL[id];if(SEL){SEL=null;selUI()}unbar();$('#inp').value='';fit();show('chat');head();render(true);markRead();setComposer()}
-$('#back').onclick=()=>{cur=null;unbar();if(SEL){SEL=null;selUI()}TAB='chats';document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab==='chats'));show('home');$('#newb').hidden=false;$('#gear').hidden=false;$('.sbox').hidden=false;$('#chips').hidden=false;home()};
+let typingChannel=null,typingRoom=null,typingPeerIds=new Set(),typingPeerTimers=new Map(),typingLocalActive=false,typingLocalTimer=null,typingLastSent=0,typingBaseLabel='';
+function updateTypingLabel(){
+ const el=$('#chat-subtitle');if(!el)return;
+ const c=C[cur];const active=typingPeerIds.size>0;
+ el.textContent=active?(c?.kind==='dm'?'Печатает…':'Кто-то печатает…'):typingBaseLabel;
+ el.classList.toggle('typing',active);
+}
+function setTypingState(active){
+ clearTimeout(typingLocalTimer);typingLocalTimer=null;
+ if(!active){
+  if(typingLocalActive&&typingChannel)typingChannel.send({type:'broadcast',event:'typing',payload:{user_id:me.id,typing:false}}).catch(()=>{});
+  typingLocalActive=false;return;
+ }
+ if(!cur||!$('#inp').value.trim()||!typingChannel)return;
+ const now=Date.now();
+ if(!typingLocalActive||now-typingLastSent>1200){
+  typingChannel.send({type:'broadcast',event:'typing',payload:{user_id:me.id,typing:true}}).catch(()=>{});
+  typingLastSent=now;
+ }
+ typingLocalActive=true;
+ typingLocalTimer=setTimeout(()=>setTypingState(false),2200);
+}
+function stopTypingRoom(){
+ setTypingState(false);
+ const old=typingChannel;typingChannel=null;typingRoom=null;
+ typingPeerTimers.forEach(t=>clearTimeout(t));typingPeerTimers.clear();typingPeerIds.clear();
+ if(old&&sb)sb.removeChannel(old).catch(()=>{});
+ updateTypingLabel();
+}
+function joinTypingRoom(id){
+ stopTypingRoom();typingRoom=String(id);
+ const ch=sb.channel('typing:'+id,{config:{broadcast:{self:false}}});
+ ch.on('broadcast',{event:'typing'},({payload})=>{
+  if(cur!==id||!payload||String(payload.user_id)===String(me.id))return;
+  const uid=String(payload.user_id||'');if(!uid)return;
+  clearTimeout(typingPeerTimers.get(uid));
+  if(payload.typing){
+   typingPeerIds.add(uid);
+   typingPeerTimers.set(uid,setTimeout(()=>{typingPeerIds.delete(uid);typingPeerTimers.delete(uid);updateTypingLabel()},2400));
+  }else{typingPeerIds.delete(uid);typingPeerTimers.delete(uid)}
+  updateTypingLabel();
+ }).subscribe(status=>{if(status==='SUBSCRIBED'&&typingChannel===ch&&typingRoom===String(id)&&cur===id&&$('#inp').value.trim()){typingLocalActive=false;typingLastSent=0;setTypingState(true)}});
+ typingChannel=ch;
+}
+function openChat(id){stopTypingRoom();cur=id;pendingChatBottom=id;if(C[id]&&C[id].secret_ttl)purge();delete RL[id];if(SEL){SEL=null;selUI()}unbar();$('#inp').value='';fit();show('chat');head();joinTypingRoom(id);render(true);markRead();setComposer()}
+$('#back').onclick=()=>{stopTypingRoom();cur=null;unbar();if(SEL){SEL=null;selUI()}TAB='chats';document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab==='chats'));show('home');$('#newb').hidden=false;$('#gear').hidden=false;$('.sbox').hidden=false;$('#chips').hidden=false;home()};
 function setComposer(){const c=C[cur];const ok=c&&canPost(c);$('#comp').hidden=!ok;$('#ro').hidden=ok;if(!ok)unbar()}
 function head(){const c=C[cur];if(!c)return;$('#cvoice').hidden=$('#cvideo').hidden=c.kind!=='dm';$('#chat').classList.toggle('secret',!!c.secret_ttl);const o=c.kind==='dm'?peerOf(c):c;$('#hav').innerHTML=av(o,40);
  const sub=c.kind==='dm'?(c.secret_ttl?'🔒 исчезают через '+ttlName(c.secret_ttl):stat(o)):c.kind==='channel'?c.members.length+' подписчиков':c.members.length+' участников';
- $('#who').innerHTML=`<b>${c.kind==='dm'?displayName(o,title(c)):esc(title(c))} ${c.kind==='dm'?esc(o?.status_emoji||''):''}</b><small>${sub}</small>`;setComposer();
+ typingBaseLabel=sub;$('#who').innerHTML=`<b>${c.kind==='dm'?displayName(o,title(c)):esc(title(c))} ${c.kind==='dm'?esc(o?.status_emoji||''):''}</b><small id="chat-subtitle">${sub}</small>`;updateTypingLabel();setComposer();
  const pm=c.pinned_id&&(M[cur]||[]).find(x=>x.id===c.pinned_id);$('#pin').hidden=!c.pinned_id;if(c.pinned_id)$('#pt').textContent=pm?preview(pm):'Сообщение';}
 $('#who').onclick=$('#hav').onclick=()=>{const c=C[cur];if(c)info(c)};
 async function markRead(){const c=C[cur];if(!c||document.hidden)return;const l=lastOf(c);
@@ -505,11 +565,27 @@ function jump(id){const el=document.querySelector(`#list .b[data-id="${id}"]`);i
  el.scrollIntoView({block:'center',behavior:'smooth'});el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash')}
 $('#pin').onclick=()=>{const c=C[cur];if(c&&c.pinned_id)jump(c.pinned_id)};
 // долгое нажатие / правая кнопка = меню сообщения
-let lp=null,lpXY=null;const LST=$('#list');
+let lp=null,lpXY=null,swipeStart=null;const LST=$('#list');
 LST.addEventListener('pointerdown',e=>{if(SEL||e.button>0)return;const b=e.target.closest('.b');if(!b||e.target.closest('video,audio,a.file,.vp'))return;
- lpXY=[e.clientX,e.clientY];lp=setTimeout(()=>{lp=null;navigator.vibrate?.(12);menu(+b.dataset.id)},420)});
-LST.addEventListener('pointermove',e=>{if(lp&&lpXY&&Math.hypot(e.clientX-lpXY[0],e.clientY-lpXY[1])>9){clearTimeout(lp);lp=null}});
-['pointerup','pointercancel','pointerleave'].forEach(t=>LST.addEventListener(t,()=>{clearTimeout(lp);lp=null}));
+ lpXY=[e.clientX,e.clientY];swipeStart=e.pointerType!=='mouse'?{id:e.pointerId,x:e.clientX,y:e.clientY,b}:null;
+ lp=setTimeout(()=>{lp=null;swipeStart=null;navigator.vibrate?.(12);menu(+b.dataset.id)},420)});
+LST.addEventListener('pointermove',e=>{
+ if(lp&&lpXY&&Math.hypot(e.clientX-lpXY[0],e.clientY-lpXY[1])>9){clearTimeout(lp);lp=null}
+ if(!swipeStart||swipeStart.id!==e.pointerId)return;
+ const dx=e.clientX-swipeStart.x,dy=e.clientY-swipeStart.y;
+ if(dx>12&&dx>Math.abs(dy)*1.2){clearTimeout(lp);lp=null;swipeStart.b.style.transition='none';swipeStart.b.style.transform='translateX('+Math.min(42,dx*.55)+'px)'}
+});
+function finishMessageGesture(e){
+ clearTimeout(lp);lp=null;
+ const s=swipeStart;swipeStart=null;if(!s)return;
+ const dx=e.clientX-s.x,dy=e.clientY-s.y;
+ s.b.style.transition='transform .16s ease';s.b.style.transform='';
+ if(e.type==='pointerup'&&dx>=64&&Math.abs(dy)<=42&&!SEL){
+  const m=(M[cur]||[]).find(x=>String(x.id)===s.b.dataset.id),c=C[cur];
+  if(m&&c&&canPost(c))act('reply',m);
+ }
+}
+['pointerup','pointercancel','pointerleave'].forEach(t=>LST.addEventListener(t,finishMessageGesture));
 LST.addEventListener('contextmenu',e=>{const b=e.target.closest('.b');if(b){e.preventDefault();if(!SEL&&!lp)menu(+b.dataset.id)}});
 $('#viewer').onclick=()=>{$('#viewer').hidden=true;$('#viewer').innerHTML=''};
 
@@ -593,16 +669,21 @@ $('#bx').onclick=()=>{if(editing)$('#inp').value='';unbar();fit()};
 /* ---------- отправка ---------- */
 const inp=$('#inp');
 function fit(){inp.style.height='auto';inp.style.height=Math.max(44,Math.min(inp.scrollHeight,130))+'px';const has=!!inp.value.trim();$('#sendb').hidden=!has;if(!rec)$('#mic').hidden=has}
-inp.oninput=fit;
+inp.oninput=()=>{fit();setTypingState(true)};
+inp.onblur=()=>setTypingState(false);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)setTypingState(false)});
+addEventListener('pagehide',()=>setTypingState(false));
 $('#sendb').addEventListener('mousedown',e=>e.preventDefault());
 function keepComposerFocused(){if(cur&&!$('#chat').hidden&&document.visibilityState==='visible'){try{inp.focus({preventScroll:true})}catch(_){inp.focus()}}}
 async function sendPayload(c,payload){if(!K[c.id]){toast('Нет ключа этого чата');return null}
- const r=await sb.from('msgs').insert({conv_id:c.id,sender:me.id,data:await CR.seal(K[c.id],c.id,payload)}).select().single();
+ const pushPreview=typeof payload.t==='string'?payload.t.replace(/\s+/g,' ').trim().slice(0,180):'';
+ const r=await sb.from('msgs').insert({conv_id:c.id,sender:me.id,data:await CR.seal(K[c.id],c.id,payload),push_preview:pushPreview}).select().single();
  if(r.error){toast(r.error.message);return null}
  await dc(r.data);const a=M[c.id]=M[c.id]||[];if(!a.some(x=>x.id===r.data.id))a.push(r.data);messageIndex.set(String(r.data.id),r.data);if(cur===c.id){pendingChatBottom=c.id;render(true,'smooth')}else home();return r.data}
-$('#sendb').onclick=async()=>{const t=inp.value.trim(),c=C[cur];if(!t||!c)return;
+$('#sendb').onclick=async()=>{setTypingState(false);const t=inp.value.trim(),c=C[cur];if(!t||!c)return;
  if(editing){const m=editing;unbar();inp.value='';fit();const np={...m.p,t};
-  const r=await sb.from('msgs').update({data:await CR.seal(K[c.id],c.id,np),edited_at:new Date().toISOString()}).eq('id',m.id).select().single();
+  const pushPreview=typeof np.t==='string'?np.t.replace(/\s+/g,' ').trim().slice(0,180):'';
+  const r=await sb.from('msgs').update({data:await CR.seal(K[c.id],c.id,np),push_preview:pushPreview,edited_at:new Date().toISOString()}).eq('id',m.id).select().single();
   if(r.error){toast(r.error.message);keepComposerFocused();return}Object.assign(m,r.data);m.p=np;render();keepComposerFocused();return}
  const pl={t};if(reply)pl.r=reply.id;unbar();inp.value='';fit();keepComposerFocused();const sent=await sendPayload(c,pl);if(!sent&&!inp.value.trim()){inp.value=t;fit()}keepComposerFocused()};
 inp.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&matchMedia('(hover:hover)').matches){e.preventDefault();$('#sendb').click()}};
@@ -819,25 +900,46 @@ function pruneSecret(){let ch=false;Object.values(C).forEach(c=>{if(!c.secret_tt
 const purge=()=>{sb.rpc('purge_secret').then(()=>{},()=>{})};
 setInterval(()=>{if(!me)return;if(pruneSecret()){if(cur&&SHOWN==='chat')render();else if(SHOWN==='home')home()}},15000);setInterval(()=>{if(me&&Object.values(C).some(c=>c.secret_ttl))purge()},300000);
 const dmPending=new Map();
-async function startDm(u,ttl){closeSheet();const key=[me.id,u.id].sort().join('_')+(ttl?'_s':'');
+async function startDm(u,ttl){
+ closeSheet();
+ if(!u?.id||u.id===me?.id){toast('Не удалось определить собеседника');return}
+ if(!ID?.priv||!ID?.pub){toast('Ключ этого аккаунта ещё не готов. Перезайдите в аккаунт и попробуйте снова.');return}
+ if(typeof u.pubkey!=='string'||!u.pubkey){toast('У пользователя ещё не настроен ключ шифрования');return}
+ const key=[me.id,u.id].sort().join('_')+(ttl?'_s':'');
  const existing=()=>Object.values(C).find(c=>c.dm_key===key);
  const ex=existing();if(ex){openChat(ex.id);return}
- if(dmPending.has(key)){await dmPending.get(key);await loadAll();const found=existing();if(found)openChat(found.id);return}
+ if(dmPending.has(key)){
+  try{await dmPending.get(key);await loadAll();const found=existing();if(found)openChat(found.id)}
+  catch(e){toast('Не удалось открыть чат: '+(e.message||e))}
+  return
+ }
  const task=(async()=>{
-  const r=await sb.from('convs').insert(ttl?{kind:'dm',dm_key:key,secret_ttl:ttl}:{kind:'dm',dm_key:key}).select().single();
-  if(r.error){
-   if(ttl&&/secret_ttl|column/i.test(r.error.message)){toast('Выполните secret.sql в Supabase');return}
-   if(/duplicate|unique/i.test(r.error.message)){await loadAll();const found=existing();if(found)openChat(found.id);else toast('Не удалось открыть существующий чат')}
-   else toast(r.error.message);
-   return;
+  let convId=null;
+  try{
+   const r=await sb.from('convs').insert(ttl?{kind:'dm',dm_key:key,secret_ttl:ttl}:{kind:'dm',dm_key:key}).select().single();
+   if(r.error){
+    if(ttl&&/secret_ttl|column/i.test(r.error.message)){toast('Выполните secret.sql в Supabase');return}
+    if(/duplicate|unique/i.test(r.error.message)){await loadAll();const found=existing();if(found)openChat(found.id);else toast('Не удалось открыть существующий чат')}
+    else toast('Не удалось создать чат: '+r.error.message);
+    return;
+   }
+   const c=r.data;convId=c.id;
+   const k=await CR.newKey();
+   const wrappedMe=await CR.wrap(ID.priv,ID.pub,k,c.id);
+   const wrappedPeer=await CR.wrap(ID.priv,u.pubkey,k,c.id);
+   const mr=await sb.from('members').insert([
+    {conv_id:c.id,user_id:me.id,role:'owner',wrapped_by:me.id,wrapped_key:wrappedMe},
+    {conv_id:c.id,user_id:u.id,role:'member',wrapped_by:me.id,wrapped_key:wrappedPeer}
+   ]);
+   if(mr.error)throw new Error('Не удалось добавить участника: '+mr.error.message);
+   K[c.id]=k;P[u.id]=u;
+   await loadAll();if(C[c.id])openChat(c.id);else toast('Чат создан, но не удалось загрузить его. Обновите список чатов.');
+  }catch(e){
+   if(convId){const cleanup=await sb.from('convs').delete().eq('id',convId);if(cleanup.error)console.warn('[dm] cleanup failed',cleanup.error)}
+   if(convId)delete K[convId];
+   console.warn('[dm] create failed',e);
+   toast('Не удалось создать чат: '+(e.message||e));
   }
-  const c=r.data,k=await CR.newKey();K[c.id]=k;
-  const mr=await sb.from('members').insert([
-   {conv_id:c.id,user_id:me.id,role:'owner',wrapped_by:me.id,wrapped_key:await CR.wrap(ID.priv,ID.pub,k,c.id)},
-   {conv_id:c.id,user_id:u.id,role:'member',wrapped_by:me.id,wrapped_key:await CR.wrap(ID.priv,u.pubkey,k,c.id)}
-  ]);
-  if(mr.error){await sb.from('convs').delete().eq('id',c.id);delete K[c.id];toast('Не удалось добавить участника: '+mr.error.message);return}
-  P[u.id]=u;await loadAll();openChat(c.id);
  })();
  dmPending.set(key,task);
  try{await task}finally{dmPending.delete(key)}
@@ -920,7 +1022,7 @@ function sets(){const t=prof.theme||{},md=t.mode||'auto';const perm='Notificatio
   <div class="srow" data-a="test">🧪 Проверить уведомление</div>
   <div class="msg" style="font-size:13px">🔑 Ключ шифрования хранится на этом устройстве. Для входа с другого телефона понадобится ключевая фраза.</div>
   <button class="btn red" data-a="out">Выйти</button>`,s=>s.onclick=async e=>{
-  const a=e.target.closest('[data-a]')?.dataset.a,md2=e.target.dataset.mode,ac=e.target.dataset.acc;
+  const a=e.target.closest('[data-a]')?.dataset.a,md2=e.target.closest('[data-mode]')?.dataset.mode,accEl=e.target.closest('[data-acc]'),ac=accEl?.dataset.acc;
   if(md2||ac!==undefined){const n={...(prof.theme||{})};if(md2)n.mode=md2;if(ac!==undefined)n.accent=ac;prof.theme=applyTheme(n);await sb.from('profiles').update({theme:prof.theme}).eq('id',me.id);sets();return}
   if(a==='cd'){chatDesign();return}if(a==='ed')editor(false);if(a==='push')enablePush();if(a==='test')testPush();
 
@@ -958,14 +1060,15 @@ function redesignedSettings(){
  <div class="settings-heading"><div><span class="settings-eyebrow">MESSAGE</span><h2>Настройки</h2></div><div class="settings-profile-mini">${av(prof,42)}<span><b>${displayName(prof)}</b><small>@${esc(prof.username||'')}</small></span></div></div>
  <section class="settings-group"><h3>Аккаунт</h3>${row('user','Профиль','profile')}${row('devices','Устройства и сеансы','devices')}${row('folder','Папки и организация','folders',String(folders().length||'—'))}</section>
  <section class="settings-group"><h3>Внешний вид</h3>${row('palette','Оформление чатов','cd')}<div class="settings-option"><div class="settings-option-title">${uiIcon('sliders')}<span>Тема приложения</span></div><div class="seg">${[['auto','Авто'],['light','Светлая'],['dark','Тёмная']].map(([k,n])=>`<button data-mode="${k}" class="${md===k?'on':''}">${n}</button>`).join('')}</div></div><div class="settings-option"><div class="settings-option-title">${uiIcon('palette')}<span>Акцентный цвет</span></div><div class="sw">${ACC.map(c=>`<i data-acc="${c}" style="background:${c||'linear-gradient(135deg,#151515 50%,#f2f2f4 50%)'}" class="${((t.accent==='#3e88f7'?'':t.accent)||'')===c?'on':''}"></i>`).join('')}</div></div></section>
- <section class="settings-group"><h3>Данные</h3>${row('database','Резервная копия ключа','backup')}${row('sliders','Специальные возможности','access')}${row('help','Помощь и диагностика','support')}</section>
+ <section class="settings-group"><h3>Данные</h3>
+ <a class="srow settings-row" href="./privacy.html" target="_blank" rel="noopener" style="text-decoration:none;color:inherit">${uiIcon('shield')}<span>Политика конфиденциальности</span><span class="settings-chevron">›</span></a>${row('database','Резервная копия ключа','backup')}${row('sliders','Специальные возможности','access')}${row('help','Помощь и диагностика','support')}</section>
  <section class="settings-group"><h3>Безопасность и конфиденциальность</h3>${row('shield','Шифрование переписки','security','Включено')}${row('key','Ключ и восстановление','backup')}</section>
  <section class="settings-group"><h3>Уведомления</h3>${row('bell','Push-уведомления','push',perm==='granted'?'Включены':perm==='denied'?'Запрещены':perm==='unsupported'?'Недоступны':'Выключены')}${row('bell','Проверить уведомление','test')}</section>
  <div class="settings-note">Ключ шифрования хранится на этом устройстве. Для входа с другого телефона понадобится ключевая фраза.</div><button class="settings-logout" data-a="out">${uiIcon('logout')}Выйти из аккаунта</button></div>`,s=>s.onclick=async e=>{
- const a=e.target.closest('[data-a]')?.dataset.a,md2=e.target.dataset.mode,ac=e.target.dataset.acc;
- if(md2||ac!==undefined){const n={...(prof.theme||{})};if(md2)n.mode=md2;if(ac!==undefined)n.accent=ac;prof.theme=applyTheme(n);await sb.from('profiles').update({theme:prof.theme}).eq('id',me.id);redesignedSettings();return}
+ const a=e.target.closest('[data-a]')?.dataset.a,md2=e.target.closest('[data-mode]')?.dataset.mode,accEl=e.target.closest('[data-acc]'),ac=accEl?.dataset.acc;
+ if(md2!==undefined||accEl){const n={...(prof.theme||{})};if(md2!==undefined)n.mode=md2;if(accEl)n.accent=ac;prof.theme=applyTheme(n);const saved=await sb.from('profiles').update({theme:prof.theme}).eq('id',me.id);if(saved.error)toast('Настройка применена на этом устройстве, но не сохранена в аккаунте: '+saved.error.message,8000);redesignedSettings();return}
  if(a==='profile'){setTab('profile');return}if(a==='security'){toast('Переписка защищена сквозным шифрованием');return}
- if(a==='cd'){chatDesign();return}if(a==='push')enablePush();if(a==='test')testPush();
+ if(a==='cd'){chatDesign();return}if(a==='push'){await enablePush();return}if(a==='test'){await testPush();return}
  if(a==='devices')settingsDevices();if(a==='folders')settingsFolders();if(a==='backup')settingsBackup();if(a==='access')settingsAccess();if(a==='support')settingsSupport();
  if(a==='out'&&confirm('Выйти из аккаунта?'))sb.auth.signOut()
  });
@@ -985,7 +1088,11 @@ async function settingsBackup(){sheet('<h3>Резервные копии</h3><di
 function applyAccessibility(v){const a={scale:[1,1.1,1.2].includes(+v.scale)?+v.scale:1,reduceMotion:!!v.reduceMotion,contrast:!!v.contrast};try{localStorage.setItem('message-a11y',JSON.stringify(a))}catch(_){}document.documentElement.style.setProperty('--ui-scale',a.scale);document.documentElement.classList.toggle('reduce-motion',a.reduceMotion);document.documentElement.classList.toggle('high-contrast',a.contrast);return a}
 try{applyAccessibility(JSON.parse(localStorage.getItem('message-a11y')||'{}'))}catch(_){}
 function settingsAccess(){let a={scale:1,reduceMotion:false,contrast:false};try{a=applyAccessibility(JSON.parse(localStorage.getItem('message-a11y')||'{}'))}catch(_){}sheet(`<h3>Специальные возможности</h3><div class="lbl">Размер интерфейса</div><div class="seg"><button data-scale="1" class="${a.scale===1?'on':''}">Обычный</button><button data-scale="1.1" class="${a.scale===1.1?'on':''}">Крупнее</button><button data-scale="1.2" class="${a.scale===1.2?'on':''}">Максимум</button></div><div class="srow" data-toggle="motion">Уменьшить анимации<b>${a.reduceMotion?'Включено':'Выключено'}</b></div><div class="srow" data-toggle="contrast">Повышенный контраст<b>${a.contrast?'Включён':'Выключен'}</b></div><button class="btn sec" id="accessBack">Назад</button>`,s=>{s.querySelector('#accessBack').onclick=sets;s.onclick=e=>{const scale=e.target.closest('[data-scale]')?.dataset.scale,t=e.target.closest('[data-toggle]')?.dataset.toggle;if(scale){a=applyAccessibility({...a,scale:+scale});settingsAccess()}else if(t){a=applyAccessibility({...a,[t==='motion'?'reduceMotion':'contrast']:!a[t==='motion'?'reduceMotion':'contrast']});settingsAccess()}}})}
-function settingsSupport(){const info={app:'Message',version:'Web/PWA',platform:navigator.platform||'unknown',language:navigator.language||'unknown',online:navigator.onLine,serviceWorker:'serviceWorker'in navigator,push:'PushManager'in window,notifications:'Notification'in window?Notification.permission:'unsupported',storage:'storage'in navigator};sheet(`<h3>Помощь и диагностика</h3><div class="msg">Если возникла проблема, скопируйте диагностику и приложите её к обращению. Личные сообщения и ключи шифрования не включаются.</div><div class="srow">Подключение<b>${info.online?'Онлайн':'Офлайн'}</b></div><div class="srow">Push API<b>${info.push?'Доступен':'Недоступен'}</b></div><div class="srow">Уведомления<b>${esc(info.notifications)}</b></div><button class="btn" id="copyDiag">Скопировать диагностику</button><button class="btn sec" id="supportBack">Назад</button>`,s=>{s.querySelector('#supportBack').onclick=sets;s.querySelector('#copyDiag').onclick=()=>{const text=JSON.stringify({...info,userAgent:navigator.userAgent},null,2);if(navigator.clipboard?.writeText)navigator.clipboard.writeText(text).then(()=>toast('Диагностика скопирована'),()=>toast('Не удалось скопировать'));else toast(text)}})}
+async function settingsSupport(){
+ const info={app:'Message',version:'Web/PWA',platform:navigator.platform||'unknown',language:navigator.language||'unknown',online:navigator.onLine,secureContext:!!window.isSecureContext,serviceWorker:'serviceWorker'in navigator,serviceWorkerControlled:!!navigator.serviceWorker?.controller,pushManagerGlobal:'PushManager'in window,notifications:'Notification'in window?Notification.permission:'unsupported',storage:'storage'in navigator};
+ try{if(info.serviceWorker){const reg=await navigator.serviceWorker.ready;info.pushManagerOnRegistration=!!reg.pushManager;info.notificationDisplay=typeof reg.showNotification==='function';info.serviceWorkerScope=reg.scope}}catch(e){info.serviceWorkerError=(e.name?e.name+': ':'')+(e.message||String(e))}
+ sheet(`<h3>Помощь и диагностика</h3><div class="msg">Если возникла проблема, скопируйте диагностику и приложите её к обращению. Личные сообщения и ключи шифрования не включаются.</div><div class="srow">Подключение<b>${info.online?'Онлайн':'Офлайн'}</b></div><div class="srow">Защищённый контекст<b>${info.secureContext?'Да':'Нет'}</b></div><div class="srow">Service Worker<b>${info.serviceWorker?'Доступен':'Недоступен'}</b></div><div class="srow">Push API регистрации<b>${info.pushManagerOnRegistration?'Доступен':info.serviceWorker?'Недоступен':'Не проверен'}</b></div><div class="srow">Уведомления<b>${esc(info.notifications)}</b></div><button class="btn" id="copyDiag">Скопировать диагностику</button><button class="btn sec" id="supportBack">Назад</button>`,s=>{s.querySelector('#supportBack').onclick=sets;s.querySelector('#copyDiag').onclick=()=>{const text=JSON.stringify({...info,userAgent:navigator.userAgent},null,2);if(navigator.clipboard?.writeText)navigator.clipboard.writeText(text).then(()=>toast('Диагностика скопирована'),()=>toast('Не удалось скопировать'));else toast(text)}})
+ }
 function editor(first){return new Promise(res=>{
  const T0=prof?.theme||{};let color=prof?.color||GR[0].join(','),cov=T0.cov??null,covUrl=T0.covUrl||'',covType=T0.covType||'',pend=null,pendCov=null,avatarPreviewUrl=null,coverPreviewState=Symbol('initial');
  sheet(`<div class="profile-editor"><div class="profile-editor-head"><div class="pcov" id="pcover">${coverMedia(prof||{})}</div><div class="pav" id="pavatar">${av(prof,112)}</div><h3 id="pname">${esc(prof?.name||'Ваше имя')}</h3><div class="handle" id="phandle">@${esc(prof?.username||'username')}</div><div class="edit-actions"><button id="pch">Изменить фото</button><button id="cch">Обложка профиля</button></div></div>
@@ -1003,27 +1110,32 @@ function chatDesign(){let t=applyTheme(prof.theme);const dk=document.documentEle
  const sw=(arr,k,cur)=>arr.map(c=>`<i data-${k}="${c}" class="${c===cur?'on':''}" style="background:${c||'var(--card)'}">${c?'':'A'}</i>`).join('');
  const seg=(arr,k,cur)=>arr.map(([v,n])=>`<button data-${k}="${v}" class="${cur===v?'on':''}">${n}</button>`).join('');
  sheet(`<h3>Оформление чатов</h3>
-  <div class="demo"><div class="row th"><div class="b">Привет! Как дела?</div></div><div class="row me"><div class="b">Отлично 👍</div></div></div>
-  <div class="lbl">Обои</div><div class="sw" id="cw1">${Object.keys(WALLS).map(k=>`<i data-w="${k}" class="${t.wall===k?'on':''}" style="background:${k==='none'?'var(--card)':WALLS[k][dk]}"></i>`).join('')}</div>
+  <div class="demo chat-design-preview"><div class="row th"><div class="b">Привет! Как дела?</div></div><div class="row me"><div class="b">Отлично 👍</div></div><div class="row th"><div class="b">Теперь чат выглядит по-новому ✨</div></div></div>
+  <div class="lbl">Обои переписки</div><div class="sw" id="cw1">${Object.keys(WALLS).map(k=>`<i data-w="${k}" class="${t.wall===k?'on':''}" style="background:${k==='none'?'var(--card)':WALLS[k][dk]}"></i>`).join('')}</div>
   <div style="display:flex;gap:22px"><button class="link" id="wch">Своё фото</button><button class="link" id="wcl">Сбросить</button></div><input type="file" id="wf" accept="image/*" hidden>
-  <div class="lbl">Мои пузыри</div><div class="sw" id="co">${sw(OUTC,'o',t.out||'')}</div>
-  <div class="lbl">Чужие пузыри</div><div class="sw" id="ci2">${sw(INC,'i',t.inb||'')}</div>
-  <div class="lbl">Форма пузырей</div><div class="seg" id="csh">${seg([['r','Круглые'],['m','Мягкие'],['s','Острые']],'sh',t.shape)}</div>
-  <div class="lbl">Список чатов</div><div class="seg" id="cls">${seg([['plain','Список'],['cards','Карточки'],['compact','Компактно']],'ls',t.list)}</div>
+  <div class="lbl">Цвет моих сообщений</div><div class="sw" id="co">${sw(OUTC,'o',t.out||'')}</div>
+  <div class="lbl">Цвет входящих сообщений</div><div class="sw" id="ci2">${sw(INC,'i',t.inb||'')}</div>
+  <div class="lbl">Форма пузырей</div><div class="seg" id="csh">${seg([['r','Круглые'],['m','Мягкие'],['s','Острые']],'sh',t.shape||'r')}</div>
+  <div class="lbl">Размер текста сообщений</div><div class="seg" id="cms">${seg([['small','Маленький'],['normal','Обычный'],['large','Крупный']],'ms',t.msgSize||'normal')}</div>
+  <div class="lbl">Расстояние между сообщениями</div><div class="seg" id="cmg">${seg([['compact','Плотно'],['normal','Обычно'],['relaxed','Свободно']],'mg',t.msgGap||'normal')}</div>
+  <div class="lbl">Ширина пузырей</div><div class="seg" id="cbw">${seg([['narrow','Узкие'],['normal','Обычные'],['wide','Широкие']],'bw',t.bubbleWidth||'normal')}</div>
+  <div class="srow" id="cshadow">Тень у сообщений<b>${t.bubbleShadow===false?'Выключена':'Включена'}</b></div>
+  <div class="lbl">Список чатов</div><div class="seg" id="cls">${seg([['plain','Список'],['cards','Карточки'],['compact','Компактно']],'ls',t.list||'plain')}</div>
   <button class="btn" id="cdn">Готово</button>`,s=>{
   const q=x=>s.querySelector(x),set=(k,v)=>{t={...t,[k]:v};applyTheme(t)},mark=(id,fn)=>q(id).querySelectorAll('i,button').forEach(x=>x.classList.toggle('on',fn(x)));
+  const bindSeg=(id,key,attr)=>{q(id).onclick=e=>{const v=e.target.closest('[data-'+attr+']')?.dataset[attr];if(!v)return;set(key,v);mark(id,x=>x.dataset[attr]===v)}};
   q('#cw1').onclick=e=>{const w=e.target.dataset.w;if(!w)return;set('wall',w);mark('#cw1',x=>x.dataset.w===w)};
   q('#co').onclick=e=>{const v=e.target.dataset.o;if(v===undefined)return;set('out',v);mark('#co',x=>x.dataset.o===v)};
   q('#ci2').onclick=e=>{const v=e.target.dataset.i;if(v===undefined)return;set('inb',v);mark('#ci2',x=>x.dataset.i===v)};
-  q('#csh').onclick=e=>{const v=e.target.dataset.sh;if(!v)return;set('shape',v);mark('#csh',x=>x.dataset.sh===v)};
-  q('#cls').onclick=e=>{const v=e.target.dataset.ls;if(!v)return;set('list',v);mark('#cls',x=>x.dataset.ls===v)};
+  bindSeg('#csh','shape','sh');bindSeg('#cms','msgSize','ms');bindSeg('#cmg','msgGap','mg');bindSeg('#cbw','bubbleWidth','bw');bindSeg('#cls','list','ls');
+  q('#cshadow').onclick=()=>{set('bubbleShadow',t.bubbleShadow===false);q('#cshadow b').textContent=t.bubbleShadow===false?'Включена':'Выключена'};
   q('#wch').onclick=()=>q('#wf').click();
   q('#wf').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;toast('Загрузка…',20000);
    try{const b=await scaleImg(f,1280),path=`${me.id}/wall-${Date.now()}.jpg`,u=await sb.storage.from('avatars').upload(path,b,{contentType:'image/jpeg'});
     if(u.error)throw new Error(u.error.message);t={...t,wallUrl:sb.storage.from('avatars').getPublicUrl(path).data.publicUrl};set('wall','custom');mark('#cw1',()=>false);toast('Готово')}
    catch(err){toast('Не получилось: '+err.message,5000)}};
   q('#wcl').onclick=()=>{t={...t,wallUrl:''};set('wall','none');mark('#cw1',x=>x.dataset.w==='none')};
-  q('#cdn').onclick=async()=>{prof.theme=t;P[me.id]=prof;closeSheet();await sb.from('profiles').update({theme:t}).eq('id',me.id);cur?render():home()}})}
+  q('#cdn').onclick=async()=>{prof.theme=t;P[me.id]=prof;const b=q('#cdn');b.disabled=true;b.textContent='Сохраняю…';const saved=await sb.from('profiles').update({theme:t}).eq('id',me.id);closeSheet();if(saved.error)toast('Оформление применено на устройстве, но не сохранено в аккаунте: '+saved.error.message,8000);else toast('Оформление чата сохранено');cur?render():home()}})}
 
 function groupStyle(c){let col=c.color||'',pend=null,previewUrl=null;
  const s=sheet(`<h3>Оформление группы</h3><div id="gp" style="display:grid;justify-items:center"></div>
@@ -1044,32 +1156,42 @@ function groupStyle(c){let col=c.color||'',pend=null,previewUrl=null;
    catch(err){q('#gs').disabled=false;q('#gm').textContent=err.message}}})}
 
 /* ---------- push ---------- */
- function b64u(s){const p='='.repeat(4-s.length%4),b=(s+p).replace(/-/g,'+').replace(/_/g,'/'),r=atob(b),u=new Uint8Array(r.length);for(let i=0;i<r.length;i++)u[i]=r.charCodeAt(i);return u}
- function pushSupported(){return 'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window}
- async function ensurePushSubscription(reg){
-  const key=b64u(CFG.vapid);let sub=await reg.pushManager.getSubscription();
-  if(sub){const old=sub.options?.applicationServerKey;const same=old&&old.length===key.length&&key.every((v,i)=>v===old[i]);if(!same){await sub.unsubscribe();sub=null}}
-  if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});
-  const saved=await sb.from('push_subs').upsert({user_id:me.id,endpoint:sub.endpoint,sub:sub.toJSON()},{onConflict:'endpoint'});
-  if(saved.error)throw new Error('Не удалось сохранить подписку: '+saved.error.message);
-  return sub
- }
- async function pushSync(){if(!me||!pushSupported()||Notification.permission!=='granted')return;
-  try{const reg=await navigator.serviceWorker.ready;await ensurePushSubscription(reg)}catch(e){console.warn('[push] sync failed',e)}}
- async function enablePush(){
-  if(!pushSupported()){toast('Push недоступен в этой сборке Android. Нужен Chrome/TWA с поддержкой уведомлений.',8000);return}
-  try{const perm=await Notification.requestPermission();if(perm!=='granted'){toast('Уведомления запрещены. Разрешите их для приложения в настройках Android.',7000);return}
-   const reg=await navigator.serviceWorker.ready;await ensurePushSubscription(reg);
-   toast('Устройство зарегистрировано. Чтобы проверить удалённую доставку, отправьте сообщение с другого аккаунта при закрытом приложении.',7000);sets()
-  }catch(e){toast('Не удалось включить уведомления: '+(e.message||e),7000)}}
- async function testPush(){try{if(!pushSupported())throw new Error('Push API недоступен в этой сборке');
-  if(Notification.permission!=='granted')throw new Error('Сначала разрешите уведомления');
-  const reg=await navigator.serviceWorker.ready;
-  await reg.showNotification('Проверка уведомлений',{body:'Локальные уведомления Android работают',icon:'icon-192.png',badge:'icon-192.png',tag:'local-push-test'});
-  toast('Локальная проверка прошла. Удалённую доставку проверьте сообщением с другого аккаунта при закрытом приложении.',7000)
- }catch(e){toast('Проверка не пройдена: '+(e.message||e),7000)}}
+function b64u(s){const p='='.repeat(4-s.length%4),b=(s+p).replace(/-/g,'+').replace(/_/g,'/'),r=atob(b),u=new Uint8Array(r.length);for(let i=0;i<r.length;i++)u[i]=r.charCodeAt(i);return u}
+function pushSupportError(){
+ if(!window.isSecureContext)return 'Нужен защищённый HTTPS-контекст';
+ if(!('serviceWorker' in navigator))return 'Service Worker API недоступен в этом браузере';
+ if(!('Notification' in window))return 'Notification API недоступен в этом браузере';
+ return ''
+}
+function pushSupported(){return !pushSupportError()}
+async function ensurePushSubscription(reg){
+ if(!reg?.pushManager||typeof reg.pushManager.subscribe!=='function')throw new Error('PushManager API отсутствует в ServiceWorkerRegistration. Обновите Chrome/Android System WebView и проверьте, что приложение открыто через Chrome TWA.');
+ const key=b64u(CFG.vapid);let sub=await reg.pushManager.getSubscription();
+ if(sub){const old=sub.options?.applicationServerKey;const same=old&&old.length===key.length&&key.every((v,i)=>v===old[i]);if(!same){await sub.unsubscribe();sub=null}}
+ if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key});
+ const saved=await sb.from('push_subs').upsert({user_id:me.id,endpoint:sub.endpoint,sub:sub.toJSON()},{onConflict:'endpoint'});
+ if(saved.error)throw new Error('Не удалось сохранить подписку: '+saved.error.message);
+ return sub
+}
+async function pushSync(){if(!me||!pushSupported()||Notification.permission!=='granted')return;
+ try{const reg=await navigator.serviceWorker.ready;await ensurePushSubscription(reg)}catch(e){console.warn('[push] sync failed',e)}}
+async function enablePush(){
+ const unsupported=pushSupportError();if(unsupported){toast('Уведомления недоступны: '+unsupported,8000);return}
+ try{const perm=await Notification.requestPermission();if(perm!=='granted'){toast('Уведомления запрещены. Разрешите их для приложения в настройках Android.',7000);return}
+  const reg=await navigator.serviceWorker.ready;await ensurePushSubscription(reg);
+  toast('Подписка устройства сохранена. Для проверки удалённой доставки отправьте сообщение с другого аккаунта при закрытом приложении.',7000);sets()
+ }catch(e){toast('Не удалось включить уведомления: '+(e.name?e.name+': ':'')+(e.message||e),9000)}}
+async function testPush(){try{
+ if(!('serviceWorker' in navigator))throw new Error('ServiceWorker API недоступен');
+ if(!('Notification' in window))throw new Error('Notification API недоступен');
+ if(Notification.permission!=='granted')throw new Error('Сначала разрешите уведомления');
+ const reg=await navigator.serviceWorker.ready;
+ if(typeof reg.showNotification!=='function')throw new Error('ServiceWorkerRegistration.showNotification недоступен');
+ await reg.showNotification('Проверка уведомлений',{body:'Локальные уведомления Android работают',icon:'icon-192.png',badge:'icon-192.png',tag:'local-push-test'});
+ toast('Локальная проверка прошла. Это подтверждает показ уведомления, но не удалённую Push-доставку.',7000)
+}catch(e){toast('Проверка не пройдена: '+(e.name?e.name+': ':'')+(e.message||e),9000)}}
  
- /* ---------- клавиатура ---------- */
+/* ---------- клавиатура ---------- */
 if(window.visualViewport){const vv=window.visualViewport,app=$('#app'),android=/Android/i.test(navigator.userAgent);let frame=0,baseHeight=Math.max(document.documentElement.clientHeight,window.innerHeight,vv.height);const editable=()=>{const ae=document.activeElement;return !!ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)};const f=()=>{if(frame)return;frame=requestAnimationFrame(()=>{frame=0;const ed=editable(),layoutHeight=Math.max(document.documentElement.clientHeight,window.innerHeight),delta=Math.max(baseHeight-layoutHeight,baseHeight-vv.height,layoutHeight-vv.height),kb=ed&&delta>110;document.documentElement.classList.toggle('kb',kb);if(kb){app.style.height=Math.max(0,vv.height)+'px';app.style.top=android?'0px':Math.max(0,vv.offsetTop)+'px'}else{app.style.height='100dvh';app.style.top='0px';baseHeight=Math.max(document.documentElement.clientHeight,window.innerHeight,vv.height)}if(android&&window.scrollY)window.scrollTo(0,0)})};vv.addEventListener('resize',f,{passive:true});vv.addEventListener('scroll',f,{passive:true});addEventListener('resize',f,{passive:true});addEventListener('orientationchange',()=>{requestAnimationFrame(()=>{baseHeight=Math.max(document.documentElement.clientHeight,window.innerHeight,vv.height);f()})},{passive:true});addEventListener('focusin',f,{passive:true});addEventListener('focusout',()=>requestAnimationFrame(f),{passive:true});f()}
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});let had=!!navigator.serviceWorker.controller;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!had){had=true;return}if(sessionStorage.getItem('swr'))return;sessionStorage.setItem('swr','1');if(!CALL&&!(document.activeElement&&/INPUT|TEXTAREA/.test(document.activeElement.tagName)))location.reload()})}
 
@@ -1080,21 +1202,28 @@ async function checkAndroidUpdate(){
  if(Date.now()-updateCheckAt<300000)return;updateCheckAt=Date.now();
  try{
   const res=await fetch('https://api.github.com/repos/tracynixx-wq/message/releases/latest',{headers:{Accept:'application/vnd.github+json'},cache:'no-store'});
-  if(!res.ok)return;
+  if(!res.ok)throw new Error('GitHub Releases: HTTP '+res.status);
   const rel=await res.json(),latest=String(rel.tag_name||'').replace(/^android-v/i,'');
   const current=String(native&&typeof native.getVersionName==='function'?native.getVersionName():(new URLSearchParams(location.search).get('appVersion')||'0.0.0'));
   const asset=(rel.assets||[]).find(x=>/\.apk$/i.test(x.name||''));if(!asset||!latest)return;
   const cmp=(a,b)=>{const x=a.split('.').map(Number),y=b.split('.').map(Number);for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]||0)-(y[i]||0);if(d)return d}return 0};
-  if(cmp(latest,current)<=0)return;
+  if(cmp(latest,current)<=0){const old=$('#appUpdate');if(old)old.hidden=true;return}
+  if(sessionStorage.getItem('msg.update.actioned')===latest)return;
   let banner=$('#appUpdate');
   if(!banner){banner=document.createElement('aside');banner.id='appUpdate';banner.setAttribute('role','status');banner.setAttribute('aria-live','polite');document.body.appendChild(banner)}
-  const migration=cmp(current,'1.3.0')<0;banner.innerHTML='<div class="app-update-copy"><b>Доступно обновление Message '+esc(latest)+'</b><span>'+(migration?'Первая Chrome-версия установится отдельно. Старое приложение пока не удаляйте.':'Есть новая версия приложения')+'</span></div><button type="button" id="appUpdateInstall">Обновить</button><button type="button" id="appUpdateClose" aria-label="Закрыть">×</button>';
+  const migration=cmp(current,'1.3.0')<0;banner.innerHTML='<div class="app-update-copy"><b>Доступно обновление Message '+esc(latest)+'</b><span>'+(migration?'Первая Chrome-версия установится отдельно. После загрузки APK откройте файл и подтвердите установку.':'После загрузки APK откройте файл и подтвердите установку.')+'</span></div><button type="button" id="appUpdateInstall">Обновить</button><button type="button" id="appUpdateClose" aria-label="Закрыть">×</button>';
   banner.hidden=false;
-  banner.querySelector('#appUpdateInstall').onclick=()=>{if(native&&typeof native.downloadAndInstall==='function')native.downloadAndInstall(asset.browser_download_url);else location.href=asset.browser_download_url};
-  banner.querySelector('#appUpdateClose').onclick=()=>{banner.hidden=true};
- }catch(e){console.warn('[app-update] check failed',e)}
+  banner.querySelector('#appUpdateInstall').onclick=()=>{
+   try{
+    if(native&&typeof native.downloadAndInstall==='function')native.downloadAndInstall(asset.browser_download_url);
+    else{const link=document.createElement('a');link.href=asset.browser_download_url;link.target='_blank';link.rel='noopener';link.style.display='none';document.body.appendChild(link);link.click();link.remove()}
+    sessionStorage.setItem('msg.update.actioned',latest);banner.hidden=true;
+    toast('Загрузка APK запущена. После загрузки откройте файл и подтвердите установку.',9000)
+   }catch(e){toast('Не удалось начать загрузку: '+(e.message||e),8000)}
+  };
+  banner.querySelector('#appUpdateClose').onclick=()=>{sessionStorage.setItem('msg.update.actioned',latest);banner.hidden=true};
+ }catch(e){console.warn('[app-update] check failed',e);toast('Не удалось проверить обновления: '+(e.message||e),6000)}
  }
-
 boot();checkAndroidUpdate();
 addEventListener('online',checkAndroidUpdate);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkAndroidUpdate()});
