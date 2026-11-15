@@ -1,0 +1,63 @@
+name: Windows desktop release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app.js"
+      - "styles.css"
+      - "electron/**"
+      - "package.json"
+      - ".github/workflows/windows-release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Stamp desktop build number
+        shell: pwsh
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          $path = "electron/main.cjs"
+          $source = Get-Content -Raw $path
+          $replacement = "const DESKTOP_BUILD = $env:BUILD_NUMBER;"
+          $source = [regex]::Replace($source, 'const DESKTOP_BUILD = \d+;', $replacement)
+          if (-not $source.Contains($replacement)) {
+            throw "Could not stamp DESKTOP_BUILD in electron/main.cjs"
+          }
+          Set-Content -Path $path -Value $source -NoNewline -Encoding utf8
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build Windows installers
+        run: npm run dist
+
+      - name: Verify installer artifacts
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem -Path dist -Filter "*.exe"
+          if (-not $files) { throw "No Windows .exe artifacts were produced." }
+          $files | ForEach-Object { Write-Host $_.FullName }
+
+      - name: Publish desktop release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: desktop-build-${{ github.run_number }}
+          name: Message for PC — build ${{ github.run_number }}
+          body: Automated Windows desktop build for Message.
+          files: dist/*.exe
+          make_latest: false
