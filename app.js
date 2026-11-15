@@ -1285,7 +1285,7 @@ async function checkAndroidUpdate(){
 
 let desktopUpdateCheckAt=0;
 async function checkDesktopUpdate(){
- const params=new URLSearchParams(location.search),isDesktop=params.has('desktopBuild')||/Electron\\//i.test(navigator.userAgent);
+ const params=new URLSearchParams(location.search),isDesktop=params.has('desktopBuild')||/Electron\//i.test(navigator.userAgent);
  const current=Number(params.get('desktopBuild')||0);
  if(!isDesktop||!Number.isInteger(current)||current<0||Date.now()-desktopUpdateCheckAt<300000)return;
  desktopUpdateCheckAt=Date.now();
