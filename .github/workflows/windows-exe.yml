@@ -2,12 +2,6 @@ name: Build Windows EXE
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'package.json'
-      - 'electron/**'
-      - '.github/workflows/windows-exe.yml'
 
 permissions:
   contents: write
@@ -27,7 +21,14 @@ jobs:
       - name: Set embedded desktop build number
         shell: pwsh
         run: |
-          (Get-Content electron/main.cjs -Raw) -replace 'const DESKTOP_BUILD = \\d+;', 'const DESKTOP_BUILD = ${{ github.run_number }};' | Set-Content electron/main.cjs
+          $path = "electron/main.cjs"
+          $source = Get-Content -Raw $path
+          $replacement = "const DESKTOP_BUILD = ${{ github.run_number }};"
+          $source = [regex]::Replace($source, 'const DESKTOP_BUILD = \d+;', $replacement)
+          if (-not $source.Contains($replacement)) {
+            throw "Could not stamp DESKTOP_BUILD in electron/main.cjs"
+          }
+          Set-Content -Path $path -Value $source -NoNewline -Encoding utf8
       - name: Build Windows installer and portable EXE
         run: npx electron-builder --win nsis portable --x64 --publish never
       - name: Upload EXE files
@@ -38,11 +39,3 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish Windows EXE release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: desktop-build-${{ github.run_number }}
-          name: Message Desktop build ${{ github.run_number }}
-          prerelease: true
-          files: dist/*.exe
-          fail_on_unmatched_files: true
