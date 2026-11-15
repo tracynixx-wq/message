@@ -124,7 +124,7 @@ function av(o,s=40){if(!o)return`<div class="av" style="width:${s}px;height:${s}
 function applyTheme(t){t={mode:'auto',accent:'',out:'',inb:'',shape:'r',wall:'none',wallUrl:'',list:'plain',...(t||{})};
  const dark=t.mode==='dark'||(t.mode==='auto'&&matchMedia('(prefers-color-scheme:dark)').matches),hx=/^#[0-9a-f]{6}$/i,r=document.documentElement;
  const nt=dark?'dark':'light';if(r.dataset.t&&r.dataset.t!==nt){r.classList.add('tt');clearTimeout(applyTheme.tt);applyTheme.tt=setTimeout(()=>r.classList.remove('tt'),420)}
- r.dataset.t=nt;if(t.accent==='#3e88f7')t.accent='';const mono=!hx.test(t.accent);r.style.setProperty('--accent',mono?(dark?'#f2f2f4':'#151515'):t.accent);r.style.setProperty('--onacc',mono?(dark?'#090a0c':'#fff'):(lum(t.accent)>.62?'#151515':'#fff'));
+ r.dataset.t=nt;if(t.accent==='#3e88f7')t.accent='';const mono=!hx.test(t.accent);r.style.setProperty('--accent',mono?'#ff4db8':t.accent);r.style.setProperty('--onacc',mono?'#1b0a15':(lum(t.accent)>.62?'#151515':'#fff'));r.classList.toggle('brand',mono);
  r.style.setProperty('--outtx',hx.test(t.out)?(lum(t.out)>.62?'#151515':'#fff'):'var(--onacc)');
  r.style.setProperty('--out',hx.test(t.out)?t.out:'var(--accent)');
  if(hx.test(t.inb)){r.style.setProperty('--in',t.inb);r.style.setProperty('--intx',lum(t.inb)>.6?'#14161a':'#fff')}else{r.style.removeProperty('--in');r.style.removeProperty('--intx')}
@@ -135,7 +135,7 @@ function applyTheme(t){t={mode:'auto',accent:'',out:'',inb:'',shape:'r',wall:'no
  r.style.setProperty('--bubble-shadow',t.bubbleShadow===false?'none':'0 2px 8px rgba(0,0,0,.09)');
  r.style.setProperty('--wall',t.wall==='custom'&&okStore(t.wallUrl)?`url("${t.wallUrl}") center/cover`:(WALLS[t.wall]||WALLS.none)[dark?1:0]);
  document.body.dataset.list=t.list;
- document.querySelector('meta[name=theme-color]').content=dark?'#090a0c':'#f6f6f7';
+ document.querySelector('meta[name=theme-color]').content=dark?'#0b0b0d':'#ffffff';
  try{localStorage.setItem('th',JSON.stringify(t))}catch(e){}return t}
 try{applyTheme(JSON.parse(localStorage.getItem('th')))}catch(e){applyTheme()}
 let SHOWN=null;
@@ -1093,7 +1093,7 @@ function sets(){const t=prof.theme||{},md=t.mode||'auto';const perm='Notificatio
   <div class="srow" data-a="access">♿ Специальные возможности</div>
   <div class="srow" data-a="support">🛟 Помощь и диагностика</div>
   <div class="lbl">Тема</div><div class="seg">${[['auto','Авто'],['light','Светлая'],['dark','Тёмная']].map(([k,n])=>`<button data-mode="${k}" class="${md===k?'on':''}">${n}</button>`).join('')}</div>
-  <div class="lbl">Цвет</div><div class="sw">${ACC.map(c=>`<i data-acc="${c}" style="background:${c||'linear-gradient(135deg,#151515 50%,#f2f2f4 50%)'}" class="${((t.accent==='#3e88f7'?'':t.accent)||'')===c?'on':''}"></i>`).join('')}</div>
+  <div class="lbl">Цвет</div><div class="sw">${ACC.map(c=>`<i data-acc="${c}" style="background:${c||'linear-gradient(135deg,#ff6dc6,#ff3fb0)'}" class="${((t.accent==='#3e88f7'?'':t.accent)||'')===c?'on':''}"></i>`).join('')}</div>
   <div class="lbl">Уведомления</div>
   <div class="srow" data-a="push">🔔 Уведомления<b>${perm==='granted'?'Включены':perm==='denied'?'Запрещены':perm==='unsupported'?'Недоступны':'Выключены'}</b></div>
   <div class="srow" data-a="test">🧪 Проверить уведомление</div>
@@ -1141,7 +1141,7 @@ function redesignedSettings(){
  renderSectionPage('Настройки',`<div class="settings-screen">
  <div class="settings-heading"><div><span class="settings-eyebrow">MESSAGE</span><h2>Настройки</h2></div><div class="settings-profile-mini">${av(prof,42)}<span><b>${displayName(prof)}</b><small>@${esc(prof.username||'')}</small></span></div></div>
  <section class="settings-group"><h3>Аккаунт</h3>${row('user','Профиль','profile')}${row('devices','Устройства и сеансы','devices')}${row('folder','Папки и организация','folders',String(folders().length||'—'))}</section>
- <section class="settings-group"><h3>Внешний вид</h3>${row('palette','Оформление чатов','cd')}<div class="settings-option"><div class="settings-option-title">${uiIcon('sliders')}<span>Тема приложения</span></div><div class="seg">${[['auto','Авто'],['light','Светлая'],['dark','Тёмная']].map(([k,n])=>`<button data-mode="${k}" class="${md===k?'on':''}">${n}</button>`).join('')}</div></div><div class="settings-option"><div class="settings-option-title">${uiIcon('palette')}<span>Акцентный цвет</span></div><div class="sw">${ACC.map(c=>`<i data-acc="${c}" style="background:${c||'linear-gradient(135deg,#151515 50%,#f2f2f4 50%)'}" class="${((t.accent==='#3e88f7'?'':t.accent)||'')===c?'on':''}"></i>`).join('')}</div></div></section>
+ <section class="settings-group"><h3>Внешний вид</h3>${row('palette','Оформление чатов','cd')}<div class="settings-option"><div class="settings-option-title">${uiIcon('sliders')}<span>Тема приложения</span></div><div class="seg">${[['auto','Авто'],['light','Светлая'],['dark','Тёмная']].map(([k,n])=>`<button data-mode="${k}" class="${md===k?'on':''}">${n}</button>`).join('')}</div></div><div class="settings-option"><div class="settings-option-title">${uiIcon('palette')}<span>Акцентный цвет</span></div><div class="sw">${ACC.map(c=>`<i data-acc="${c}" style="background:${c||'linear-gradient(135deg,#ff6dc6,#ff3fb0)'}" class="${((t.accent==='#3e88f7'?'':t.accent)||'')===c?'on':''}"></i>`).join('')}</div></div></section>
  <section class="settings-group"><h3>Данные</h3>
  <a class="srow settings-row" href="./privacy.html" target="_blank" rel="noopener" style="text-decoration:none;color:inherit">${uiIcon('shield')}<span>Политика конфиденциальности</span><span class="settings-chevron">›</span></a>${row('database','Резервная копия ключа','backup')}${row('sliders','Специальные возможности','access')}${row('help','Помощь и диагностика','support')}</section>
  <section class="settings-group"><h3>Безопасность и конфиденциальность</h3>${row('shield','Шифрование переписки','security','Включено')}${row('key','Ключ и восстановление','backup')}</section>

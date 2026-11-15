@@ -7,28 +7,46 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
-<meta name="theme-color" content="#090a0c">
+<meta name="theme-color" content="#0b0b0d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Loom">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="ios.css">
 </head>
 <body>
 <div id="app">
 <section id="load" class="full center"><div class="box"><div class="spin"></div></div></section>
 
-<section id="auth" class="full center" hidden><div class="box">
- <div class="logo"><img src="icon.svg" alt="Loom"></div>
- <h1>Loom</h1>
- <input id="em" type="email" placeholder="Почта" autocomplete="email" autocapitalize="off">
- <input id="pw" type="password" placeholder="Пароль (от 6 символов)" autocomplete="current-password">
- <button id="go" class="btn">Войти</button>
- <div id="msg" class="msg"></div>
- <button id="swm" class="link">Создать аккаунт</button>
- <a class="link" href="./privacy.html" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:12px">Политика конфиденциальности</a>
- <p id="hint"></p>
-</div></section>
+<section id="auth" class="full center" hidden>
+ <div class="wl" id="wl">
+  <img class="wl-logo" src="icon.svg" alt="Loom" width="28" height="28" style="display:block">
+  <div class="wl-stage"><div id="star" aria-hidden="true"></div></div>
+  <div class="wl-copy">
+   <h1>Добро пожаловать</h1>
+   <p class="sub">Чаты, группы и каналы со сквозным шифрованием</p>
+  </div>
+  <div class="wl-btns">
+   <button id="wlIn" class="wl-btn light" type="button">Войти</button>
+   <button id="wlUp" class="wl-btn dark" type="button">Создать аккаунт</button>
+  </div>
+  <p class="wl-terms">Продолжая, вы соглашаетесь<br>с <a href="./privacy.html" target="_blank" rel="noopener">Политикой конфиденциальности</a></p>
+  <p id="hint" class="wl-hint"></p>
+  <div class="wl-scrim"></div>
+  <div class="wl-sheet" id="wlSheet" aria-hidden="true">
+   <button class="wl-x" id="wlX" type="button" aria-label="Закрыть"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+   <div class="grab"></div>
+   <h2 id="wlT">С возвращением</h2>
+   <p class="sub2" id="wlSub">Войдите по почте и паролю</p>
+   <input id="em" type="email" placeholder="Почта" autocomplete="email" autocapitalize="off" inputmode="email">
+   <input id="pw" type="password" placeholder="Пароль (от 6 символов)" autocomplete="current-password">
+   <button id="go" class="btn">Войти</button>
+   <div id="msg" class="msg"></div>
+   <button id="swm" class="link" type="button">Создать аккаунт</button>
+  </div>
+ </div>
+</section>
 
 <section id="keys" class="full center" hidden><div class="box">
  <div class="logo"><img src="icon.svg" alt="Loom"></div>
@@ -41,11 +59,13 @@
 </div></section>
 
 <section id="home" class="full" hidden>
+ <div id="hhead">
  <div class="top"><h2>Чаты</h2><button id="newb" class="ib" aria-label="Новый чат"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button><button id="gear" class="ib" aria-label="Настройки"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2-1.5-2-3.5-2.3 1a7.5 7.5 0 0 0-1.7-1L15 3.5h-4l-.4 2.5a7.5 7.5 0 0 0-1.7 1l-2.3-1-2 3.5 2 1.5a7.5 7.5 0 0 0 0 2l-2 1.5 2 3.5 2.3-1a7.5 7.5 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.5 7.5 0 0 0 1.7-1l2.3 1 2-3.5z" opacity=".9"/></svg></button></div>
  <div class="sbox"><input id="q" placeholder="Поиск"></div>
  <div id="chips"></div>
+ </div>
  <div id="clist"></div>
- <nav id="nav"><button data-tab="chats" class="on"><svg viewBox="0 0 24 24"><path d="M4 5h16a1 1 0 011 1v10a1 1 0 01-1 1H9l-5 4V6a1 1 0 011-1z"/></svg><span>Чаты</span></button><button data-tab="stories"><svg viewBox="0 0 24 24"><path d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5"/><path d="M12 7v5l3 2"/></svg><span>Истории</span></button><button data-tab="contacts"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.900 6.500 5.500"/><path d="M16 4.800a3.400 3.400 0 010 6.400M18.500 14.800c1.800.8 2.800 2.600 3.100 5"/></svg><span>Контакты</span></button><button data-tab="profile"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.500" r="4"/><path d="M4 21c.7-4.400 4-6.500 8-6.500s7.300 2.100 8 6.500"/></svg><span>Профиль</span></button><button data-tab="settings"><svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z"/><path d="m19.4 15 .1.1 1.2 1-1.5 2.6-1.5-.6a7.8 7.8 0 0 1-1.4.8l-.2 1.6h-3l-.3-1.6a7.8 7.8 0 0 1-1.4-.8l-1.5.6-1.5-2.6 1.2-1a7.4 7.4 0 0 1 0-1.6l-1.2-1 1.5-2.6 1.5.6a7.8 7.8 0 0 1 1.4-.8l.3-1.6h3l.2 1.6a7.8 7.8 0 0 1 1.4.8l1.5-.6 1.5 2.6-1.2 1a7.4 7.4 0 0 1 0 1.6Z"/></svg><span>Настройки</span></button></nav>
+ <nav id="nav"><button data-tab="chats" class="on"><svg viewBox="0 0 24 24"><path d="M4 5h16a1 1 0 011 1v10a1 1 0 01-1 1H9l-5 4V6a1 1 0 011-1z"/></svg><span>Чаты</span></button><button data-tab="profile"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.500" r="4"/><path d="M4 21c.7-4.400 4-6.500 8-6.500s7.300 2.100 8 6.500"/></svg><span>Профиль</span></button><button data-tab="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg><span>Настройки</span></button></nav>
 </section>
 
 <section id="chat" class="full" hidden>
@@ -83,5 +103,6 @@ else{document.getElementById('auth').hidden=false}}catch(e){document.getElementB
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script src="app.js"></script>
+<script src="ios.js"></script>
 </body>
 </html>

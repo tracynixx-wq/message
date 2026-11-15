@@ -1,0 +1,457 @@
+/* ==========================================================================
+   iOS 26 · Liquid Glass — дизайн-слой поверх styles.css
+   Подключается ПОСЛЕ styles.css и только переопределяет внешний вид.
+   Логика приложения (app.js) не затрагивается.
+   Состав: токены · общие элементы · экран приветствия · список чатов ·
+           чат · меню «+» · шиты и контекстное меню · ПК-раскладка · движение
+   ========================================================================== */
+
+/* ---------- токены ---------- */
+:root{
+  --ios:cubic-bezier(.32,.72,0,1);
+  --spring:cubic-bezier(.32,.72,0,1);
+  --snap:cubic-bezier(.2,.9,.25,1);
+  --st:env(safe-area-inset-top,0px);
+  --sb:env(safe-area-inset-bottom,0px);
+  --blur:blur(26px) saturate(1.8);
+  --blur-s:blur(14px) saturate(1.5);
+
+  --bg:#fff; --fg:#0b0b0d; --mut:#85858d;
+  --card:#f2f2f7; --card2:#e8e8ee; --line:rgba(60,60,67,.13);
+  --in:#ececf1; --intx:#0b0b0d;
+  --glass:rgba(255,255,255,.62); --glass2:rgba(255,255,255,.8);
+  --edge:rgba(255,255,255,.85); --rim:rgba(0,0,0,.07);
+  --shadow:0 10px 34px rgba(30,30,60,.13);
+  --scrim:rgba(20,20,30,.32);
+  --lens:rgba(120,120,135,.16);
+  --glow:rgba(255,77,184,.10);
+  --danger:#ff3b30; --ok:#34c759;
+  --page:#f4f4f6;
+  --pink:#ff4db8; --pink-deep:#e01f93;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Inter","Segoe UI",system-ui,Roboto,sans-serif;
+}
+@supports (transition-timing-function:linear(0,1)){
+  :root{--spring:linear(0,.02 2%,.08 5%,.2 8.5%,.4 12%,.62 16%,.82 20%,.96 24%,1.04 28%,1.06 31%,1.05 35%,1.03 40%,1.01 47%,1 56%,1)}
+}
+[data-t=dark]{
+  --bg:#0b0b0d; --fg:#ececf1; --mut:#8e8e96;
+  --card:#151518; --card2:#1d1d21; --line:rgba(255,255,255,.08);
+  --in:#1d1d21; --intx:#ececf1;
+  --glass:rgba(34,34,38,.62); --glass2:rgba(44,44,50,.78);
+  --edge:rgba(255,255,255,.12); --rim:rgba(255,255,255,.07);
+  --shadow:0 14px 40px rgba(0,0,0,.5);
+  --scrim:rgba(0,0,0,.45);
+  --lens:rgba(255,255,255,.12);
+  --glow:rgba(255,77,184,.12);
+  --page:#161618;
+}
+html.brand{--accent:#ff4db8}
+@supports not (backdrop-filter:blur(1px)){
+  :root{--glass:rgba(250,250,252,.96);--glass2:#fff}
+  [data-t=dark]{--glass:rgba(28,28,32,.97);--glass2:rgba(40,40,46,.98)}
+}
+
+/* ---------- основа ---------- */
+html,body{font-family:var(--font);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;letter-spacing:-.011em}
+body{background:var(--bg);color:var(--fg)}
+::selection{background:color-mix(in srgb,var(--accent) 30%,transparent)}
+button,.ib,.btn,.crow,.srow,#nav button,.cx-i{-webkit-user-select:none;user-select:none;touch-action:manipulation}
+input,textarea{font-family:var(--font);border:0;border-radius:16px;background:var(--card);padding:13px 16px;transition:box-shadow .3s var(--ios),background .3s}
+input:focus,textarea:focus{box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 55%,transparent);border-color:transparent}
+.btn{border-radius:999px;padding:15px 20px;font-weight:600;font-size:16px;background:linear-gradient(180deg,color-mix(in srgb,var(--accent),#fff 14%),var(--accent));color:var(--onacc,#fff);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 20px color-mix(in srgb,var(--accent) 32%,transparent);transition:transform .5s var(--spring),box-shadow .4s,opacity .3s}
+.btn:active{transform:scale(.96)}
+.btn.sec,.btn.red{background:var(--card);box-shadow:inset 0 0 0 1px var(--rim);color:var(--fg)}
+.btn.red{color:var(--danger)}
+.link{color:var(--accent)}
+.badge{background:var(--accent);color:var(--onacc,#fff);min-width:22px;height:22px;border-radius:11px;padding:0 7px;line-height:22px;font-size:13px;font-weight:700;text-align:center;margin-top:4px}
+.badge.mute{background:var(--mut);color:var(--bg)}
+.av{box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+.dot{border-color:var(--bg)!important}
+.spin{border-color:var(--line);border-top-color:var(--accent)}
+.ib{background:var(--glass);-webkit-backdrop-filter:var(--blur-s);backdrop-filter:var(--blur-s);box-shadow:inset 0 1px 0 var(--edge),inset 0 0 0 1px var(--rim);transition:transform .5s var(--spring),background .25s,opacity .25s}
+.ib:active{transform:scale(.9)}
+
+/* общий «стеклянный» объект */
+#nav,#chead,#selbar,#pin,#bar,#recbar,.pmenu,.cx-rx,.cx-menu,#toast{
+  background:var(--glass);
+  -webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);
+  box-shadow:inset 0 1px 0 var(--edge),inset 0 0 0 1px var(--rim),var(--shadow);
+}
+
+/* ---------- загрузка ---------- */
+#load{background:var(--bg)}
+
+/* ---------- ключи, вход: общий вид карточек ---------- */
+#keys .box{background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border-radius:36px;padding:28px 22px;box-shadow:inset 0 1px 0 var(--edge),inset 0 0 0 1px var(--rim),var(--shadow);animation:ios-rise .8s var(--spring) both}
+#keys .box h1{font-size:26px;letter-spacing:-.6px}
+#keys{background:radial-gradient(70% 45% at 85% 0%,var(--glow),transparent 70%),var(--bg)}
+
+/* ==========================================================================
+   Экран приветствия (телефон + ПК) — тёмная карточка со звездой из частиц
+   ========================================================================== */
+#auth.full{background:var(--bg);padding:0;align-items:center;justify-content:center}
+#auth .wl{position:relative;width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;background:#000;color:#fff;padding-top:var(--st);padding-bottom:var(--sb);isolation:isolate}
+@media(min-width:501px){
+  #auth .wl{width:390px;height:min(848px,96%);border-radius:56px;padding-top:0;padding-bottom:0;box-shadow:0 30px 60px -20px rgba(0,0,0,.28),0 0 0 1px rgba(0,0,0,.07)}
+  [data-t=dark] #auth .wl{box-shadow:0 30px 70px -20px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.07)}
+}
+#auth .wl-logo{flex:none;display:block;margin:calc(22px + 0px) auto 0;width:28px;height:28px;border-radius:50%;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.18)}
+#auth .wl-logo img{display:block;width:100%;height:100%;object-fit:cover}
+#auth .wl-stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;transition:transform .9s var(--spring),opacity .6s var(--ios);cursor:pointer;touch-action:none}
+#star{position:relative;width:min(290px,72vw);aspect-ratio:1/1;max-height:100%}
+#star canvas{position:absolute;left:-40%;top:-40%;width:180%;height:180%;pointer-events:none}
+#auth .wl-copy{flex:none;text-align:center;padding:0 16px;transition:transform .7s var(--spring),opacity .4s var(--ios)}
+#auth .wl h1{margin:0;font-size:37px;font-weight:600;letter-spacing:-1.3px;line-height:1.1;color:#fff}
+#auth .wl .sub{margin:14px 0 0;font-size:15px;color:#6e6e73;letter-spacing:-.1px}
+#auth .wl-btns{flex:none;padding:34px 16px 0;display:flex;flex-direction:column;gap:12px;transition:transform .7s var(--spring),opacity .4s var(--ios)}
+#auth .wl-btn{height:58px;border-radius:29px;font-size:15px;font-weight:600;letter-spacing:-.1px;display:flex;align-items:center;justify-content:center;gap:8px;transition:transform .5s var(--spring),opacity .2s;width:100%;padding:0}
+#auth .wl-btn:active{transform:scale(.97);opacity:.92}
+#auth .wl-btn.light{background:#fff;color:#000}
+#auth .wl-btn.dark{background:#2a2a2c;color:#fff}
+#auth .wl-terms{flex:none;text-align:center;font-size:11px;line-height:1.5;color:#5c5c61;padding:22px 30px 22px;margin:0;transition:opacity .4s var(--ios)}
+#auth .wl-terms a{color:#8e8e93;text-decoration:underline;text-underline-offset:2px}
+#auth .wl.open .wl-stage{transform:translateY(-26%) scale(.62);opacity:.9}
+#auth .wl.open .wl-copy,#auth .wl.open .wl-btns,#auth .wl.open .wl-terms{opacity:0;transform:translateY(-24px) scale(.97);pointer-events:none}
+#auth .wl-scrim{position:absolute;inset:0;z-index:2;background:rgba(0,0,0,.0);pointer-events:none;transition:background .5s var(--ios)}
+#auth .wl.open .wl-scrim{background:rgba(0,0,0,.35);pointer-events:auto}
+#auth .wl-sheet{position:absolute;z-index:3;left:10px;right:10px;bottom:calc(var(--sb) + 10px);border-radius:42px;padding:12px 20px 22px;display:grid;gap:12px;
+  background:linear-gradient(180deg,rgba(62,62,66,.7),rgba(30,30,32,.8));-webkit-backdrop-filter:blur(34px) saturate(1.8);backdrop-filter:blur(34px) saturate(1.8);
+  border:1px solid rgba(255,255,255,.09);box-shadow:0 30px 60px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.14);
+  transform:translateY(calc(100% + 40px));visibility:hidden;transition:transform .55s var(--ios),visibility 0s linear .55s}
+#auth .wl.open .wl-sheet{transform:none;visibility:visible;transition:transform .85s var(--spring),visibility 0s}
+@media(min-width:501px){#auth .wl-sheet{bottom:10px}}
+#auth .wl-sheet.drag{transition:none!important}
+#auth .grab{width:38px;height:5px;border-radius:3px;background:rgba(255,255,255,.28);margin:0 auto 4px}
+#auth .wl-sheet h2{margin:0;font-size:24px;font-weight:650;letter-spacing:-.6px;text-align:center;color:#fff}
+#auth .wl-sheet .sub2{margin:-6px 0 4px;text-align:center;font-size:14px;color:#9a9aa1}
+#auth .wl-sheet input{height:56px;border-radius:20px;background:rgba(255,255,255,.08);color:#fff;font-size:16px;padding:0 18px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+#auth .wl-sheet input::placeholder{color:#8d8d95}
+#auth .wl-sheet input:focus{background:rgba(255,255,255,.12);box-shadow:inset 0 0 0 1px rgba(255,255,255,.28)}
+#auth .wl-sheet .btn{height:56px;padding:0;background:#fff;color:#000;border-radius:28px;box-shadow:none;font-size:16px}
+#auth .wl-sheet .btn:disabled{opacity:.55}
+#auth .wl-sheet .msg{text-align:center;color:#ff8f86;min-height:20px;font-size:13.5px}
+#auth .wl-sheet .link{color:#fff;opacity:.85;font-weight:600;font-size:14px;padding:6px}
+#auth .wl-sheet #hint{font-size:12px;color:#8e8e93;text-align:center;margin:0}
+#auth .wl-sheet #hint:empty{display:none}
+#auth .wl-x{position:absolute;right:14px;top:14px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.1);display:grid;place-items:center;color:#fff}
+#auth .wl-x svg{width:14px;height:14px;stroke:#fff;stroke-width:2.4;fill:none;stroke-linecap:round}
+
+/* ==========================================================================
+   Список чатов · мобильная раскладка
+   ========================================================================== */
+#hhead{display:contents}
+@media(max-width:899.98px){
+  #home{background:var(--bg)}
+  #hhead{display:block;position:absolute;left:0;right:0;top:0;z-index:6;pointer-events:none}
+  #hhead>*{pointer-events:auto}
+  /* «scroll edge»: размытие и растворение под шапкой */
+  #hhead::before{content:"";position:absolute;left:0;right:0;top:0;bottom:0;z-index:-1;pointer-events:none;
+    -webkit-backdrop-filter:blur(16px) saturate(1.5);backdrop-filter:blur(16px) saturate(1.5);
+    background:linear-gradient(var(--bg) 0%,color-mix(in srgb,var(--bg) 82%,transparent) 62%,transparent 100%);
+    -webkit-mask-image:linear-gradient(#000 calc(100% - 26px),transparent);mask-image:linear-gradient(#000 calc(100% - 26px),transparent);
+    transition:bottom .6s var(--spring)}
+  #home.scrolled #hhead::before{bottom:calc(100% - var(--st) - 58px - 20px)}
+  #home .top{position:relative;height:calc(var(--st) + 100px);padding:calc(var(--st) + 6px) 14px 0;border:0;background:none;align-items:flex-start;justify-content:flex-end;gap:10px;transition:height .5s var(--spring)}
+  #home .top h2{position:absolute;left:20px;top:calc(var(--st) + 56px);margin:0;flex:none;font-size:34px;line-height:40px;font-weight:700;letter-spacing:-.9px;white-space:nowrap;transform-origin:50% 0;
+    transition:left .6s var(--spring),top .6s var(--spring),transform .6s var(--spring);pointer-events:none}
+  #home.scrolled .top h2{left:50%;top:calc(var(--st) + 14px);transform:translateX(-50%) scale(.5)}
+  #home .top .ib{width:44px;height:44px}
+  #home .sbox,#home #chips{transition:opacity .35s var(--ios),transform .6s var(--spring)}
+  #home.scrolled .sbox,#home.scrolled #chips{opacity:0;transform:translateY(-34px) scale(.98);pointer-events:none!important}
+  #clist{padding-top:var(--hh,200px);padding-bottom:calc(var(--sb) + 104px);scroll-padding-top:var(--hh,200px)}
+  #clist .crow.sk{margin-top:0}
+}
+.sbox{padding:2px 16px 8px}
+.sbox input{height:46px;border-radius:23px;background:var(--glass2);-webkit-backdrop-filter:var(--blur-s);backdrop-filter:var(--blur-s);padding:0 16px 0 44px;
+  box-shadow:inset 0 0 0 1px var(--rim),inset 0 1px 0 var(--edge);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238e8e96' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='6.5'/%3E%3Cpath d='M16 16l4.5 4.5'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:15px 50%;background-size:19px}
+#chips{padding:2px 16px 10px;gap:8px}
+#chips button{border:0;background:var(--glass2);-webkit-backdrop-filter:var(--blur-s);backdrop-filter:var(--blur-s);box-shadow:inset 0 0 0 1px var(--rim),inset 0 1px 0 var(--edge);padding:8px 15px;border-radius:999px;color:var(--fg);font-weight:600;font-size:14px;transition:transform .5s var(--spring),background .3s,color .3s}
+#chips button.on{background:var(--accent);color:var(--onacc,#fff);box-shadow:0 4px 16px color-mix(in srgb,var(--accent) 38%,transparent)}
+#chips button:active{transform:scale(.94)}
+
+#clist .crow{margin:0 8px;padding:10px 12px;border-radius:26px;gap:13px;transition:background-color .35s var(--ios),transform .5s var(--spring)!important;position:relative;touch-action:pan-y}
+#clist .crow:active{background:var(--card);transform:scale(.985)}
+.crow .ci b{font-size:16.5px;font-weight:600;letter-spacing:-.25px}
+.crow .ci small{font-size:14.5px;color:var(--mut);margin-top:1px}
+.cm{font-size:12.5px;color:var(--mut)}
+.crow.arch .av{background:var(--card2)!important;color:var(--fg)}
+.empty{color:var(--mut)}
+#clist .crow.swiping{transition:none!important}
+.sw-act{position:absolute;right:8px;top:0;bottom:0;display:flex;gap:6px;align-items:center;z-index:0;pointer-events:none}
+.crow>.ci,.crow>.avw,.crow>.cm{position:relative;z-index:1}
+.sw-act button{pointer-events:auto;width:64px;height:58px;border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;font-weight:600;color:#fff;white-space:nowrap}
+.sw-act svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.sw-act .a-pin{background:#ff9f0a}.sw-act .a-mute{background:#8e8e93}.sw-act .a-arch{background:#0a84ff}
+.crow>.avw,.crow>.ci,.crow>.cm{transform:translateX(var(--sx,0px));transition:transform .55s var(--spring)}
+.crow.swiping>.avw,.crow.swiping>.ci,.crow.swiping>.cm{transition:none}
+@media(max-width:899.98px){#chat{touch-action:pan-y}}
+#auth .wl-hint{flex:none;margin:-10px 24px 18px;text-align:center;font-size:12px;line-height:1.4;color:#6e6e73;transition:opacity .3s}
+#auth .wl-hint:empty{display:none}
+#auth .wl.open .wl-hint{opacity:0}
+
+/* ---------- плавающий таб-бар ---------- */
+@media(max-width:899.98px){
+  #home #nav{position:absolute;z-index:7;left:50%;bottom:calc(var(--sb) + 10px);width:min(calc(100% - 32px),430px);height:66px;margin:0;padding:6px;gap:0;border:0;border-radius:999px;
+    transform:translateX(-50%);transform-origin:50% 100%;transition:transform .65s var(--spring)}
+  #home #nav.min{transform:translateX(-50%) translateY(14px) scale(.86)}
+  #home #nav button{position:relative;z-index:1;flex:1;min-width:0;border-radius:999px;background:none!important;color:var(--mut);font-size:10.5px;gap:2px;padding:4px 0;transition:color .3s,transform .5s var(--spring)}
+  #home #nav button.on{color:var(--accent)}
+  #home #nav button:active{transform:scale(.9)}
+  #home #nav .lens{position:absolute;z-index:0;top:6px;bottom:6px;left:0;width:20%;border-radius:999px;background:var(--lens);box-shadow:inset 0 1px 0 var(--edge),inset 0 0 0 1px var(--rim),0 4px 14px rgba(0,0,0,.08);
+    transition:transform .6s var(--spring),width .6s var(--spring),background .3s;pointer-events:none}
+  #home #nav.drag .lens{transition:none;background:color-mix(in srgb,var(--lens),var(--accent) 12%);transform-origin:50% 50%}
+  #home #nav.hold .lens{transition:transform .6s var(--spring),width .6s var(--spring),background .3s;transform:var(--lx) scale(1.12);background:color-mix(in srgb,var(--lens),var(--accent) 12%)}
+  #nav button svg{width:24px;height:24px}
+  html.kb #nav{display:none}
+}
+
+/* ==========================================================================
+   Чат · мобильная раскладка
+   ========================================================================== */
+#chat .day{background:var(--glass);-webkit-backdrop-filter:var(--blur-s);backdrop-filter:var(--blur-s);box-shadow:inset 0 0 0 1px var(--rim);color:var(--mut);font-size:12px;font-weight:600;border-radius:999px;padding:4px 12px;margin:10px 0 6px}
+@media(max-width:899.98px){
+  #chat{background:var(--bg)}
+  #chat>.top{position:absolute;z-index:6;left:10px;right:10px;top:calc(var(--st) + 8px);height:58px;padding:6px 8px 6px 6px;gap:6px;border:0;border-radius:32px;transition:transform .6s var(--spring),opacity .3s}
+  #chat>.top .ib{width:44px;height:44px;background:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+  #chat>.top #back{background:var(--glass2);box-shadow:inset 0 0 0 1px var(--rim),inset 0 1px 0 var(--edge)}
+  #chat #hav .av{width:42px!important;height:42px!important}
+  #chat #who b{font-size:16px;font-weight:650;letter-spacing:-.3px}
+  #chat #who small{font-size:12.5px;color:var(--mut)}
+  #pin{position:absolute;z-index:5;left:18px;right:18px;top:calc(var(--st) + 72px);border:0;border-radius:20px;padding:7px 14px;transition:transform .5s var(--spring)}
+  #list{padding:calc(var(--st) + 80px) 12px calc(var(--cwh,64px) + 16px)}
+  #chat:has(#pin:not([hidden])) #list{padding-top:calc(var(--st) + 130px)}
+  #cw{position:absolute;z-index:6;left:0;right:0;bottom:0;display:flex;flex-direction:column;gap:8px;padding:10px 10px calc(var(--sb) + 8px);border:0;background:none;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none}
+  #cw::before{content:"";position:absolute;left:0;right:0;bottom:0;top:-6px;z-index:-1;pointer-events:none;
+    -webkit-backdrop-filter:blur(14px) saturate(1.4);backdrop-filter:blur(14px) saturate(1.4);
+    background:linear-gradient(transparent,color-mix(in srgb,var(--bg) 70%,transparent) 55%,color-mix(in srgb,var(--bg) 88%,transparent));
+    -webkit-mask-image:linear-gradient(transparent,#000 40%);mask-image:linear-gradient(transparent,#000 40%)}
+  html.kb #cw{padding-bottom:8px}
+  html.kb #list{padding-bottom:calc(var(--cwh,64px) + 12px)}
+  #comp{padding:0!important;gap:8px}
+  #bar,#recbar{margin:0!important;border:0;border-radius:22px;padding:9px 14px}
+  #ro{margin:0 6px 0}
+}
+#chat .ro,#ro{color:var(--mut);text-align:center;font-size:14px;padding:14px;border-radius:24px;background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);box-shadow:inset 0 0 0 1px var(--rim)}
+#bar{font-size:14px}#bar span{color:var(--mut)}
+#recbar b{color:var(--fg)}
+
+/* поле ввода и кнопки */
+#inp{min-height:44px;height:44px;border-radius:22px;padding:11px 18px;line-height:22px;background:var(--glass2)!important;-webkit-backdrop-filter:var(--blur-s);backdrop-filter:var(--blur-s);box-shadow:inset 0 0 0 1px var(--rim),inset 0 1px 0 var(--edge)!important}
+#inp::placeholder{color:var(--mut)}
+#comp .ib{width:44px;height:44px}
+#mic{background:var(--glass2);color:var(--fg)}
+#mic.rec{background:var(--danger);color:#fff;animation:ios-pulse 1.4s ease-in-out infinite}
+#sendb{background:linear-gradient(180deg,color-mix(in srgb,var(--accent),#fff 16%),var(--accent))!important;color:var(--onacc,#fff);box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 6px 18px color-mix(in srgb,var(--accent) 40%,transparent)!important;-webkit-backdrop-filter:none;backdrop-filter:none}
+#sendb svg{width:22px;height:22px}
+#att.pplus{position:relative;border-radius:50%;background:radial-gradient(circle at 35% 25%,color-mix(in srgb,var(--accent),#fff 38%),var(--accent) 52%,color-mix(in srgb,var(--accent),#000 14%));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.28),0 6px 20px color-mix(in srgb,var(--accent) 38%,transparent);color:var(--onacc,#fff);-webkit-backdrop-filter:none;backdrop-filter:none}
+#att.pplus::after{content:"";position:absolute;left:7px;right:7px;top:3px;height:42%;border-radius:50%;background:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,0));pointer-events:none}
+#att.pplus i{position:absolute;inset:0;transition:transform .6s var(--spring)}
+#att.pplus i::before,#att.pplus i::after{content:"";position:absolute;left:50%;top:50%;width:16px;height:2.5px;margin:-1.25px 0 0 -8px;border-radius:2px;background:var(--onacc,#fff)}
+#att.pplus i::after{transform:rotate(90deg)}
+#chat.plus-open #att.pplus i{transform:rotate(135deg)}
+#chat.plus-open #att.pplus{box-shadow:inset 0 0 0 1px rgba(255,255,255,.3),0 8px 34px color-mix(in srgb,var(--accent) 60%,transparent)}
+#att.pplus:active{transform:scale(.88)}
+
+/* пузыри */
+#list .row{max-width:min(var(--bubble-width,82%),520px)}
+.b{border-radius:21px;padding:8px 13px 6px;box-shadow:none;font-size:var(--msg-font-size,16px);line-height:1.32;letter-spacing:-.15px}
+.th .b{background:var(--in);color:var(--intx,var(--fg))}
+.me .b{background:linear-gradient(180deg,color-mix(in srgb,var(--out),#fff 14%),var(--out));color:var(--outtx,var(--onacc,#fff))}
+.me .b.media-bubble,.th .b.media-bubble{background:transparent!important;box-shadow:none}
+.me .b:not(.media-bubble){border-bottom-right-radius:7px}
+.th .b:not(.media-bubble){border-bottom-left-radius:7px}
+.b.media-bubble .mi,.b.media-bubble video,.b.media-bubble .vp,.b.media-bubble .ph{border-radius:20px}
+.mt{font-size:11px;opacity:.6}
+.snd{font-size:12.5px;margin:4px 12px 2px}
+.rx span{background:var(--glass2);box-shadow:inset 0 0 0 1px var(--rim);border:0;border-radius:999px;padding:2px 9px}
+.rx span.on{box-shadow:inset 0 0 0 1.5px var(--accent)}
+.rp{border-left-width:3px;border-radius:2px}
+.flash{animation:ios-flash 1.1s var(--ios)}
+@keyframes ios-flash{0%,55%{box-shadow:0 0 0 7px color-mix(in srgb,var(--accent) 38%,transparent)}100%{box-shadow:0 0 0 7px transparent}}
+
+/* ==========================================================================
+   Меню «+» (из демо)
+   ========================================================================== */
+#pscrim{position:absolute;inset:0;z-index:5;background:var(--scrim);opacity:0;pointer-events:none;transition:opacity .4s var(--ios)}
+#chat.plus-open #pscrim{opacity:1;pointer-events:auto}
+.pmenu{position:absolute;left:10px;bottom:calc(var(--cwh,64px) + 8px);width:232px;padding:8px;z-index:6;border-radius:32px;transform-origin:22px calc(100% + 38px);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--glass2) 100%,transparent),var(--glass));
+  opacity:0;transform:scale(.35);visibility:hidden;pointer-events:none;
+  transition:transform .35s var(--ios),opacity .22s var(--ios),visibility 0s linear .35s}
+#chat.plus-open .pmenu{opacity:1;transform:none;visibility:visible;pointer-events:auto;transition:transform .6s var(--spring),opacity .25s var(--ios),visibility 0s}
+.plist{position:relative;display:flex;flex-direction:column;gap:4px}
+.ppill{position:absolute;left:0;right:0;top:0;height:52px;border-radius:26px;opacity:0;background:var(--lens);box-shadow:inset 0 0 0 1px var(--rim);transform:translateY(var(--y,0px));transition:transform .55s var(--spring),opacity .22s var(--ios);pointer-events:none}
+.ppill.on{opacity:1}
+.ppill.tap{transform:translateY(var(--y,0px)) scale(.97)}
+.pitem{position:relative;z-index:1;height:52px;display:flex;align-items:center;gap:16px;padding:0 20px;border-radius:26px;color:var(--fg);font-size:16px;font-weight:500;text-align:left;width:100%;
+  opacity:0;transform:translateY(8px) scale(.96);filter:blur(6px);transition:opacity .15s,transform .2s,filter .2s}
+#chat.plus-open .pitem{opacity:1;transform:none;filter:none;transition:opacity .35s var(--ios) calc(var(--i)*35ms + 70ms),transform .6s var(--spring) calc(var(--i)*35ms + 70ms),filter .4s var(--ios) calc(var(--i)*35ms + 70ms)}
+.pic{width:22px;height:22px;flex:none;fill:none;stroke:var(--mut);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;transition:stroke .3s}
+.pitem.hover .pic{stroke:var(--fg)}
+.pitem[data-kind=voice] .pic .spark{stroke:var(--accent)}
+
+/* ==========================================================================
+   Шиты, контекстное меню, тосты
+   ========================================================================== */
+.over{background:var(--scrim);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);align-items:flex-end;padding:0 8px calc(var(--sb) + 8px)}
+.sh{position:relative;background:var(--glass2);-webkit-backdrop-filter:blur(34px) saturate(1.8);backdrop-filter:blur(34px) saturate(1.8);border:0;border-radius:38px;padding:26px 16px 18px;max-height:88%;
+  box-shadow:inset 0 1px 0 var(--edge),inset 0 0 0 1px var(--rim),0 24px 60px rgba(0,0,0,.28);will-change:transform}
+.sh::before{content:"";position:absolute;left:50%;top:9px;width:38px;height:5px;margin-left:-19px;border-radius:3px;background:var(--mut);opacity:.4}
+.sh h3{font-size:19px;font-weight:650;letter-spacing:-.4px;text-align:center;margin:0 0 2px}
+.sh.dragging{transition:none!important;animation:none!important}
+.srow{border-radius:22px;padding:14px 16px;background:var(--card);box-shadow:inset 0 0 0 1px var(--rim)}
+.srow b{color:var(--mut)}
+.seg{border-radius:18px;background:var(--card2);padding:3px}
+.seg button{border-radius:15px}
+.seg button.on{background:var(--bg);color:var(--fg);box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.sh input,.sh textarea{background:var(--card)}
+.settings-row,.settings-group{border-radius:22px}
+
+#ctx{background:var(--scrim);-webkit-backdrop-filter:blur(22px) saturate(1.4);backdrop-filter:blur(22px) saturate(1.4)}
+.cx-rx{border-radius:32px;padding:6px 8px;transform-origin:50% 100%;animation:ios-pop .55s var(--spring) both}
+.cx-rx button{transition:transform .4s var(--spring);font-size:29px}
+.cx-rx button:active{transform:scale(1.35)}
+.cx-rx .cx-more{background:var(--lens)}
+.cx-bub{border-radius:21px;animation:ios-lift .55s var(--spring) both;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+.cx-menu{border-radius:26px;padding:6px;animation:ios-pop .6s var(--spring) both;transform-origin:50% 0}
+.cx-i{border-radius:20px;padding:13px 14px;font-size:17px;transition:background-color .2s}
+.cx-i:active{background:var(--lens)}
+.cx-sep{height:1px;margin:4px 14px;background:var(--line)}
+
+#toast{position:fixed;left:50%;top:calc(var(--st) + 10px);bottom:auto;transform:translateX(-50%);border:0;border-radius:999px;padding:11px 20px;color:var(--fg);font-size:14.5px;font-weight:550;max-width:min(92%,420px);z-index:60;animation:ios-toast .7s var(--spring) both}
+#viewer{-webkit-backdrop-filter:blur(30px);backdrop-filter:blur(30px)}
+
+/* ==========================================================================
+   Профиль / настройки — ближе к «сгруппированным спискам» iOS
+   ========================================================================== */
+.settings-group,.profile-section-new{border-radius:26px}
+.settings-row{border-radius:0}
+.settings-eyebrow{letter-spacing:.14em}
+
+/* ==========================================================================
+   ПК-раскладка: стеклянные панели на мягком фоне
+   ========================================================================== */
+@media(min-width:900px){
+  body{background:radial-gradient(60% 50% at 88% -8%,var(--glow),transparent 70%),radial-gradient(45% 40% at 0% 105%,rgba(110,110,255,.07),transparent 70%),var(--page)}
+  #app{background:transparent}
+  #home.full,#chat.full{background:color-mix(in srgb,var(--bg) 86%,transparent);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:0;box-shadow:inset 0 1px 0 var(--edge),inset 0 0 0 1px var(--rim),var(--shadow);border-radius:30px}
+  #home .top{padding:24px 20px 12px;background:none;border:0}
+  #home .top h2{font-size:30px;font-weight:700;letter-spacing:-.8px}
+  #home .top .ib{width:42px;height:42px}
+  #home #nav{border:0;border-radius:24px;background:var(--glass2)}
+  #home #nav button.on{background:var(--lens);color:var(--accent)}
+  #home .crow{border-radius:20px}
+  #home .crow:hover{background:var(--card);transform:none}
+  #chat #chead{background:color-mix(in srgb,var(--bg) 70%,transparent);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:0;box-shadow:inset 0 -1px 0 var(--line);border-radius:0}
+  #chat #cw{background:none;padding:0 28px 18px}
+  #chat #comp{position:relative}
+  #chat #inp{border:0;border-radius:23px;min-height:46px}
+  #chat #comp .ib{width:46px;height:46px}
+  #chat #pin{background:var(--glass);border:0}
+  #pscrim{border-radius:inherit}
+  .pmenu{left:calc(50% - min(50%,520px) + 0px)}
+  #chat #comp{width:min(100%,1040px)}
+  #cw{position:relative}
+  .pmenu{left:max(0px,calc((100% - min(100%,1040px))/2))}
+  .over{align-items:center;padding:0}
+  .sh{border-radius:32px;max-width:520px}
+  .sh::before{display:none}
+  #hhead>*{pointer-events:auto}
+  #home:has(.profile-screen) #hhead>.sbox,#home:has(.profile-screen) #hhead>#chips,
+  #home:has(.settings-screen) #hhead>.sbox,#home:has(.settings-screen) #hhead>#chips{display:none!important}
+  #toast{top:20px}
+}
+
+/* ==========================================================================
+   Движение
+   ========================================================================== */
+@keyframes ios-rise{from{opacity:0;transform:translateY(26px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes ios-pop{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:none}}
+@keyframes ios-lift{from{transform:scale(.96)}to{transform:none}}
+@keyframes ios-toast{from{opacity:0;transform:translateX(-50%) translateY(-26px) scale(.6);filter:blur(8px)}to{opacity:1;transform:translateX(-50%);filter:none}}
+@keyframes ios-pulse{50%{transform:scale(1.08)}}
+@keyframes ios-msg-in-me{0%{opacity:0;transform:translate3d(0,26px,0) scale(.82);filter:blur(6px)}100%{opacity:1;transform:none;filter:blur(0)}}
+@keyframes ios-msg-in-th{0%{opacity:0;transform:translate3d(0,18px,0) scale(.88);filter:blur(6px)}100%{opacity:1;transform:none;filter:blur(0)}}
+@keyframes ios-row-in{from{opacity:0;transform:translate3d(0,12px,0)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:no-preference){
+  html:not(.reduce-motion) .row.new.me{transform-origin:100% 100%;animation:ios-msg-in-me .7s var(--spring) both!important}
+  html:not(.reduce-motion) .row.new.th{transform-origin:0 100%;animation:ios-msg-in-th .7s var(--spring) both!important}
+  html:not(.reduce-motion) #sendb:not([hidden]),html:not(.reduce-motion) #mic:not([hidden]):not(.rec){animation:ios-pop .5s var(--spring) both!important}
+  html:not(.reduce-motion) .over:not(#viewer) .sh{animation:sheetUp .6s var(--spring) backwards!important}
+  html:not(.reduce-motion) .over:not(#viewer){animation:fade .3s var(--ios) both!important}
+  html:not(.reduce-motion) #clist.tab-in .crow:not(.sk){animation:ios-row-in .55s var(--spring) both!important}
+  html:not(.reduce-motion) #pin:not([hidden]),html:not(.reduce-motion) #bar:not([hidden]),html:not(.reduce-motion) #recbar:not([hidden]){animation:ios-rise .55s var(--spring) both!important}
+  html.p-mobile:not(.reduce-motion){--nav-ms:460ms}
+  html.p-mobile:not(.reduce-motion) .nav-in-fwd,html.p-mobile:not(.reduce-motion) .nav-out-back{animation-timing-function:var(--ios)!important;animation-duration:.46s!important}
+  html.p-mobile:not(.reduce-motion) .nav-under,html.p-mobile:not(.reduce-motion) .nav-in-back{animation-timing-function:var(--ios)!important;animation-duration:.46s!important}
+}
+@keyframes sheetUp{from{transform:translate3d(0,110%,0)}to{transform:translate3d(0,0,0)}}
+/* когда страницу уводит жест, системную анимацию не проигрываем повторно */
+html.no-nav-anim .nav-in-fwd,html.no-nav-anim .nav-under,html.no-nav-anim .nav-in-back,html.no-nav-anim .nav-out-back,html.no-nav-anim .slR,html.no-nav-anim .slL{animation:none!important}
+/* затемнение страницы под уезжающим экраном */
+.nav-under::after,.nav-out-back::after{content:"";position:absolute;inset:0;background:#000;opacity:.0;pointer-events:none}
+#home.swipe-under{z-index:1;transform:translate3d(var(--ux,-28%),0,0);pointer-events:none}
+#chat.swiping{box-shadow:-14px 0 40px rgba(0,0,0,.18);will-change:transform;z-index:3}
+
+/* Лёгкий режим для слабых телефонов: без тяжёлого размытия */
+html.perf-low{--blur:none;--blur-s:none}
+html.perf-low :is(#nav,#chead,#selbar,#pin,#bar,#recbar,.pmenu,.cx-rx,.cx-menu,#toast,.ib,.sh,.over,#ctx,#inp,.sbox input,#chips button,.day,#cw::before,#hhead::before){-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+html.perf-low{--glass:color-mix(in srgb,var(--bg) 94%,transparent);--glass2:var(--card)}
+html.android-perf:not(.perf-low){--blur:blur(16px) saturate(1.4);--blur-s:blur(10px)}
+html.android-perf #cw,html.android-perf .top,html.android-perf .sh,html.android-perf .over{-webkit-backdrop-filter:var(--blur-s)!important;backdrop-filter:var(--blur-s)!important}
+
+@media(prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+html.reduce-motion *{animation-duration:.01ms!important;transition-duration:.01ms!important}
+html.high-contrast{--line:rgba(128,128,128,.5);--rim:rgba(128,128,128,.45)}
+
+/* ---------- переопределения поверх старых правил с !important ---------- */
+html .btn{background:linear-gradient(180deg,color-mix(in srgb,var(--accent),#fff 14%),var(--accent))!important;color:var(--onacc,#fff)!important;border-radius:999px!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 20px color-mix(in srgb,var(--accent) 30%,transparent)!important;border:0}
+html .btn.sec{background:var(--card)!important;color:var(--fg)!important;box-shadow:inset 0 0 0 1px var(--rim)!important;border:0}
+html .btn.red{background:var(--card)!important;color:var(--danger)!important;box-shadow:inset 0 0 0 1px var(--rim)!important}
+html .btn,html .ib,html #sendb,html #mic{transition:transform .55s var(--spring),opacity .25s var(--ios),background-color .25s var(--ios),box-shadow .35s var(--ios)!important}
+html .btn:active,html .ib:active,html #sendb:active,html #mic:active{transform:scale(.92)!important;transition-duration:.08s!important}
+html #sendb{background:linear-gradient(180deg,color-mix(in srgb,var(--accent),#fff 16%),var(--accent))!important}
+html .ib{background:var(--glass)!important}
+html #chat>.top .ib{background:transparent!important}
+html #chat>.top #back{background:var(--glass2)!important}
+html #mic{background:var(--glass2)!important}
+html #mic.rec{background:var(--danger)!important}
+html .crow,html .srow{transition:background-color .35s var(--ios),transform .55s var(--spring)!important}
+html #auth .wl-sheet .btn{height:56px;padding:0;font-size:16px}
+
+html .sbox input{background-color:var(--glass2)!important;border:0!important;border-radius:23px!important;
+  box-shadow:inset 0 0 0 1px var(--rim),inset 0 1px 0 var(--edge)!important;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238e8e96' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='6.5'/%3E%3Cpath d='M16 16l4.5 4.5'/%3E%3C/svg%3E")!important;
+  background-repeat:no-repeat!important;background-position:15px 50%!important;background-size:19px!important}
+html #att.pplus{background:radial-gradient(circle at 35% 25%,color-mix(in srgb,var(--accent),#fff 38%),var(--accent) 52%,color-mix(in srgb,var(--accent),#000 14%))!important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.28),0 6px 20px color-mix(in srgb,var(--accent) 38%,transparent)!important}
+html #inp{background:var(--glass2)!important;border:0!important}
+@media(max-width:899.98px){#desktopMore{display:none!important}}
+/* горизонтальные жесты отдаём JS, вертикальный скролл — браузеру (иначе pointercancel) */
+@media(max-width:899.98px){#list,#clist,.sh,#sheet .sh{touch-action:pan-y}}
+
+/* Размытие. Раньше стояло глобальное `*{backdrop-filter:none!important}` — включаем точечно
+   только на небольших стеклянных поверхностях. perf-low (слабые устройства) остаётся без размытия. */
+html:not(.perf-low) :is(#nav,#chead,#chat>.top,#selbar,#pin,#bar,#recbar,.pmenu,.cx-rx,.cx-menu,#toast,#home .top .ib,#chat .ib,.sh,#ctx,#inp,#chips button,.day,.wl-sheet,#keys .box,#home.full,#chat.full){
+  -webkit-backdrop-filter:var(--blur)!important;backdrop-filter:var(--blur)!important}
+html:not(.perf-low) :is(.sbox input,.over:not(#viewer)){-webkit-backdrop-filter:var(--blur-s)!important;backdrop-filter:var(--blur-s)!important}
+html:not(.perf-low) #cw::before,html:not(.perf-low) #hhead::before{-webkit-backdrop-filter:blur(14px) saturate(1.4)!important;backdrop-filter:blur(14px) saturate(1.4)!important}
+html:not(.perf-low) #chat>.top .ib{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+html.android-perf:not(.perf-low) #home.full,html.android-perf:not(.perf-low) #chat.full{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+
+#nav,#nav button{touch-action:none}
+
+/* ---------- профиль и настройки: свой заголовок внутри страницы ---------- */
+@media(max-width:899.98px){
+  #home:has(.settings-screen) #hhead .top,#home:has(.profile-screen) #hhead .top{height:calc(var(--st) + 14px)}
+  #home:has(.settings-screen) #hhead .top h2,#home:has(.profile-screen) #hhead .top h2{display:none}
+}
+html .settings-option .seg,html .seg{background:var(--card2)!important;border-radius:16px;padding:3px}
+html .settings-option .seg button,html .seg button{border-radius:13px;color:var(--mut);transition:background-color .35s var(--ios),color .25s}
+html .settings-option .seg button.on,html .seg button.on{background:var(--bg)!important;color:var(--fg)!important;box-shadow:0 2px 8px rgba(0,0,0,.14)}
