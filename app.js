@@ -147,7 +147,8 @@ function show(id){const prev=SHOWN;SHOWN=id;const wide=window.matchMedia('(min-w
  if(!(prev&&prev!==id&&(id==='chat'||(id==='home'&&prev==='chat'))))return;
  const el=$('#'+id),root=document.documentElement,reduce=matchMedia('(prefers-reduced-motion:reduce)').matches||root.classList.contains('reduce-motion');
  void el.offsetWidth;
- if(wide||reduce||!root.classList.contains('p-mobile')){el.classList.add(id==='chat'?'slR':'slL');navT=setTimeout(()=>{navT=0;el.classList.remove('slR','slL')},350);return}
+ if(reduce)return;
+ if(wide||!root.classList.contains('p-mobile')){el.classList.add(id==='chat'?'slR':'slL');navT=setTimeout(()=>{navT=0;el.classList.remove('slR','slL')},350);return}
  const other=$('#'+prev),ms=root.classList.contains('p-ios')?380:root.classList.contains('perf-low')?220:300;
  root.style.setProperty('--nav-ms',ms+'ms');other.hidden=false;
  if(id==='chat'){el.classList.add('nav-in-fwd');other.classList.add('nav-under')}else{el.classList.add('nav-in-back');other.classList.add('nav-out-back')}
