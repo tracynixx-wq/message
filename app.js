@@ -509,11 +509,27 @@ function jump(id){const el=document.querySelector(`#list .b[data-id="${id}"]`);i
  el.scrollIntoView({block:'center',behavior:'smooth'});el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash')}
 $('#pin').onclick=()=>{const c=C[cur];if(c&&c.pinned_id)jump(c.pinned_id)};
 // долгое нажатие / правая кнопка = меню сообщения
-let lp=null,lpXY=null;const LST=$('#list');
+let lp=null,lpXY=null,swipeStart=null;const LST=$('#list');
 LST.addEventListener('pointerdown',e=>{if(SEL||e.button>0)return;const b=e.target.closest('.b');if(!b||e.target.closest('video,audio,a.file,.vp'))return;
- lpXY=[e.clientX,e.clientY];lp=setTimeout(()=>{lp=null;navigator.vibrate?.(12);menu(+b.dataset.id)},420)});
-LST.addEventListener('pointermove',e=>{if(lp&&lpXY&&Math.hypot(e.clientX-lpXY[0],e.clientY-lpXY[1])>9){clearTimeout(lp);lp=null}});
-['pointerup','pointercancel','pointerleave'].forEach(t=>LST.addEventListener(t,()=>{clearTimeout(lp);lp=null}));
+ lpXY=[e.clientX,e.clientY];swipeStart=e.pointerType!=='mouse'?{id:e.pointerId,x:e.clientX,y:e.clientY,b}:null;
+ lp=setTimeout(()=>{lp=null;swipeStart=null;navigator.vibrate?.(12);menu(+b.dataset.id)},420)});
+LST.addEventListener('pointermove',e=>{
+ if(lp&&lpXY&&Math.hypot(e.clientX-lpXY[0],e.clientY-lpXY[1])>9){clearTimeout(lp);lp=null}
+ if(!swipeStart||swipeStart.id!==e.pointerId)return;
+ const dx=e.clientX-swipeStart.x,dy=e.clientY-swipeStart.y;
+ if(dx>12&&dx>Math.abs(dy)*1.2){clearTimeout(lp);lp=null;swipeStart.b.style.transition='none';swipeStart.b.style.transform='translateX('+Math.min(42,dx*.55)+'px)'}
+});
+function finishMessageGesture(e){
+ clearTimeout(lp);lp=null;
+ const s=swipeStart;swipeStart=null;if(!s)return;
+ const dx=e.clientX-s.x,dy=e.clientY-s.y;
+ s.b.style.transition='transform .16s ease';s.b.style.transform='';
+ if(e.type==='pointerup'&&dx>=64&&Math.abs(dy)<=42&&!SEL){
+  const m=(M[cur]||[]).find(x=>String(x.id)===s.b.dataset.id),c=C[cur];
+  if(m&&c&&canPost(c))act('reply',m);
+ }
+}
+['pointerup','pointercancel','pointerleave'].forEach(t=>LST.addEventListener(t,finishMessageGesture));
 LST.addEventListener('contextmenu',e=>{const b=e.target.closest('.b');if(b){e.preventDefault();if(!SEL&&!lp)menu(+b.dataset.id)}});
 $('#viewer').onclick=()=>{$('#viewer').hidden=true;$('#viewer').innerHTML=''};
 
