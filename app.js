@@ -1285,8 +1285,9 @@ async function checkAndroidUpdate(){
 
 let desktopUpdateCheckAt=0;
 async function checkDesktopUpdate(){
- const current=Number(new URLSearchParams(location.search).get('desktopBuild'));
- if(!Number.isInteger(current)||current<1||Date.now()-desktopUpdateCheckAt<300000)return;
+ const params=new URLSearchParams(location.search),isDesktop=params.has('desktopBuild')||/Electron\\//i.test(navigator.userAgent);
+ const current=Number(params.get('desktopBuild')||0);
+ if(!isDesktop||!Number.isInteger(current)||current<0||Date.now()-desktopUpdateCheckAt<300000)return;
  desktopUpdateCheckAt=Date.now();
  try{
   const res=await fetch('https://api.github.com/repos/tracynixx-wq/message/releases?per_page=100',{headers:{Accept:'application/vnd.github+json'},cache:'no-store'});
