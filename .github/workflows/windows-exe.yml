@@ -24,6 +24,10 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install
+      - name: Set embedded desktop build number
+        shell: pwsh
+        run: |
+          (Get-Content electron/main.cjs -Raw) -replace 'const DESKTOP_BUILD = \d+;', 'const DESKTOP_BUILD = ${{ github.run_number }};' | Set-Content electron/main.cjs
       - name: Build Windows installer and portable EXE
         run: npx electron-builder --win nsis portable --x64 --publish never
       - name: Upload EXE files
