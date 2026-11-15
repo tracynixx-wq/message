@@ -283,7 +283,7 @@ function realtime(){
 async function onMsg(p){const n=p.new;let affectsOpen=false;
  if(p.eventType==='DELETE'){const arr=M[p.old.conv_id]||[],deleted=arr.some(x=>x.id===p.old.id);if(deleted)M[p.old.conv_id]=arr.filter(x=>x.id!==p.old.id);messageIndex.delete(String(p.old.id));affectsOpen=deleted&&p.old.conv_id===cur}
  else{if(!n)return;if(!C[n.conv_id]){await loadAll();return}await dc(n);const a=M[n.conv_id]=M[n.conv_id]||[],i=a.findIndex(x=>x.id===n.id);if(i>-1)a[i]=n;else a.push(n);messageIndex.set(String(n.id),n);affectsOpen=n.conv_id===cur}
- if(cur){if(affectsOpen)render(p.eventType==='INSERT'&&n?.conv_id===cur);markRead()}else home()}
+ if(cur){if(affectsOpen)render(false);markRead()}else home()}
 function onMem(p){const x=p.new,o=p.old;
  if(p.eventType==='INSERT'){if(x.user_id===me.id||!C[x.conv_id])loadAll();else loadAll();return}
  if(p.eventType==='DELETE'){if(o.user_id===me.id){delete C[o.conv_id];delete K[o.conv_id];(M[o.conv_id]||[]).forEach(m=>messageIndex.delete(String(m.id)));delete M[o.conv_id];if(cur===o.conv_id){cur=null;show('home')}home()}else loadAll();return}
