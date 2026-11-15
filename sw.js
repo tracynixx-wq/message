@@ -9,6 +9,14 @@ self.addEventListener('push',e=>{let d={};try{d=e.data?.json()||{}}catch(_){try{
  const conv=d.conv||null;
  e.waitUntil(self.registration.showNotification(d.title||'Чат',{body:d.body||'Новое сообщение',icon:'icon-192.png',badge:'icon-192.png',tag:conv?'c'+conv:'chat-message',renotify:true,data:{conv}}))});
 self.addEventListener('notificationclick',e=>{e.notification.close();const conv=e.notification.data&&e.notification.data.conv;
- e.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(l=>{
-  if(l.length){const target=l.find(c=>c.focused)||l[0];target.postMessage({open:conv});return target.focus()}
-  return clients.openWindow('./'+(conv?'?c='+encodeURIComponent(conv):''))}))});
+ const url=new URL('./',self.registration.scope);if(conv)url.searchParams.set('c',conv);
+ e.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(async l=>{
+  const target=l.find(c=>c.focused)||l[0];
+  if(target){
+   // Navigate the existing app to a durable deep link. A postMessage can be lost
+   // on Android if the page is still starting and has not bound its message listener.
+   try{await target.navigate(url.href)}catch(_){target.postMessage({open:conv})}
+   return target.focus();
+  }
+  return clients.openWindow(url.href)
+ }))});
