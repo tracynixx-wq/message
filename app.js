@@ -480,7 +480,7 @@ function joinTypingRoom(id){
  }).subscribe(status=>{if(status==='SUBSCRIBED'&&typingChannel===ch&&typingRoom===String(id)&&cur===id&&$('#inp').value.trim()){typingLocalActive=false;typingLastSent=0;setTypingState(true)}});
  typingChannel=ch;
 }
-function openChat(id){const target=String(id||'');if(!target||!C[target]){toast('Этот чат недоступен. Обновите список чатов');return}stopTypingRoom();cur=target;pendingChatBottom=target;if(C[target].secret_ttl)purge();delete RL[target];if(SEL){SEL=null;selUI()}unbar();$('#inp').value='';fit();head();joinTypingRoom(target);render(true);setComposer();show('chat');scrollChatBottom(target,chatScrollRevision);markRead()}
+function openChat(id){const target=String(id||'');if(!target||!C[target]){toast('Этот чат недоступен. Обновите список чатов');return}stopTypingRoom();cur=target;pendingChatBottom=target;if(C[target].secret_ttl)purge();delete RL[target];if(SEL){SEL=null;selUI()}unbar();$('#inp').value='';show('chat');head();joinTypingRoom(target);render(true);setComposer();scrollChatBottom(target,chatScrollRevision);markRead()}
 $('#back').onclick=()=>{stopTypingRoom();cur=null;unbar();if(SEL){SEL=null;selUI()}TAB='chats';document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab==='chats'));show('home');$('#newb').hidden=false;$('#gear').hidden=false;$('.sbox').hidden=false;$('#chips').hidden=false;home()};
 function setComposer(){const c=C[cur];const ok=c&&canPost(c);$('#comp').hidden=!ok;$('#ro').hidden=ok;if(!ok)unbar()}
 function head(){const c=C[cur];if(!c)return;$('#cvoice').hidden=$('#cvideo').hidden=c.kind!=='dm';$('#chat').classList.toggle('secret',!!c.secret_ttl);const o=c.kind==='dm'?peerOf(c):c;$('#hav').innerHTML=av(o,40);
