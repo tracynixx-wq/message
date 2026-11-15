@@ -100,6 +100,12 @@ const BLOB={};
 let sb,me=null,prof=null,ID=null,P={},C={},K={},KH={},H={},M={},MORE={},OLDER_LOADING={},cur=null,reply=null,editing=null,booted=false,authMode='in';
 const messageIndex=new Map();
 if(/Android/i.test(navigator.userAgent))document.documentElement.classList.add('android-perf');
+const desktopMedia=matchMedia('(min-width:900px) and (hover:hover) and (pointer:fine)');
+const desktopRuntime=/Electron\\//i.test(navigator.userAgent);
+const desktopMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const desk=!desktopMobile&&(desktopRuntime||desktopMedia.matches);
+document.documentElement.classList.toggle('p-desktop',desk);
+desktopMedia.addEventListener?.('change',e=>document.documentElement.classList.toggle('p-desktop',!desktopMobile&&(desktopRuntime||e.matches)));
 
 /* ---------- утилиты ---------- */
 function toast(t,ms=2800){const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,ms)}
