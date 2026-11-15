@@ -1345,7 +1345,6 @@ function checkDesktopUpdate(){
   };
   banner.querySelector('#appUpdateClose').onclick=()=>{banner.hidden=true};
  });
- bridge.checkForUpdates().catch(e=>console.warn('[desktop-update] check failed',e));
 }
 
 boot();checkAndroidUpdate();checkDesktopUpdate();
