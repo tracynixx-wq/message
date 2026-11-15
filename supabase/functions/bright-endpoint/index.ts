@@ -1,4 +1,4 @@
-// Push notifications for encrypted messages. Message bodies are never sent to the push provider.
+// Push notifications include a short plaintext preview explicitly requested by the app owner.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 
@@ -49,15 +49,15 @@ Deno.serve(async (req: Request) => {
     if (authorized !== true) return json({ error: "unauthorized" }, 401);
 
     const { data: message, error: messageError } = await db
-      .from("msgs").select("id,conv_id,sender,created_at").eq("id", messageId).maybeSingle();
+      .from("msgs").select("id,conv_id,sender,created_at,push_preview").eq("id", messageId).maybeSingle();
     if (messageError) throw messageError;
     if (!message) return json({ sent: 0, reason: "message_not_found" }, 404);
     if (Date.now() - new Date(message.created_at).getTime() > 5 * 60_000) {
       return json({ sent: 0, reason: "message_too_old" });
     }
 
-    // Include only the sender's display name; never include chat identifiers,
-    // chat titles, message content, or attachment data in the push payload.
+    // The user explicitly enabled message previews in notifications. Keep the preview short;
+    // do not include chat titles, attachment contents, or any other message metadata.
     const [membersResult, senderResult] = await Promise.all([
       db.from("members").select("user_id,muted").eq("conv_id", message.conv_id).neq("user_id", message.sender),
       db.from("profiles").select("name,username").eq("id", message.sender).maybeSingle(),
@@ -78,7 +78,10 @@ Deno.serve(async (req: Request) => {
     const senderName = senderResult.data?.name || senderResult.data?.username || "Новое сообщение";
     const payload = JSON.stringify({
       title: senderName,
-      body: "Откройте приложение, чтобы прочитать его",
+      body: typeof message.push_preview === "string" && message.push_preview.trim()
+        ? message.push_preview.slice(0, 180)
+        : "Новое сообщение",
+      conv: message.conv_id,
     });
 
     webpush.setVapidDetails(subject, publicKey, privateKey);
