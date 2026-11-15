@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<defs>
+ <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#24232b"/><stop offset="1" stop-color="#09090d"/></linearGradient>
+ <radialGradient id="flame" cx="50%" cy="62%" r="55%"><stop stop-color="#ffd8ff"/><stop offset=".42" stop-color="#df7cff"/><stop offset="1" stop-color="#8d24e8"/></radialGradient>
+ <filter id="glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="19"/></filter>
+</defs>
+<rect width="512" height="512" rx="112" fill="url(#bg)"/>
+<path d="M255 93h28v56h-28v56h-28v56h-28v56h-28v56h28v28h56v28h84v-28h56v-28h28v-56h-28v-56h-28v-56h-28v-56h-28v-56h-28z" fill="#b13cf5" opacity=".58" filter="url(#glow)"/>
+<path d="M255 82h29v57h-29v57h-29v57h-29v57h-29v57h-29v57h29v29h57v28h113v-28h57v-29h29v-57h-29v-57h-29v-57h-29v-57h-29v-57h-29z" fill="url(#flame)" stroke="#c65aff" stroke-width="8" stroke-linejoin="miter"/>
+<path d="M198 284h29v-57h29v-57h28v114h29v57h28v57H227v-28h-29v-86z" fill="#f9c5ff" opacity=".72"/>
+<path d="M255 82h29v57h-29zM368 139h29v57h-29zM142 310h29v29h-29zM397 253h29v57h-29z" fill="#c65aff"/>
+<path d="M198 341h29v28h-29zM255 284h29v57h-29zM312 341h29v28h-29z" fill="#ffe4ff"/>
+</svg>
