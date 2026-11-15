@@ -41,6 +41,9 @@ jobs:
             throw "Could not stamp DESKTOP_BUILD in electron/main.cjs"
           }
           Set-Content -Path $path -Value $source -NoNewline -Encoding utf8
+          $package = Get-Content -Raw package.json | ConvertFrom-Json
+          $package.version = "1.0.$build"
+          $package | ConvertTo-Json -Depth 100 | Set-Content -Path package.json -Encoding utf8
           "build=$build" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Install dependencies
