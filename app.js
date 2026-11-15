@@ -412,6 +412,20 @@ function contactsList(f){const seen=new Set(),L=[];Object.values(C).forEach(c=>{
  $('#clist').innerHTML=h}
 function setTab(t){if(t!=='settings')CL.onclick=chatListClick;TAB=t;showArch=false;const root=$('#clist');if(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))document.activeElement.blur();document.documentElement.classList.remove('kb');const app=$('#app');app.style.height='100dvh';app.style.top='0px';document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.tab===TAB));show('home');if(TAB==='profile'){profilePage();return}if(TAB==='settings'){redesignedSettings();return}$('#newb').hidden=false;$('#gear').hidden=false;$('.sbox').hidden=false;$('#chips').hidden=false;$('#home .top h2').textContent=TAB==='chats'?'Чаты':TAB==='contacts'?'Контакты':'Истории';root.scrollTop=0;home();if(TAB==='stories')loadStories()}
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+/* Desktop unified navigation menu */
+(function(){
+ const nav=$('#nav');if(!nav||$('#desktopMore'))return;
+ const more=document.createElement('button');more.id='desktopMore';more.type='button';
+ more.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg><span>Ещё</span>';
+ more.onclick=()=>{
+  const items=[['contacts','Контакты','♙'],['profile','Профиль','◉'],['settings','Настройки','⚙']];
+  sheet('<h3>Разделы</h3>'+items.map(([tab,label,icon])=>'<button class="desktop-menu-item" data-desktop-tab="'+tab+'"><span>'+icon+'</span>'+label+'<i>›</i></button>').join(''),root=>{
+   root.querySelectorAll('[data-desktop-tab]').forEach(b=>b.onclick=()=>{closeSheet();setTab(b.dataset.desktopTab)});
+  });
+ };
+ nav.appendChild(more);
+})();
+
 function home(){if(!me)return;if(TAB==='profile'){profilePage();return}if(TAB==='settings'){redesignedSettings();return}$('#newb').hidden=false;$('.sbox').hidden=false;pruneSecret();const f=$('#q').value.trim().toLowerCase();CH.hidden=true;if(TAB==='contacts'){contactsList(f);return}if(TAB==='stories'){storiesList();return}
  const all=Object.values(C),inArch=all.filter(c=>c.my?.archived);
  const rows=all.filter(c=>!!c.my?.archived===showArch).map(c=>({c,l:lastOf(c),u:unread(c)})).filter(r=>(!f||title(r.c).toLowerCase().includes(f))&&passF(r))
