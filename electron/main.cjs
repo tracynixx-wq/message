@@ -1,7 +1,8 @@
 const { app, BrowserWindow, shell } = require('electron');
 
 const APP_URL = 'https://tracynixx-wq.github.io/message/';
-// The Windows build workflow replaces this value with its release number.\nconst DESKTOP_BUILD = 4;
+// The Windows build workflow replaces this value with its release number.
+const DESKTOP_BUILD = 4;
 let mainWindow;
 
 function createWindow() {
