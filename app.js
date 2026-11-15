@@ -106,7 +106,7 @@ if(/Android/i.test(navigator.userAgent))document.documentElement.classList.add('
  r.classList.toggle('p-mobile',android||ios);r.classList.toggle('p-ios',ios);r.classList.toggle('perf-low',!!low)})();
 const desktopMedia=matchMedia('(min-width:900px) and (hover:hover) and (pointer:fine)');
 const desktopRuntime=/Electron\//i.test(navigator.userAgent);
-const desktopMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const desktopMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 const desk=!desktopMobile&&(desktopRuntime||desktopMedia.matches);
 document.documentElement.classList.toggle('p-desktop',desk);
 desktopMedia.addEventListener?.('change',e=>document.documentElement.classList.toggle('p-desktop',!desktopMobile&&(desktopRuntime||e.matches)));
