@@ -129,8 +129,9 @@ function applyTheme(t){t={mode:'auto',accent:'',out:'',inb:'',shape:'r',wall:'no
  try{localStorage.setItem('th',JSON.stringify(t))}catch(e){}return t}
 try{applyTheme(JSON.parse(localStorage.getItem('th')))}catch(e){applyTheme()}
 let SHOWN=null;
-function show(id){const prev=SHOWN;SHOWN=id;['load','auth','keys','home','chat'].forEach(k=>$('#'+k).hidden=k!==id);
+function show(id){const prev=SHOWN;SHOWN=id;const split=window.matchMedia('(min-width: 900px)').matches&&id==='chat';['load','auth','keys','home','chat'].forEach(k=>$('#'+k).hidden=split?!['home','chat'].includes(k):k!==id);
  if(prev&&prev!==id&&(id==='chat'||(id==='home'&&prev==='chat'))){const el=$('#'+id);el.classList.remove('slR','slL');void el.offsetWidth;el.classList.add(id==='chat'?'slR':'slL');setTimeout(()=>el.classList.remove('slR','slL'),350)}}
+window.addEventListener('resize',()=>{if(SHOWN)show(SHOWN)});
 function releaseSheetMedia(){const s=$('#sheet');s.querySelectorAll('img[src^="blob:"],video[src^="blob:"],audio[src^="blob:"]').forEach(e=>{try{URL.revokeObjectURL(e.src)}catch(_){}});s.querySelectorAll('[data-preview-url]').forEach(e=>{try{URL.revokeObjectURL(e.dataset.previewUrl)}catch(_){};delete e.dataset.previewUrl})}
 function sheet(html,mount){const s=$('#sheet');releaseSheetMedia();s.innerHTML=`<div class="sh">${html}</div>`;s.hidden=false;
  s.onclick=e=>{if(e.target===s)closeSheet()};if(mount)mount(s.firstChild);return s.firstChild}
@@ -140,6 +141,20 @@ function closeSheet(){releaseSheetMedia();$('#sheet').hidden=true;$('#sheet').in
 const idb=(()=>{let d;const open=()=>d||(d=new Promise((res,rej)=>{const r=indexedDB.open('chat2',1);r.onupgradeneeded=()=>r.result.createObjectStore('k');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}));
  const tx=async(m,f)=>{const db=await open();return new Promise((res,rej)=>{const t=db.transaction('k',m),q=f(t.objectStore('k'));t.oncomplete=()=>res(q.result);t.onerror=()=>rej(t.error)})};
  return{get:k=>tx('readonly',s=>s.get(k)),set:(k,v)=>tx('readwrite',s=>s.put(v,k))}})();
+
+/* Desktop keyboard shortcuts */
+document.addEventListener('keydown',e=>{
+ if(e.defaultPrevented||e.altKey||e.shiftKey)return;
+ const typing=e.target&&(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)||e.target.isContentEditable);
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){
+  e.preventDefault();if(SHOWN!=='home')show('home');setTab('chats');const q=$('#q');if(q){q.focus();q.select()}return;
+ }
+ if(e.key==='Escape'){
+  if(!$('#sheet').hidden){closeSheet();return}
+  if(!$('#viewer').hidden){$('#viewer').hidden=true;return}
+  if(!typing&&SHOWN==='chat'&&window.matchMedia('(min-width: 900px)').matches){setTab('chats')}
+ }
+});
 
 /* ---------- вход ---------- */
 function authUI(){const up=authMode==='up';$('#go').textContent=up?'Создать аккаунт':'Войти';$('#swm').textContent=up?'Уже есть аккаунт? Войти':'Создать аккаунт';$('#pw').autocomplete=up?'new-password':'current-password';$('#msg').textContent=''}
