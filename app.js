@@ -13,7 +13,12 @@ const CR={
  async backup(jwk,pass){const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
   const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},await CR.pbk(pass,salt),enc.encode(JSON.stringify(jwk)));
   return{v:2,salt:b64(salt),iv:b64(iv),ct:b64(ct)}},
- async restore(bk,pass){const iterations=bk.v>=2?600000:300000;const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(bk.iv)},await CR.pbk(pass,unb64(bk.salt),iterations),unb64(bk.ct));return JSON.parse(dec.decode(pt))},
+ async restore(bk,pass){if(!bk||typeof bk!=='object'||![undefined,1,2].includes(bk.v)||typeof pass!=='string')throw new Error('Некорректный формат резервной копии');
+  const salt=unb64(bk.salt||''),iv=unb64(bk.iv||''),ct=unb64(bk.ct||'');
+  if(salt.length!==16||iv.length!==12||ct.length<17)throw new Error('Повреждённая резервная копия');
+  const iterations=bk.v===2?600000:300000;
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv},await CR.pbk(pass,salt,iterations),ct);
+  const jwk=JSON.parse(dec.decode(pt));if(!jwk||jwk.kty!=='EC'||jwk.crv!=='P-256'||typeof jwk.d!=='string'||typeof jwk.x!=='string'||typeof jwk.y!=='string')throw new Error('Некорректный ключ в резервной копии');return jwk},
  async shared(priv,theirPub,info){const pub=await crypto.subtle.importKey('raw',unb64(theirPub),EC,false,[]);
   const bits=await crypto.subtle.deriveBits({name:'ECDH',public:pub},priv,256);
   const hk=await crypto.subtle.importKey('raw',bits,'HKDF',false,['deriveKey']);
@@ -44,6 +49,12 @@ const CR={
  async seal(K,conv,obj){return b64(await CR.sealB(K,conv,enc.encode(JSON.stringify(obj))))},
  async open(K,conv,s){return JSON.parse(dec.decode(await CR.openB(K,conv,unb64(s))))}
 };
+function identityMatches(jwk,pub){try{
+ if(!jwk||jwk.kty!=='EC'||jwk.crv!=='P-256'||typeof jwk.x!=='string'||typeof jwk.y!=='string'||typeof pub!=='string')return false;
+ const coord=x=>{const b=atob(x.replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(b,c=>c.charCodeAt(0))};
+ const x=coord(jwk.x),y=coord(jwk.y),p=unb64(pub);if(x.length!==32||y.length!==32||p.length!==65||p[0]!==4)return false;
+ for(let i=0;i<32;i++)if(p[i+1]!==x[i]||p[i+33]!==y[i])return false;return true;
+ }catch(_){return false}}
 /*CRYPTO-END*/
 
 const $=s=>document.querySelector(s);
@@ -187,10 +198,11 @@ async function ensureKeys(){
  if(ID&&bk.data&&bk.data.data?.pub&&ID.pub!==bk.data.data.pub){ID=null;await idb.set('id:'+me.id,null)}
  if(ID){}
  else if(bk.data){let err='';
-  for(;;){const ph=await askPhrase(false,err);try{const jwk=await CR.restore(bk.data.data,ph);const priv=await CR.importPriv(jwk);
-   ID={priv,pub:bk.data.data.pub};await idb.set('id:'+me.id,ID);break}catch(e){err='Неверная фраза'}}}
+  for(;;){const ph=await askPhrase(false,err);try{const jwk=await CR.restore(bk.data.data,ph);if(!identityMatches(jwk,bk.data.data.pub))throw new Error('Публичный ключ не соответствует приватному');const priv=await CR.importPriv(jwk);
+   ID={priv,pub:bk.data.data.pub};await idb.set('id:'+me.id,ID);break}catch(e){err=e?.message==='Публичный ключ не соответствует приватному'?'Резервная копия повреждена: ключи не совпадают':'Неверная фраза или повреждённая копия'}}}
  else{const ph=await askPhrase(true);show('load');
   const g=await CR.genIdentity(),b=await CR.backup(g.jwk,ph);b.pub=g.pub;
+  if(!identityMatches(g.jwk,g.pub))throw new Error('Не удалось проверить пару ключей');
   const r=await sb.from('keybackup').upsert({user_id:me.id,data:b});if(r.error){toast(r.error.message);return false}
   ID={priv:await CR.importPriv(g.jwk),pub:g.pub};await idb.set('id:'+me.id,ID)}
  if(!prof||prof.pubkey!==ID.pub){const r=await sb.from('profiles').upsert({id:me.id,pubkey:ID.pub}).select().single();
