@@ -1,7 +1,7 @@
 {
-  "name": "message-desktop",
+  "name": "loom-desktop",
   "version": "1.0.0",
-  "description": "Message messenger for Windows desktop",
+  "description": "Loom messenger for Windows desktop",
   "main": "electron/main.cjs",
   "private": true,
   "scripts": {
@@ -13,8 +13,8 @@
     "electron-builder": "^26.0.12"
   },
   "build": {
-    "appId": "com.message.desktop",
-    "productName": "Message",
+    "appId": "com.loom.desktop",
+    "productName": "Loom",
     "directories": {
       "output": "dist"
     },
