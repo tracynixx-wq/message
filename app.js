@@ -371,7 +371,7 @@ async function signStory(x){if(!x?.path)throw new Error('У истории не�
 const ago=d=>{const m=Math.max(0,Math.round((Date.now()-new Date(d))/60000));return m<1?'только что':m<60?m+' мин назад':Math.floor(m/60)+' ч назад'};
 async function loadStories(){
  const r=await sb.from('stories').select('*').gt('expires_at',new Date().toISOString()).order('created_at',{ascending:true});
- if(r.error){STERR=/stories|relation|does not exist|schema/i.test(r.error.message)?'Выполните stories.sql в Supabase (SQL Editor)':r.error.message;STLOADED=true;if(TAB==='stories'||TAB==='chats')home();return}
+ if(r.error){STERR=/stories|relation|does not exist|schema/i.test(r.error.message)?'Истории не настроены в Supabase. Проверьте применённые миграции.':r.error.message;STLOADED=true;if(TAB==='stories'||TAB==='chats')home();return}
  STERR='';ST={};(r.data||[]).forEach(x=>(ST[x.user_id]=ST[x.user_id]||[]).push(x));
  await Promise.all((r.data||[]).filter(x=>x.kind==='img'&&x.path).map(async x=>{try{await signStory(x)}catch(e){console.warn('[stories] signed URL failed',e)}}));
  const need=Object.keys(ST).filter(u=>!P[u]);if(need.length){const q=await sb.from('profiles').select('*').in('id',need);(q.data||[]).forEach(x=>P[x.id]=x)}
@@ -404,14 +404,22 @@ let SVQ=null;
 function openStory(uid,start){const L=ST[uid];if(!L||!L.length)return;let i=start??0;if(start==null&&uid!==me.id){const k=L.findIndex(x=>!SV.has(x.id));i=k<0?0:k}
  SVQ={uid,L,i,t:null};$('#sv').hidden=false;showStory()}
 function closeStory(){if(SVQ)clearTimeout(SVQ.t);SVQ=null;$('#sv').hidden=true;$('#sv').innerHTML='';if(TAB==='stories')home()}
-function showStory(){const q=SVQ;if(!q)return;clearTimeout(q.t);const x=q.L[q.i],o=P[q.uid],mineS=q.uid===me.id;
- const bars=q.L.map((_,j)=>`<i class="${j<q.i?'full':j===q.i?'run':''}"></i>`).join('');
+function showStory(){const q=SVQ;if(!q)return;clearTimeout(q.t);const x=q.L[q.i],o=P[q.uid],mineS=q.uid===me.id,viewIndex=q.i;
+ const bars=q.L.map((_,j)=>`<i class="${j<q.i?'full':j===q.i&&x.kind!=='img'?'run':''}"></i>`).join('');
  let body='';
  if(x.kind==='img'){body=`<div class="svimg"><div class="svloading" id="svloading">Загрузка фото…</div><img id="svphoto" alt="" hidden>${x.caption?`<div class="svcap">${esc(x.caption)}</div>`:''}</div>`}
  else{const g=SBG[x.bg]||SBG[0];body=`<div class="svtxt" style="background:linear-gradient(160deg,${g[0]},${g[1]})"><div>${esc(x.caption||'')}</div></div>`}
  $('#sv').innerHTML=`<div class="svbars">${bars}</div><div class="svhead">${av(o,36)}<div><b>${displayName(o,o?.name||'…')}</b><small>${ago(x.created_at)}</small></div><button id="svx" aria-label="Закрыть">✕</button></div>${body}<div class="svl" id="svl"></div><div class="svr" id="svr"></div>${mineS?`<div class="svfoot"><span id="svv">👁 …</span><button id="svd">🗑 Удалить</button></div>`:''}`;
- $('#svx').onclick=closeStory;$('#svl').onclick=()=>{if(q.i>0){q.i--;showStory()}else showStory()};$('#svr').onclick=nextStory;
- if(x.kind==='img'){const im=$('#svphoto'),msg=$('#svloading');let attempts=0;const reveal=()=>{if(SVQ!==q)return;im.hidden=false;if(msg)msg.hidden=true;q.t=setTimeout(nextStory,5200)};const fail=()=>{if(attempts++<1){im.hidden=true;x.signed_url='';load();return}if(msg)msg.textContent='Не удалось загрузить фото. Проверьте доступ к хранилищу.';q.t=setTimeout(nextStory,5200)};const load=async()=>{try{const url=await signStory(x);if(SVQ!==q)return;im.onload=reveal;im.onerror=fail;im.src=url;if(im.complete){if(im.naturalWidth)reveal();else fail()}}catch(e){if(attempts++<1){x.signed_url='';load()}else{if(msg)msg.textContent='Не удалось загрузить фото. Проверьте доступ к хранилищу.';q.t=setTimeout(nextStory,5200)}}};if(im)load()}
+ $('#svx').onclick=closeStory;$('#svl').onclick=()=>{if(q.i>0){q.i--;showStory()}};$('#svr').onclick=nextStory;
+ if(x.kind==='img'){
+  const im=$('#svphoto'),msg=$('#svloading');let attempts=0,request=0,revealed=false;
+  const current=()=>SVQ===q&&q.i===viewIndex&&!!im?.isConnected;
+  const startProgress=()=>{if(!current())return;document.querySelectorAll('#sv .svbars i')[viewIndex]?.classList.add('run')};
+  const reveal=token=>{if(!current()||token!==request||revealed)return;revealed=true;im.hidden=false;if(msg)msg.hidden=true;startProgress();q.t=setTimeout(()=>{if(current())nextStory()},5200)};
+  const fail=token=>{if(!current()||token!==request||revealed)return;if(attempts++<1){im.hidden=true;x.signed_url='';load();return}if(msg)msg.textContent='Не удалось загрузить фото. Проверьте доступ к хранилищу.';startProgress();q.t=setTimeout(()=>{if(current())nextStory()},5200)};
+  const load=async()=>{const token=++request;try{const url=await signStory(x);if(!current()||token!==request)return;im.onload=()=>reveal(token);im.onerror=()=>fail(token);im.src=url;if(im.complete){if(im.naturalWidth)reveal(token);else fail(token)}}catch(e){fail(token)}};
+  if(im)load()
+ }
  if(mineS){$('#svd').onclick=async()=>{if(!confirm('Удалить эту историю?'))return;clearTimeout(q.t);const r=await sb.from('stories').delete().eq('id',x.id);if(r.error){toast(r.error.message);return}if(x.path)sb.storage.from('stories').remove([x.path]).then(()=>{});
    ST[me.id]=(ST[me.id]||[]).filter(y=>y.id!==x.id);if(!ST[me.id].length)delete ST[me.id];q.L=ST[me.id]||[];if(!q.L.length){closeStory();return}q.i=Math.min(q.i,q.L.length-1);showStory()};
   sb.from('story_views').select('viewer_id').eq('story_id',x.id).then(r=>{if(SVQ===q&&q.L[q.i]===x&&$('#svv'))$('#svv').textContent='👁 '+((r.data||[]).filter(v=>v.viewer_id!==me.id).length)})}
@@ -445,7 +453,7 @@ document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>setTab(b.datas
  const more=document.createElement('button');more.id='desktopMore';more.type='button';
  more.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg><span>Ещё</span>';
  more.onclick=()=>{
-  const items=[['contacts','Контакты','♙'],['profile','Профиль','◉'],['settings','Настройки','⚙']];
+  const items=[['stories','Истории','◌'],['contacts','Контакты','♙'],['profile','Профиль','◉'],['settings','Настройки','⚙']];
   sheet('<h3>Разделы</h3>'+items.map(([tab,label,icon])=>'<button class="desktop-menu-item" data-desktop-tab="'+tab+'"><span>'+icon+'</span>'+label+'<i>›</i></button>').join(''),root=>{
    root.querySelectorAll('[data-desktop-tab]').forEach(b=>b.onclick=()=>{closeSheet();setTab(b.dataset.desktopTab)});
   });
@@ -453,7 +461,7 @@ document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>setTab(b.datas
  nav.appendChild(more);
 })();
 
-function home(){if(!me)return;if(TAB==='profile'){profilePage();return}if(TAB==='settings'){redesignedSettings();return}$('#newb').hidden=false;$('.sbox').hidden=false;pruneSecret();const f=$('#q').value.trim().toLowerCase();CH.hidden=true;if(TAB==='contacts'){contactsList(f);return}if(TAB==='stories'){storiesList();return}
+function home(){if(!me)return;if(TAB==='profile'){profilePage();return}if(TAB==='settings'){redesignedSettings();return}$('#newb').hidden=TAB==='stories';$('.sbox').hidden=false;pruneSecret();const f=$('#q').value.trim().toLowerCase();CH.hidden=true;if(TAB==='contacts'){contactsList(f);return}if(TAB==='stories'){storiesList();return}
  const all=Object.values(C),inArch=all.filter(c=>c.my?.archived);
  const rows=all.filter(c=>!!c.my?.archived===showArch).map(c=>({c,l:lastOf(c),u:unread(c)})).filter(r=>(!f||title(r.c).toLowerCase().includes(f))&&passF(r))
   .sort((a,b)=>(b.c.my?.pinned?1:0)-(a.c.my?.pinned?1:0)||new Date(b.l?b.l.created_at:b.c.created_at)-new Date(a.l?a.l.created_at:a.c.created_at));
@@ -1101,7 +1109,12 @@ function uiIcon(name){
  const d={user:'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21c1-4 3.5-6 8-6s7 2 8 6',devices:'M3 4h13v12H3zM7 20h5m-2-4v4M18 8h3v12h-3z',folder:'M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9H3z',palette:'M12 3a9 9 0 1 0 0 18h1a2 2 0 0 0 1-4 2 2 0 0 1 2-3h1a4 4 0 0 0 4-4c0-4-4-7-9-7',database:'M12 3c5 0 9 1 9 3s-4 3-9 3-9-1-9-3 4-3 9-3ZM3 6v12c0 2 4 3 9 3s9-1 9-3V6M3 12c0 2 4 3 9 3s9-1 9-3',sliders:'M4 7h16M4 17h16M14 4v6M9 14v6',shield:'M12 3 20 6v5c0 5-3 8-8 10-5-2-8-5-8-10V6zM9 12l2 2 4-4',key:'M8 15a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm3-5 9-7 2 2-3 3 2 2-3 3-2-2-3 3',bell:'M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4',help:'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM9 9a3 3 0 1 1 5 2c-1 1-2 1-2 3M12 17v.1',logout:'M10 17l5-5-5-5M15 12H3M12 3h6v18h-6',edit:'m4 16-1 5 5-1L20 8l-4-4zM14 6l4 4',heart:'M20 9c0 5-8 10-8 10S4 14 4 9a4 4 0 0 1 8-2 4 4 0 0 1 8 2',image:'M3 4h18v16H3zM8 9h.1M3 17l6-6 4 4 3-3 5 5',music:'M9 18V5l12-2v13M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6M18 19a3 3 0 1 0 0-6 3 3 0 0 0 0 6'};
  return `<span class="ui-icon"><svg viewBox="0 0 24 24"><path d="${d[name]||d.user}"/></svg></span>`;
 }
-function renderSectionPage(title,html,mount){$('#home .top h2').textContent=title;$('#newb').hidden=true;$('#gear').hidden=true;$('.sbox').hidden=true;$('#chips').hidden=true;const root=$('#clist');root.innerHTML=html;root.scrollTop=0;if(mount)mount(root)}
+function renderSectionPage(title,html,mount){
+ const root=$('#clist'),sameProfile=!!root.querySelector('.profile-screen')&&html.includes('class="profile-screen"'),sameSettings=!!root.querySelector('.settings-screen')&&html.includes('class="settings-screen"');
+ const scrollTop=sameProfile||sameSettings?root.scrollTop:0;
+ $('#home .top h2').textContent=title;$('#newb').hidden=true;$('#gear').hidden=true;$('.sbox').hidden=true;$('#chips').hidden=true;
+ root.innerHTML=html;root.scrollTop=scrollTop;if(mount)mount(root)
+}
 const ACCOUNT_LIST_KEY='msg.accounts.v1';
 function readLocalAccounts(){try{const a=JSON.parse(localStorage.getItem(ACCOUNT_LIST_KEY)||'[]');return Array.isArray(a)?a.filter(x=>x&&x.id&&x.storageKey):[]}catch(_){return[]}}
 function defaultAuthStorageKey(){return `sb-${new URL(CFG.url).hostname.split('.')[0]}-auth-token`}
