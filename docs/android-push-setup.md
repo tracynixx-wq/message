@@ -2,7 +2,7 @@
 
 The app stores browser Push subscriptions in `public.push_subs`. The active server sender is the Supabase Edge Function `bright-endpoint`; the database trigger `public.push_on_msg` calls it after each `msgs` INSERT and sends the message id as `{ "id": ... }`.
 
-The sender never reads or transmits encrypted message contents. It sends generic notifications, excludes the sender, respects each member's muted setting, and removes expired subscriptions (HTTP 404/410).
+The sender reads only the separate `msgs.push_preview` field, not the encrypted `msgs.data` payload. It sends the sender name, up to 180 characters of plaintext preview, and the conversation id to active push subscriptions; it excludes the sender, respects each member's muted setting, and removes expired subscriptions (HTTP 404/410). The client currently writes `push_preview` for every text message regardless of whether recipients have enabled push. This is an explicit confidentiality trade-off, not end-to-end encrypted content.
 
 ## Runtime configuration
 
@@ -10,7 +10,7 @@ The deployed function expects these Edge Function environment variables:
 
 - `VAPID_PUBLIC`: must exactly match `CFG.vapid` in `config.js`.
 - `VAPID_PRIVATE`: the private key paired with that public key. It cannot be derived from the public key.
-- `VAPID_SUBJECT`: contact URI, for example `mailto:admin@example.com`.
+- `VAPID_SUBJECT`: a real monitored contact URI. `mailto:admin@example.com` is only a placeholder and must not be used for a public service.
 - `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`: standard Supabase function environment values.
 
 Do not generate a new VAPID key pair unless both the server private key and client public key are replaced together. Never commit private keys or the service-role key.
@@ -31,8 +31,11 @@ The Edge Function has JWT verification disabled because the database trigger cal
 
 ## Current project audit
 
-- `bright-endpoint` is deployed and active (version 7).
-- The database trigger has generated successful HTTP 200 invocations before the auth hardening.
-- The invalid-secret test now returns HTTP 401; the Vault secret exists and is not readable by `anon` or `authenticated`.
-- The database currently contains 4 subscriptions across 2 users. The newest subscription was created on 2026-11-08.
-- Remote delivery still needs confirmation on a real Android device. An HTTP 200 from the Edge Function only confirms that the handler ran.
+Read-only inspection on 2026-11-16 found:
+- `bright-endpoint` is deployed and active (version 8); the deployed source uses the same webhook authentication and plaintext-preview flow as this repository.
+- The `msgs` notification trigger exists and the Vault webhook secret is present.
+- The database contains 65 push-subscription rows across 3 user accounts.
+- No `bright-endpoint` function log entries were returned for 2026-11-15 08:07 UTC through 2026-11-16 08:07 UTC. This does not prove failure, but it provides no evidence of successful delivery in that window.
+- The read-only inspection did not expose Edge Function environment values, so the presence and correctness of `VAPID_PUBLIC`, `VAPID_PRIVATE`, and `VAPID_SUBJECT` remain unverified.
+
+Remote delivery still requires a controlled test with two real accounts and an Android device. The local in-app notification test proves only that the browser can display a local notification; it does not prove remote Push delivery.
