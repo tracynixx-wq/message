@@ -46,6 +46,16 @@ jobs:
             keytool -genkeypair -v -keystore ~/.android/debug.keystore -storepass message-debug -alias message -keypass message-debug -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Message Debug,O=Message,C=LV"
           fi
 
+      - name: Set unique Android version
+        shell: bash
+        run: |
+          VERSION="1.3.${GITHUB_RUN_NUMBER}"
+          sed -i -E "s/versionCode [0-9]+/versionCode ${GITHUB_RUN_NUMBER}/; s/versionName '[^']+'/versionName '${VERSION}'/" android/app/build.gradle
+          sed -i -E "s/appVersion=[0-9.]+/appVersion=${VERSION}/" android/app/src/main/AndroidManifest.xml
+          grep -q "versionCode ${GITHUB_RUN_NUMBER}" android/app/build.gradle
+          grep -q "versionName '${VERSION}'" android/app/build.gradle
+          grep -q "appVersion=${VERSION}" android/app/src/main/AndroidManifest.xml
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -78,10 +88,10 @@ jobs:
       - name: Publish versioned Android release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: android-v1.3.1
-          name: Message Android 1.3.1
+          tag_name: android-v1.3.${{ github.run_number }}
+          name: Message Android 1.3.${{ github.run_number }}
           body: |
-            Message Android 1.3.1 — Chrome Trusted Web Activity.
+            Message Android 1.3.${{ github.run_number }} — Chrome Trusted Web Activity.
             Signing certificate SHA-256 (hex, no colons): ${{ steps.apkcert.outputs.sha256 }}
           files: android/app/build/outputs/apk/debug/app-debug.apk
-          make_latest: true
+          make_latest: false
