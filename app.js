@@ -951,26 +951,22 @@ function pickUser(cb,exclude=[]){sheet(`<h3>Поиск по @имени или �
  },250)}})}
 async function addMembers(c,users,role='member'){
  if((c.kind==='group'||c.kind==='channel')&&Array.isArray(c.members)&&c.members.length){
-  let added=0;
   try{
-   for(const user of users){
-    if(!user?.id||!user?.pubkey)throw new Error('У пользователя нет открытого ключа');
-    if(c.members.some(m=>m.user_id===user.id))continue;
-    const nextKey=await CR.newKey(),wrapped={};
-    for(const member of c.members){
-     const peer=P[member.user_id];
-     if(!peer?.pubkey)throw new Error('Нет открытого ключа участника '+(peer?.username||member.user_id));
-     wrapped[member.user_id]=await CR.wrap(ID.priv,peer.pubkey,nextKey,c.id);
-    }
-    wrapped[user.id]=await CR.wrap(ID.priv,user.pubkey,nextKey,c.id);
-    const result=await sb.rpc('rotate_group_add_member_key',{p_conv_id:c.id,p_user_id:user.id,p_wrapped_keys:wrapped});
-    if(result.error){if(added)await loadAll();return result}
-    K[c.id]=nextKey;
-    c.members.push({conv_id:c.id,user_id:user.id,role,wrapped_by:me.id,wrapped_key:wrapped[user.id]});
-    added++;
+   const nextKey=await CR.newKey(),wrapped={};
+   for(const member of c.members){
+    const user=P[member.user_id];
+    if(!user?.pubkey)throw new Error('Нет открытого ключа участника '+(user?.username||member.user_id));
+    wrapped[member.user_id]=await CR.wrap(ID.priv,user.pubkey,nextKey,c.id);
    }
+   for(const user of users){
+    if(!user?.pubkey)throw new Error('У пользователя нет открытого ключа');
+    wrapped[user.id]=await CR.wrap(ID.priv,user.pubkey,nextKey,c.id);
+   }
+   const result=await sb.rpc('rotate_group_add_members_key',{p_conv_id:c.id,p_user_ids:users.map(u=>u.id),p_wrapped_keys:wrapped});
+   if(result.error)return result;
+   K[c.id]=nextKey;
    return {data:null,error:null};
-  }catch(error){if(added)await loadAll();return {data:null,error}}
+  }catch(error){return {data:null,error}}
  }
  const rows=[];
  for(const u of users)rows.push({conv_id:c.id,user_id:u.id,role,wrapped_by:me.id,wrapped_key:await CR.wrap(ID.priv,u.pubkey,K[c.id],c.id)});
