@@ -1,4 +1,4 @@
-const C='chat-v53',CDN='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js',A=['./','index.html','config.js','manifest.webmanifest','styles.css','app.js','icon-192.png'];
+const C='chat-v54',CDN='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js',A=['./','index.html','config.js','manifest.webmanifest','styles.css','app.js','icon-192.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(async c=>{await Promise.all(A.map(u=>c.add(new Request(u,{cache:'reload'})).catch(()=>{})));await c.add(new Request(CDN,{mode:'no-cors'})).catch(()=>{})}).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x)))).then(()=>self.clients.claim()))});
 self.addEventListener('fetch',e=>{const r=e.request;if(r.method!=='GET')return;const u=new URL(r.url);
@@ -9,6 +9,15 @@ self.addEventListener('push',e=>{let d={};try{d=e.data?.json()||{}}catch(_){try{
  const conv=d.conv||null;
  e.waitUntil(self.registration.showNotification(d.title||'Чат',{body:d.body||'Новое сообщение',icon:'icon-192.png',badge:'icon-192.png',tag:conv?'c'+conv:'chat-message',renotify:true,data:{conv}}))});
 self.addEventListener('notificationclick',e=>{e.notification.close();const conv=e.notification.data&&e.notification.data.conv;
- e.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(l=>{
-  if(l.length){const target=l.find(c=>c.focused)||l[0];target.postMessage({open:conv});return target.focus()}
-  return clients.openWindow('./'+(conv?'?c='+encodeURIComponent(conv):''))}))});
+ e.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(async l=>{
+  if(l.length){
+   const target=l.find(c=>c.focused)||l[0];
+   if(typeof conv==='string'&&conv&&typeof target.navigate==='function'){
+    const url=new URL('./',self.registration.scope);url.searchParams.set('c',conv);
+    try{const next=await target.navigate(url.href);return(next||target).focus()}catch(_){}
+   }
+   target.postMessage({open:conv});return target.focus();
+  }
+  const url=new URL('./',self.registration.scope);if(typeof conv==='string'&&conv)url.searchParams.set('c',conv);
+  return clients.openWindow(url.href)
+ }))});
