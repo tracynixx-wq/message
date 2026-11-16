@@ -84,6 +84,41 @@ jobs:
           APK_SHA=$(echo "$APK_HEX" | sed 's/../&:/g;s/:$//')
           echo "sha256=$APK_SHA" >> "$GITHUB_OUTPUT"
 
+      - name: Validate Android TWA association
+        env:
+          APK_SHA256: ${{ steps.apkcert.outputs.sha256 }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re, xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          gradle = Path('android/app/build.gradle').read_text(encoding='utf-8')
+          match = re.search(r"applicationId\\s+['\\\"]([^'\\\"]+)['\\\"]", gradle)
+          if not match:
+              raise SystemExit('applicationId is missing from android/app/build.gradle')
+          package_name = match.group(1)
+
+          manifest = ET.parse('android/app/src/main/AndroidManifest.xml').getroot()
+          android = '{http://schemas.android.com/apk/res/android}'
+          launcher = manifest.find('.//activity')
+          if launcher is None:
+              raise SystemExit('TWA LauncherActivity is missing from AndroidManifest.xml')
+          if manifest.find('application/meta-data[@' + android + 'name="asset_statements"]') is None:
+              raise SystemExit('asset_statements metadata is missing from AndroidManifest.xml')
+
+          links = json.loads(Path('.well-known/assetlinks.json').read_text(encoding='utf-8'))
+          entries = [x for x in links if x.get('target', {}).get('namespace') == 'android_app'
+                     and x.get('target', {}).get('package_name') == package_name]
+          if not entries:
+              raise SystemExit(f'assetlinks.json has no Android entry for {package_name}')
+          expected = os.environ['APK_SHA256'].replace(':', '').upper()
+          fingerprints = {str(v).replace(':', '').upper()
+                          for entry in entries for v in entry.get('target', {}).get('sha256_cert_fingerprints', [])}
+          if expected not in fingerprints:
+              raise SystemExit('APK signing certificate does not match .well-known/assetlinks.json')
+          print(f'TWA association verified for {package_name}')
+          PY
+
       - name: Publish APK artifact
         uses: actions/upload-artifact@v4
         with:
