@@ -2,7 +2,7 @@ name: Validate Message
 
 on:
   push:
-    branches: [main, "rebuild/**"]
+    branches: [main, "rebuild/**", "fix/**"]
   pull_request:
     branches: [main]
 
