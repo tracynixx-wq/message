@@ -12,6 +12,13 @@ on:
       - 'styles.css'
       - 'config.js'
       - 'manifest.webmanifest'
+      - 'ios.css'
+      - 'ios.js'
+      - 'sw.js'
+      - 'icon.svg'
+      - 'icon-192.png'
+      - 'icon-512.png'
+      - '.well-known/assetlinks.json'
 
 concurrency:
   group: message-android-apk-release
