@@ -61,7 +61,9 @@ jobs:
         run: |
           $files = Get-ChildItem -Path dist -Filter "*.exe"
           if (-not $files) { throw "No Windows .exe artifacts were produced." }
+          if (-not (Test-Path "dist/latest.yml")) { throw "electron-updater metadata dist/latest.yml is missing." }
           $files | ForEach-Object { Write-Host $_.FullName }
+          Write-Host "Verified dist/latest.yml"
 
       - name: Publish desktop release
         uses: softprops/action-gh-release@v2
@@ -73,4 +75,4 @@ jobs:
             dist/*.exe
             dist/*.blockmap
             dist/latest.yml
-          make_latest: false
+          make_latest: true
