@@ -135,7 +135,7 @@ function applyTheme(t){t={mode:'auto',accent:'',out:'',inb:'',shape:'r',wall:'no
  r.style.setProperty('--bubble-shadow',t.bubbleShadow===false?'none':'0 2px 8px rgba(0,0,0,.09)');
  r.style.setProperty('--wall',t.wall==='custom'&&okStore(t.wallUrl)?`url("${t.wallUrl}") center/cover`:(WALLS[t.wall]||WALLS.none)[dark?1:0]);
  document.body.dataset.list=t.list;
- document.querySelector('meta[name=theme-color]').content=dark?'#0b0b0d':'#ffffff';
+ document.querySelector('meta[name=theme-color]').content=dark?'#050505':'#ffffff';
  try{localStorage.setItem('th',JSON.stringify(t))}catch(e){}return t}
 try{applyTheme(JSON.parse(localStorage.getItem('th')))}catch(e){applyTheme()}
 let SHOWN=null;
@@ -1363,4 +1363,3 @@ function checkDesktopUpdate(){
 boot();checkAndroidUpdate();checkDesktopUpdate();
 addEventListener('online',checkAndroidUpdate);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkAndroidUpdate()});
-
