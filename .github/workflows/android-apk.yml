@@ -93,7 +93,7 @@ jobs:
           from pathlib import Path
 
           gradle = Path('android/app/build.gradle').read_text(encoding='utf-8')
-          match = re.search(r"applicationId\\s+['\\\"]([^'\\\"]+)['\\\"]", gradle)
+          match = re.search(r"applicationId\s+['\"]([^'\"]+)['\"]", gradle)
           if not match:
               raise SystemExit('applicationId is missing from android/app/build.gradle')
           package_name = match.group(1)
