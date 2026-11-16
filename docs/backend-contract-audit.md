@@ -36,13 +36,15 @@ Fields below are observed in client payloads, filters, or reads. Fields returned
 | `react` | `mid`, `e` |
 | `pin_msg` | `c`, `mid` |
 | `purge_secret` | no arguments |
+| `rotate_group_add_member_key` | `p_conv_id`, `p_user_id`, `p_wrapped_keys` |
+| `rotate_group_member_key` | `p_conv_id`, `p_user_id`, `p_wrapped_keys` |
 
 The database implementation must validate that the caller is a member of the affected conversation. Role changes, pinning, deletion, and membership changes need stricter role checks. Any `SECURITY DEFINER` function must use a fixed safe `search_path` and explicitly verify `auth.uid()`.
 
 ## Storage and realtime
 
 - Buckets referenced: `avatars` (profile images, covers, story images) and `media` (encrypted message attachments).
-- The client currently calls `getPublicUrl()` for both buckets. A private `media` bucket therefore requires a client change to use signed URLs; do not simply make it public without considering that encrypted blobs become publicly retrievable.
+- The client uses authenticated Storage downloads for encrypted `media` objects. Keep this bucket private; do not replace authenticated downloads with public URLs. Story media uses signed URLs.
 - Realtime subscriptions listen to `msgs`, `members`, `convs`, and `profiles`. These tables must be in the Realtime publication and their RLS policies must permit only intended rows.
 - Story image objects are stored under `<auth-user-id>/story-...`; profile assets are stored under `<auth-user-id>/...`; storage write policies should enforce that path ownership.
 
@@ -70,4 +72,4 @@ The database implementation must validate that the caller is a member of the aff
 
 The connected live project was verified on 2026-11-14. Its initial schema contained the legacy tables `chats` and `messages` alongside the active `convs`, `members`, and `msgs` model. The `stories` and `story_views` tables were missing and have now been created with RLS policies. A private `stories` Storage bucket was added; story images now use signed URLs. Group/channel membership changes rotate encryption keys and preserve each remaining member's old wrapped keys in `member_key_history` so previous messages remain decryptable. RLS init-plan expressions and foreign-key indexes were optimized.
 
-Still verify with real user accounts and devices: story visibility through DM membership, Storage signed URL expiry, group-key rotation/add/remove flows, notification delivery, voice/video calls, and long-history loading. The push Edge Function and VAPID private key are not yet deployed/configured, so server push notifications are not confirmed working.
+The `bright-endpoint` Edge Function is deployed and active, the `push_on_msg` trigger is attached to `msgs`, and the webhook secret exists in Vault. The VAPID Edge Function secrets could not be inspected through the available connection, so remote push delivery still needs an end-to-end test on two real devices. Also verify story visibility through DM membership, Storage signed URL expiry, group-key rotation/add/remove flows, voice/video calls, and long-history loading.
