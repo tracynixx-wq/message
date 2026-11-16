@@ -969,13 +969,35 @@ function newConv(kind,keep){if(!keep)NG={kind,title:'',sel:[]};
   <div class="srow" id="ga">➕ Добавить участника</div><button class="btn" id="gc">Создать</button>`,s=>{
   const gt=s.querySelector('#gt');gt.oninput=()=>NG.title=gt.value;
   s.querySelector('#ga').onclick=()=>pickUser(u=>{if(!NG.sel.some(x=>x.id===u.id))NG.sel.push(u);newConv(NG.kind,true)},NG.sel.map(u=>u.id));
-  s.querySelector('#gc').onclick=async()=>{const t=gt.value.trim();if(!t){toast('Введите название');return}
-   const r=await sb.from('convs').insert({kind:NG.kind,title:t}).select().single();if(r.error){toast(r.error.message);return}
-   const c=r.data,k=await CR.newKey();K[c.id]=k;
-   const m1=await sb.from('members').insert({conv_id:c.id,user_id:me.id,role:'owner',wrapped_by:me.id,wrapped_key:await CR.wrap(ID.priv,ID.pub,k,c.id)});
-   if(m1.error){await sb.from('convs').delete().eq('id',c.id);delete K[c.id];toast('Не удалось создать группу: '+m1.error.message);return}
-   if(NG.sel.length){const m2=await addMembers(c,NG.sel);if(m2.error){await sb.from('convs').delete().eq('id',c.id);delete K[c.id];toast('Не удалось добавить участников: '+m2.error.message);return}}
-   NG.sel.forEach(u=>P[u.id]=u);closeSheet();await loadAll();openChat(c.id)}})}
+  let creating=false;
+  s.querySelector('#gc').onclick=async()=>{
+   if(creating)return;
+   const t=gt.value.trim();if(!t){toast('Введите название');return}
+   const button=s.querySelector('#gc');creating=true;button.disabled=true;button.textContent='Создаём…';
+   let c=null,ready=false;
+   try{
+    const r=await sb.from('convs').insert({kind:NG.kind,title:t}).select().single();
+    if(r.error)throw new Error(r.error.message);
+    c=r.data;
+    const k=await CR.newKey();K[c.id]=k;
+    const wrapped=await CR.wrap(ID.priv,ID.pub,k,c.id);
+    const m1=await sb.from('members').insert({conv_id:c.id,user_id:me.id,role:'owner',wrapped_by:me.id,wrapped_key:wrapped});
+    if(m1.error)throw new Error('Не удалось добавить владельца: '+m1.error.message);
+    if(NG.sel.length){const m2=await addMembers(c,NG.sel);if(m2.error)throw new Error('Не удалось добавить участников: '+m2.error.message)}
+    ready=true;
+    NG.sel.forEach(u=>P[u.id]=u);
+    closeSheet();await loadAll();
+    if(C[c.id])openChat(c.id);else toast('Группа создана, но список чатов не обновился');
+   }catch(error){
+    if(c?.id&&!ready){
+     const cleanup=await sb.from('convs').delete().eq('id',c.id);
+     if(cleanup.error)console.warn('[group] cleanup failed',cleanup.error);
+     delete K[c.id];delete KH[c.id];
+    }
+    if(!ready&&s.isConnected){creating=false;button.disabled=false;button.textContent='Создать'}
+    toast(ready?'Группа создана, но не удалось открыть её: '+(error.message||error):'Не удалось создать группу: '+(error.message||error));
+   }
+  }})}
 
 /* ---------- информация о чате ---------- */
 function profileSheet(u,back){const mine=u.id===me.id;
