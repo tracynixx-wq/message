@@ -5,7 +5,26 @@ self.addEventListener('fetch',e=>{const r=e.request;if(r.method!=='GET')return;c
  if(r.url===CDN){e.respondWith(caches.match(r).then(h=>h||fetch(r).then(res=>{const cp=res.clone();caches.open(C).then(c=>c.put(r,cp));return res})));return}
  if(u.origin!==location.origin)return;
  e.respondWith(caches.match(r,{ignoreSearch:true}).then(hit=>fetch(r).then(res=>{if(res.ok){const cp=res.clone();caches.open(C).then(c=>c.put(r,cp))}return res}).catch(()=>hit||Promise.reject(new Error('Offline and no cached response')))))});
-self.addEventListener('push',e=>{\n let d={};\n if(e.data){\n  // Read the payload once. Calling json() and then text() consumes the same body,\n  // so the old fallback silently lost plain-text push messages.\n  const raw=e.data.text();\n  if(raw){try{const parsed=JSON.parse(raw);d=parsed&&typeof parsed==='object'?parsed:{body:String(parsed??'')}}catch(_){d={body:raw}}}\n }\n const conv=typeof d.conv==='string'&&d.conv?d.conv:null;\n const title=typeof d.title==='string'&&d.title.trim()?d.title:'Loom';\n const body=typeof d.body==='string'&&d.body.trim()?d.body:'Новое сообщение';\n e.waitUntil(self.registration.showNotification(title,{body,icon:'icon-192.png',badge:'icon-192.png',tag:conv?'c'+conv:'chat-message',renotify:true,data:{conv}}));\n});
+self.addEventListener('push',e=>{
+ let d={};
+ if(e.data){
+  // Read the payload once; Request body streams can only be consumed once.
+  const raw=e.data.text();
+  if(raw){
+   try{
+    const parsed=JSON.parse(raw);
+    d=parsed&&typeof parsed==='object'?parsed:{body:String(parsed??'')};
+   }catch(_){d={body:raw}}
+  }
+ }
+ const conv=typeof d.conv==='string'&&d.conv?d.conv:null;
+ const title=typeof d.title==='string'&&d.title.trim()?d.title:'Loom';
+ const body=typeof d.body==='string'&&d.body.trim()?d.body:'Новое сообщение';
+ e.waitUntil(self.registration.showNotification(title,{
+  body,icon:'icon-192.png',badge:'icon-192.png',
+  tag:conv?'c'+conv:'chat-message',renotify:true,data:{conv}
+ }));
+});
 self.addEventListener('notificationclick',e=>{e.notification.close();const conv=e.notification.data&&e.notification.data.conv;
  const url=new URL('./',self.registration.scope);if(conv)url.searchParams.set('c',conv);
  e.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(async l=>{
