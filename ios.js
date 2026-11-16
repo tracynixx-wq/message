@@ -433,64 +433,235 @@
     }
     addEventListener('pointerup', gend); addEventListener('pointercancel', gend);
 
-    /* ---------- звезда из чёрточек: перетаскивание раздвигает, тап рассыпает ---------- */
+    /* ---------- кнопка «Войти или зарегистрироваться» → выбор ---------- */
+    var enterBtn = $('#wlEnter'), noteEl = $('#wlNote'), choicesEl = $('#wlChoices'), h1 = $('#wlH');
+    if (enterBtn && choicesEl) enterBtn.addEventListener('click', function () {
+      enterBtn.classList.add('out'); if (noteEl) noteEl.style.opacity = 0;
+      setTimeout(function () { enterBtn.style.display = 'none'; if (noteEl) noteEl.style.display = 'none'; choicesEl.classList.add('show'); }, 220);
+    });
+
+    /* ---------- цветок из палочек: оптимизированная отрисовка ----------
+       • палочки сгруппированы по цвету → ~60 вызовов stroke() вместо ~1500
+       • один requestAnimationFrame на цветок и фон, пауза при скрытии/закрытии
+       • свечение двигается через transform/opacity (без перерисовки градиента)
+       • авто-снижение качества, если кадры дольше ~40 мс */
     var box = $('#star'); if (!box) return;
     var stage = box.parentNode, cv = document.createElement('canvas'); box.appendChild(cv);
     var ctx = cv.getContext('2d'); if (!ctx) return;
-    var N = 17, T = 9.33, dashes = [], size = 0, dpr = 1;
-    var rnd = Math.random, smooth = function (x) { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
-    for (var j = 0; j < N; j++) for (var i = 0; i < N; i++) {
-      dashes.push({ gx: (i / (N - 1)) * 2 - 1, gy: (j / (N - 1)) * 2 - 1, a: rnd() * Math.PI, ox: rnd() * 2 - 1, oy: rnd() * 2 - 1, len: .8 + rnd() * .5, al: .45 + rnd() * .5, ph: rnd() * 6.28, fx: 0, fy: 0 });
-    }
-    function resize() { dpr = Math.min(window.devicePixelRatio || 1, 2); size = box.clientWidth || 280; cv.width = cv.height = Math.round(size * 1.8 * dpr); }
-    var ptr = { x: 0, y: 0, on: false }, tapT = 0, tapE = 0, timer = 0, down = null, phase = 1.2;
-    function local(e) { var r = cv.getBoundingClientRect(), k = size * 1.8 / r.width; ptr.x = (e.clientX - r.left) * k; ptr.y = (e.clientY - r.top) * k; }
-    function tap() { tapT = 1; hap('medium'); clearTimeout(timer); timer = setTimeout(function () { phase = .17 * T; tapT = 0; }, 1000); }
-    stage.addEventListener('pointerdown', function (e) { local(e); ptr.on = true; down = { t: performance.now(), x: e.clientX, y: e.clientY }; });
-    stage.addEventListener('pointermove', function (e) { if (e.pointerType === 'mouse' || down) { local(e); ptr.on = true; } });
-    stage.addEventListener('pointerup', function (e) {
-      if (down && performance.now() - down.t < 400 && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 12) tap();
-      down = null; if (e.pointerType !== 'mouse') ptr.on = false;
-    });
-    stage.addEventListener('pointercancel', function () { down = null; ptr.on = false; });
-    stage.addEventListener('pointerleave', function () { ptr.on = false; });
-    function draw(dt) {
-      phase += dt;
-      tapE += (tapT - tapE) * Math.min(1, dt * (tapT ? 6 : 2.6));
-      var wave = 1 - tapE, order = smooth((wave - .12) / .7), scale = (.42 + .58 * smooth((wave - .05) / .8)) * (1 - .35 * tapE);
-      var R = size * .5 * .84, L = size * .034, c = size * .9, spin = phase * .35, chaosK = 1 - .35 * tapE;
-      var rad = size * .24, push = size * .2 * (1 - tapE), chaos = 1 - order, ease = Math.min(1, dt * 9);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, size * 1.8, size * 1.8);
-      ctx.lineCap = 'round'; ctx.lineWidth = Math.max(1, size * .0042);
-      for (var k = 0; k < dashes.length; k++) {
-        var d = dashes[k];
-        var x = c + d.gx * R * scale + chaos * d.ox * R * .34 * chaosK + Math.sin(phase * 1.7 + d.ph) * chaos * size * .012;
-        var y = c + d.gy * R * scale + chaos * d.oy * R * .34 * chaosK + Math.cos(phase * 1.3 + d.ph) * chaos * size * .012;
-        var tx = 0, ty = 0;
-        if (ptr.on && push > 0) {
-          var dx0 = x - ptr.x, dy0 = y - ptr.y, dist = Math.hypot(dx0, dy0);
-          if (dist < rad) { var f = Math.pow(1 - dist / rad, 1.5) * push, u = dist || 1; tx = dx0 / u * f; ty = dy0 / u * f; }
-        }
-        d.fx += (tx - d.fx) * ease; d.fy += (ty - d.fy) * ease; x += d.fx; y += d.fy;
-        var tan = Math.atan2(d.gy, d.gx) + Math.PI / 2 + Math.sin(spin + d.ph * .1) * .06;
-        var rand = d.a + phase * .9 * chaos * (d.ph > 3 ? 1 : -1);
-        var diff = Math.atan2(Math.sin(tan - rand), Math.cos(tan - rand)), ang = rand + diff * order;
-        var hl = L * d.len * (.55 + .45 * scale) / 2;
-        ctx.strokeStyle = 'rgba(255,255,255,' + (d.al * (.7 + .3 * order)) + ')';
-        ctx.beginPath(); ctx.moveTo(x - Math.cos(ang) * hl, y - Math.sin(ang) * hl); ctx.lineTo(x + Math.cos(ang) * hl, y + Math.sin(ang) * hl); ctx.stroke();
+    var glowEl = $('#wlGlow'), bgc = $('#wlBg'), bx = bgc && bgc.getContext('2d');
+    var root = document.documentElement;
+    var rnd = Math.random, PI2 = Math.PI * 2;
+    var smooth = function (x) { x = x < 0 ? 0 : x > 1 ? 1 : x; return x * x * (3 - 2 * x); };
+    var LAY = 5, PET = 8, PER = 34, CEN = 150, bl = [0, 0, 0, 0, 0];
+    var prof = function (u) { return Math.pow(Math.sin(Math.PI * Math.pow(u, .75)), .7); };
+    var items = [], bins = [];
+
+    for (var l = 0; l < LAY; l++) {
+      var t0 = l / (LAY - 1), lr = .46 + .54 * t0, off = l * (PI2 / PET) * .37;
+      for (var k = 0; k < PET; k++) for (var qq = 0; qq < PER; qq++) {
+        var u = .1 + .9 * Math.pow(rnd(), .8), v = rnd() + rnd() - 1, hw = Math.PI / PET * 1.25 * prof(u), th = off + k * PI2 / PET;
+        items.push({ c: 0, l: l, th: th, u: u, v: v, hw: hw, lr: lr, oj: rnd() * 2 - 1, ph: rnd() * 6.28, len: .8 + rnd() * .5,
+          sat: Math.round((88 + t0 * 12) / 4) * 4, lt: Math.round((86 - t0 * 24 + rnd() * 8 - 4) / 5) * 5, h: 330, al: Math.round((.55 + rnd() * .45) * 4) / 4,
+          ox: rnd() * 2 - 1, oy: rnd() * 2 - 1, fx: 0, fy: 0, tx: 0, ty: 0, tg: 0, bin: 0,
+          hx: Math.cos(th + v * hw) * u * lr, hy: Math.sin(th + v * hw) * u * lr });
       }
     }
-    resize(); addEventListener('resize', function () { resize(); if (still) draw(0); });
-    var still = matchMedia('(prefers-reduced-motion:reduce)').matches;
-    if (still) { draw(0); return; }
-    var last = performance.now(), running = false;
+    for (var ci = 0; ci < CEN; ci++) {
+      var a0 = rnd() * PI2, r0 = Math.sqrt(rnd()) * .17, w = rnd() < .25;
+      items.push({ c: 1, a0: a0, r0: r0, a: rnd() * Math.PI, ph: rnd() * 6.28, len: .7 + rnd() * .5, al: Math.round((.7 + rnd() * .3) * 4) / 4,
+        h: w ? 42 : 335, sat: 100, lt: w ? 82 : 93, ox: rnd() * 2 - 1, oy: rnd() * 2 - 1, fx: 0, fy: 0, tx: 0, ty: 0, tg: 0, bin: 0,
+        hx: Math.cos(a0) * r0, hy: Math.sin(a0) * r0 });
+    }
+
+    /* цель для палочек при удержании: логотип «speekly.» */
+    function buildLogo() {
+      var W2 = 640, H2 = 200, c2 = document.createElement('canvas'); c2.width = W2; c2.height = H2;
+      var g = c2.getContext('2d', { willReadFrequently: true }); if (!g) return false;
+      g.font = '800 120px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif'; g.textBaseline = 'alphabetic';
+      var w1 = g.measureText('speekly').width, wd = g.measureText('.').width, x0 = (W2 - (w1 + wd - 6)) / 2;
+      g.fillStyle = '#fff'; g.fillText('speekly', x0, 150); g.fillStyle = '#f0f'; g.fillText('.', x0 + w1 - 6, 150);
+      var d = g.getImageData(0, 0, W2, H2).data, Lw = [], Dp = [], x1 = 1e9, x2 = -1e9, y1 = 1e9, y2 = -1e9;
+      for (var y = 0; y < H2; y += 2) for (var x = 0; x < W2; x += 2) {
+        var i = (y * W2 + x) * 4;
+        if (d[i + 3] > 128) { (d[i + 1] < 128 ? Dp : Lw).push([x, y]); if (x < x1) x1 = x; if (x > x2) x2 = x; if (y < y1) y1 = y; if (y > y2) y2 = y; }
+      }
+      if (!Lw.length) return false;
+      var kk = 2 / (x2 - x1), cx = (x1 + x2) / 2, cy = (y1 + y2) / 2, total = items.length;
+      var dn = Dp.length ? Math.max(90, Math.round(total * Dp.length / (Lw.length + Dp.length))) : 0, ln = total - dn;
+      function pick(arr, n, pink) { var out = []; for (var i = 0; i < n && arr.length; i++) { var p = arr[(rnd() * arr.length) | 0]; out.push({ x: (p[0] - cx + rnd() * 2 - 1) * kk, y: (p[1] - cy + rnd() * 2 - 1) * kk, pk: pink }); } return out; }
+      var pts = pick(Lw, ln, 0).concat(pick(Dp, dn, 1));
+      while (pts.length < total) pts.push(pts[pts.length - 1] || { x: 0, y: 0, pk: 0 });
+      pts.sort(function (a, b) { return Math.atan2(a.y, a.x) - Math.atan2(b.y, b.x); });
+      items.slice().sort(function (a, b) { return Math.atan2(a.hy, a.hx) - Math.atan2(b.hy, b.hx); }).forEach(function (p, i) { p.tx = pts[i].x; p.ty = pts[i].y; p.tg = pts[i].pk; });
+      return true;
+    }
+    var logoOk = false; try { logoOk = buildLogo(); } catch (_) {}
+
+    /* группы по цвету: одинаковые палочки рисуются одним путём */
+    (function () {
+      var map = {};
+      items.forEach(function (p) {
+        var key = p.c + '|' + p.h + '|' + p.sat + '|' + p.lt + '|' + p.al + '|' + p.tg;
+        if (map[key] === undefined) { map[key] = bins.length; bins.push({ h: p.h, sat: p.sat, lt: p.lt, al: p.al, tg: p.tg, base: 'hsl(' + p.h + ' ' + p.sat + '% ' + p.lt + '%)' }); }
+        p.bin = map[key];
+      });
+      items.sort(function (a, b) { return a.bin - b.bin; });
+    })();
+
+    /* ---- качество ---- */
+    var q = (root.classList.contains('perf-low') ? 2 : 0), DPR_CAP = [2, 1.5, 1, 1], KEEP = [20, 20, 20, 13];
+    var size = 0, dpr = 1, rect = null;
+    function resize() {
+      var pw = stage.clientWidth || 300, ph = stage.clientHeight || 300;
+      var s = Math.max(120, Math.min(pw * .88, 340, ph));
+      box.style.width = box.style.height = s + 'px';
+      size = s; dpr = Math.min(window.devicePixelRatio || 1, DPR_CAP[q]);
+      var px = Math.round(size * dpr); if (cv.width !== px) cv.width = cv.height = px;
+      rect = null;
+    }
+    function getRect() { return rect || (rect = cv.getBoundingClientRect()); }
+
+    /* ---- ввод ---- */
+    var phrases = ['Тебе здесь рады', 'Давай начнём', 'Здесь тебя услышат', 'Твой голос важен', 'Твоё общение начинается здесь'], pi = 0;
+    function say() { if (!h1) return; h1.classList.add('swap'); setTimeout(function () { h1.textContent = phrases[pi++ % phrases.length]; h1.classList.remove('swap'); }, 180); }
+    var ptr = { x: 0, y: 0, on: false }, down = false, downAt = 0, holdT = 0, form = 0, sx = 0, sy = 0, dragging = false, held = false;
+    var burst = 0, burstTarget = 0, timer = 0, sparks = [];
+    function local(e) { var r = getRect(); ptr.x = (e.clientX - r.left) * size / r.width; ptr.y = (e.clientY - r.top) * size / r.height; }
+    function tap() {
+      burstTarget = 1; clearTimeout(timer); timer = setTimeout(function () { burstTarget = 0; }, 950);
+      var hues = [330, 285, 200, 45], kk = size / 390, n = q >= 3 ? 18 : 30;
+      for (var i = 0; i < n; i++) { var a = rnd() * PI2, sp = (90 + rnd() * 230) * kk, lf = .7 + rnd() * .5; sparks.push({ x: ptr.x, y: ptr.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 40 * kk, life: lf, max: lf, h: hues[i % 4] + rnd() * 20 }); }
+      hap('medium'); say(); kick();
+    }
+    stage.addEventListener('pointerdown', function (e) { rect = null; local(e); ptr.on = true; down = true; holdT = 0; held = false; downAt = performance.now(); sx = e.clientX; sy = e.clientY; dragging = false; try { stage.setPointerCapture(e.pointerId); } catch (_) {} kick(); });
+    stage.addEventListener('pointermove', function (e) {
+      if (down || e.pointerType === 'mouse' || e.buttons) { local(e); ptr.on = true; if (!running) kick(); }
+      if (down && form < .5 && Math.hypot(e.clientX - sx, e.clientY - sy) > 10) dragging = true;
+    });
+    stage.addEventListener('pointerup', function (e) { local(e); var short = performance.now() - downAt < 250; down = false; ptr.on = false; if (short && !dragging) tap(); });
+    stage.addEventListener('pointercancel', function () { down = false; ptr.on = false; });
+    stage.addEventListener('pointerleave', function (e) { if (e.pointerType === 'mouse') ptr.on = false; });
+
+    /* ---- отрисовка цветка ---- */
+    var phase = .2, glow = { x: 0, y: 0, a: 1 }, lgx = 1e9, lgy = 1e9, lga = 1e9;
+    var keepN = KEEP[q];
+    function draw(dt) {
+      phase += dt;
+      burst += (burstTarget - burst) * Math.min(1, dt * (burstTarget ? 6 : 2.6));
+      if (down) holdT += dt; else holdT = 0;
+      var ft = logoOk && down && !dragging && holdT > .35 ? 1 : 0;
+      if (ft && !held) { held = true; hap('light'); } else if (!ft) held = false;
+      form += (ft - form) * Math.min(1, dt * (ft ? 5 : 3.2));
+      var c = size / 2, R = size * .40, push = size * .2 * (1 - burst), pulse = 1 + .015 * Math.sin(phase * 9) * form;
+      var tc = (phase % 12) / 12, bloom = tc < .4 ? smooth(tc / .4) : tc < .66 ? 1 : 1 - .9 * smooth((tc - .66) / .34);
+      var sp = 1 + .10 * bloom + .035 * Math.sin(phase * 2.4) * bloom + .12 * burst, puff = Math.min(1, bloom * (.7 + .3 * Math.sin(phase * 1.1 + 1)) + burst * .5);
+      for (var l = 0; l < LAY; l++) bl[l] = smooth((bloom - l * .09) / .64);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, size, size); ctx.lineCap = 'round'; ctx.lineWidth = Math.max(1, size * .0042);
+      var fl = size * (.007 + .013 * puff), pr = size * .24, ease = Math.min(1, dt * 9), usePtr = ptr.on && form < .5;
+      var t1 = phase * 1.7, t2 = phase * 1.3, bk = burst * .18 * R, Lb = size * .015, morph = form > .01, fa = form * .4;
+      var cur = -1, n = items.length;
+      for (var i = 0; i < n; i++) {
+        if (keepN < 20 && (i % 20) >= keepN) continue;
+        var p = items[i], x, y, ang;
+        if (p.c) { var rr = p.r0 * R * (.55 + .45 * bloom) * sp, aa = p.a0 + Math.sin(phase * .5 + p.ph) * .15; x = c + Math.cos(aa) * rr; y = c + Math.sin(aa) * rr; ang = p.a + phase * .12; }
+        else { var kb = bl[p.l], r = R * (.05 + .03 * p.l) * (1 - kb * .4) + p.u * p.lr * R * sp * kb, a = p.th + (1 - kb) * 1.4 * (1 + p.l * .25) + p.v * p.hw; x = c + Math.cos(a) * r; y = c + Math.sin(a) * r; ang = a + p.oj * (.3 + puff * .9); }
+        x += Math.sin(t1 + p.ph) * fl + bk * p.ox; y += Math.cos(t2 + p.ph) * fl + bk * p.oy;
+        if (usePtr) {
+          var dx = x - ptr.x, dy = y - ptr.y, d = Math.sqrt(dx * dx + dy * dy);
+          if (d < pr) { var f = Math.pow(1 - d / pr, 1.5) * push, uu = d || 1; p.fx += (dx / uu * f - p.fx) * ease; p.fy += (dy / uu * f - p.fy) * ease; } else { p.fx *= .88; p.fy *= .88; }
+        } else { p.fx *= .9; p.fy *= .9; }
+        x += p.fx; y += p.fy;
+        if (morph) { x += (c + p.tx * R * .9 * pulse - x) * form; y += (c + p.ty * R * .9 * pulse - y) * form; }
+        if (p.bin !== cur) {
+          if (cur >= 0) ctx.stroke();
+          cur = p.bin; var b = bins[cur];
+          if (morph) {
+            ctx.strokeStyle = b.tg ? 'hsl(' + (b.h + (324 - b.h) * form).toFixed(0) + ' ' + (b.sat + (100 - b.sat) * form).toFixed(0) + '% ' + (b.lt + (65 - b.lt) * form).toFixed(0) + '%)'
+              : 'hsl(' + b.h + ' ' + (b.sat * (1 - form)).toFixed(0) + '% ' + (b.lt + (100 - b.lt) * form).toFixed(0) + '%)';
+          } else ctx.strokeStyle = b.base;
+          ctx.globalAlpha = Math.min(1, b.al + fa);
+          ctx.beginPath();
+        }
+        var Ln = Lb * p.len * (1 - form * .3) * (p.c ? 1 : .85 + .35 * puff), ca = Math.cos(ang), sa = Math.sin(ang);
+        ctx.moveTo(x, y); ctx.lineTo(x + ca * Ln, y + sa * Ln);
+      }
+      if (cur >= 0) ctx.stroke();
+      /* искры при тапе */
+      if (sparks.length) {
+        ctx.lineWidth = Math.max(1.4, size * .007);
+        for (var s = sparks.length - 1; s >= 0; s--) {
+          var sk = sparks[s]; sk.life -= dt; if (sk.life <= 0) { sparks.splice(s, 1); continue; }
+          sk.x += sk.vx * dt; sk.y += sk.vy * dt; sk.vx *= .97; sk.vy = sk.vy * .97 + size * .5 * dt;
+          ctx.globalAlpha = sk.life / sk.max; ctx.strokeStyle = 'hsl(' + sk.h.toFixed(0) + ' 95% 65%)';
+          ctx.beginPath(); ctx.moveTo(sk.x, sk.y); ctx.lineTo(sk.x - sk.vx * .03, sk.y - sk.vy * .03); ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 1;
+      /* свечение: только transform/opacity, и только при заметном сдвиге */
+      var ge = Math.min(1, dt * 4), gxT = ptr.on ? (ptr.x - c) * .35 : 0, gyT = ptr.on ? (ptr.y - c) * .35 : 0, gaT = 1 + (ptr.on ? .35 : 0) + form * .5 + burst * .4;
+      glow.x += (gxT - glow.x) * ge; glow.y += (gyT - glow.y) * ge; glow.a += (gaT - glow.a) * ge;
+      if (glowEl && (Math.abs(glow.x - lgx) + Math.abs(glow.y - lgy) > .2 || Math.abs(glow.a - lga) > .006)) {
+        glowEl.style.transform = 'translate3d(' + glow.x.toFixed(1) + 'px,' + glow.y.toFixed(1) + 'px,0)';
+        glowEl.style.opacity = Math.min(1, glow.a / 2.25).toFixed(3);
+        lgx = glow.x; lgy = glow.y; lga = glow.a;
+      }
+    }
+
+    /* ---- фон: пылинки и пузыри (30 кадров/с, без ретина-разрешения) ---- */
+    var W = 0, H = 0, bdpr = 1;
+    var dust = [], msgs = [];
+    for (var di = 0; di < 40; di++) dust.push({ x: rnd(), y: rnd(), r: .4 + rnd() * 1.2, s: .004 + rnd() * .012, a: .1 + rnd() * .3, ph: rnd() * 6.28 });
+    for (var mi = 0; mi < 7; mi++) msgs.push({ x: rnd(), y: rnd(), w: .07 + rnd() * .07, s: .012 + rnd() * .016, a: .05 + rnd() * .05, ph: rnd() * 6.28, pink: rnd() < .5 });
+    function rbg() { if (!bgc) return; W = wl.clientWidth; H = wl.clientHeight; bdpr = Math.min(window.devicePixelRatio || 1, q >= 2 ? 1 : 1.5); bgc.width = Math.round(W * bdpr); bgc.height = Math.round(H * bdpr); }
+    function bubble(x, y, w, h) { var r = h * .35; bx.beginPath(); bx.moveTo(x + r, y); bx.arcTo(x + w, y, x + w, y + h, r); bx.arcTo(x + w, y + h, x, y + h, r); bx.lineTo(x + w * .28, y + h); bx.lineTo(x + w * .14, y + h * 1.3); bx.lineTo(x + w * .14, y + h); bx.arcTo(x, y + h, x, y, r); bx.arcTo(x, y, x + w, y, r); bx.closePath(); }
+    function drawBg(dt, now) {
+      if (!bx || !W) return;
+      bx.setTransform(bdpr, 0, 0, bdpr, 0, 0); bx.clearRect(0, 0, W, H);
+      bx.fillStyle = '#fff';
+      for (var i = 0; i < dust.length; i++) {
+        var d = dust[i]; d.y -= d.s * dt; if (d.y < -.02) { d.y = 1.02; d.x = rnd(); }
+        bx.globalAlpha = d.a * (.6 + .4 * Math.sin(now / 1000 * 1.4 + d.ph));
+        var dx = (d.x + Math.sin(now / 4000 + d.ph) * .01) * W, dy = d.y * H;
+        bx.fillRect(dx - d.r, dy - d.r, d.r * 2, d.r * 2);
+      }
+      var u = Math.min(W, 520); bx.lineWidth = 1;
+      for (var j = 0; j < msgs.length; j++) {
+        var m = msgs[j]; m.y -= m.s * dt; if (m.y < -.1) { m.y = 1.1; m.x = rnd(); }
+        var w = u * m.w * 1.7, h = w * .55;
+        bx.globalAlpha = m.a; bx.strokeStyle = m.pink ? '#ff4db8' : '#ffffff'; bubble(m.x * W + Math.sin(now / 3000 + m.ph) * 10, m.y * H, w, h); bx.stroke();
+      }
+      bx.globalAlpha = 1;
+    }
+
+    /* ---- цикл ---- */
+    var still = matchMedia('(prefers-reduced-motion:reduce)').matches || root.classList.contains('reduce-motion');
+    var last = performance.now(), running = false, ema = 16.7, bad = 0, bgAcc = 0, skip = 0;
+    function lower() { if (q >= 3) return; q++; keepN = KEEP[q]; resize(); rbg(); }
     function loop(now) {
       if (auth.hidden || document.hidden) { running = false; return; }
-      var dt = Math.min(.05, (now - last) / 1000); last = now; draw(dt); requestAnimationFrame(loop);
+      var raw = (now - last) / 1000; last = now;
+      if (raw > .25) raw = .016;
+      var open = wl.classList.contains('open');
+      /* пока открыт лист входа — цветок рисуем реже, фон не рисуем */
+      if (open && (skip ^= 1)) { requestAnimationFrame(loop); return; }
+      var dt = Math.min(.05, raw * (open ? 2 : 1));
+      ema += (raw * 1000 - ema) * .1;
+      if (ema > 40) { if (++bad > 45) { bad = 0; ema = 16.7; lower(); } } else if (bad > 0) bad--;
+      draw(dt);
+      if (!open) { bgAcc += raw; if (bgAcc >= .033) { drawBg(bgAcc, now); bgAcc = 0; } }
+      requestAnimationFrame(loop);
     }
-    function kick() { if (running || auth.hidden || document.hidden) return; running = true; last = performance.now(); resize(); requestAnimationFrame(loop); }
-    new MutationObserver(kick).observe(auth, { attributes: true, attributeFilter: ['hidden'] });
+    function kick() {
+      if (running || auth.hidden || document.hidden) return;
+      if (still) { draw(0); return; }
+      running = true; last = performance.now(); requestAnimationFrame(loop);
+    }
+    resize(); rbg();
+    if (window.ResizeObserver) new ResizeObserver(function () { resize(); rbg(); if (still) draw(0); }).observe(wl);
+    else addEventListener('resize', function () { resize(); rbg(); if (still) draw(0); });
+    new MutationObserver(function () { if (!auth.hidden) { resize(); rbg(); kick(); } }).observe(auth, { attributes: true, attributeFilter: ['hidden'] });
     document.addEventListener('visibilitychange', kick);
+    if (still) { draw(0); drawBg(0, 0); return; }
     kick();
   });
 })();

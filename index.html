@@ -21,15 +21,20 @@
 
 <section id="auth" class="full center" hidden>
  <div class="wl" id="wl">
-  <img class="wl-logo" src="icon.svg" alt="Loom" width="28" height="28" style="display:block">
-  <div class="wl-stage"><div id="star" aria-hidden="true"></div></div>
+  <canvas class="wl-bg" id="wlBg" aria-hidden="true"></canvas>
+  <div class="wl-brand" aria-label="Speekly">speekly<span>.</span></div>
+  <div class="wl-stage" id="wlStage"><div id="star" aria-hidden="true"><div class="wl-glowpos" id="wlGlow"><div class="wl-glow"></div></div></div></div>
   <div class="wl-copy">
-   <h1>Добро пожаловать</h1>
-   <p class="sub">Чаты, группы и каналы со сквозным шифрованием</p>
+   <h1 id="wlH">Твоё общение начинается здесь</h1>
+   <p class="sub">Пространство для твоих разговоров</p>
   </div>
   <div class="wl-btns">
-   <button id="wlIn" class="wl-btn light" type="button">Войти</button>
-   <button id="wlUp" class="wl-btn dark" type="button">Создать аккаунт</button>
+   <button id="wlEnter" class="wl-btn light" type="button">Войти или зарегистрироваться</button>
+   <p class="wl-note" id="wlNote">Нажми на цветок или зажми его</p>
+   <div class="wl-choices" id="wlChoices">
+    <button id="wlUp" class="wl-btn light" type="button">Регистрация</button>
+    <button id="wlIn" class="wl-btn dark" type="button">Войти</button>
+   </div>
   </div>
   <p class="wl-terms">Продолжая, вы соглашаетесь<br>с <a href="./privacy.html" target="_blank" rel="noopener">Политикой конфиденциальности</a></p>
   <p id="hint" class="wl-hint"></p>
