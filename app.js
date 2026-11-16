@@ -231,7 +231,11 @@ async function unwrap(c){
   const by=P[row.wrapped_by];if(!by?.pubkey||!row.wrapped_key)continue;
   try{const key=await CR.unwrap(ID.priv,by.pubkey,row.wrapped_key,c.id);keys.push(key)}catch(e){}
  }
- if(keys.length){K[c.id]=keys[0];KH[c.id]=keys.slice(1)}
+ if(keys.length){
+  const previous=[...(K[c.id]?[K[c.id]]:[]),...(KH[c.id]||[])];
+  K[c.id]=keys[0];
+  KH[c.id]=[...keys.slice(1),...previous.filter(k=>k!==keys[0])].filter((k,i,a)=>a.indexOf(k)===i);
+ }
 }
 async function dc(m){
  const keys=[K[m.conv_id],...(KH[m.conv_id]||[])].filter(Boolean);m.p=null;
@@ -284,10 +288,22 @@ async function onMsg(p){const n=p.new;let affectsOpen=false;
  if(p.eventType==='DELETE'){const arr=M[p.old.conv_id]||[],deleted=arr.some(x=>x.id===p.old.id);if(deleted)M[p.old.conv_id]=arr.filter(x=>x.id!==p.old.id);messageIndex.delete(String(p.old.id));affectsOpen=deleted&&p.old.conv_id===cur}
  else{if(!n)return;if(!C[n.conv_id]){await loadAll();return}await dc(n);const a=M[n.conv_id]=M[n.conv_id]||[],i=a.findIndex(x=>x.id===n.id);if(i>-1)a[i]=n;else a.push(n);messageIndex.set(String(n.id),n);affectsOpen=n.conv_id===cur}
  if(cur){if(affectsOpen)render(p.eventType==='INSERT'&&n?.conv_id===cur);markRead()}else home()}
-function onMem(p){const x=p.new,o=p.old;
- if(p.eventType==='INSERT'){if(x.user_id===me.id||!C[x.conv_id])loadAll();else loadAll();return}
- if(p.eventType==='DELETE'){if(o.user_id===me.id){delete C[o.conv_id];delete K[o.conv_id];(M[o.conv_id]||[]).forEach(m=>messageIndex.delete(String(m.id)));delete M[o.conv_id];if(cur===o.conv_id){cur=null;show('home')}home()}else loadAll();return}
- const c=C[x.conv_id];if(!c)return;const i=c.members.findIndex(m=>m.user_id===x.user_id);if(i>-1)c.members[i]=x;if(x.user_id===me.id)c.my=x;if(cur===x.conv_id)render()}
+async function onMem(p){const x=p.new,o=p.old;
+ if(p.eventType==='INSERT'){loadAll();return}
+ if(p.eventType==='DELETE'){if(o.user_id===me.id){delete C[o.conv_id];delete K[o.conv_id];delete KH[o.conv_id];(M[o.conv_id]||[]).forEach(m=>messageIndex.delete(String(m.id)));delete M[o.conv_id];if(cur===o.conv_id){cur=null;show('home')}home()}else loadAll();return}
+ const c=C[x.conv_id];if(!c)return;
+ const previousMine=c.my;
+ const ownKeyChanged=x.user_id===me.id&&(!previousMine||x.wrapped_key!==previousMine.wrapped_key||x.wrapped_by!==previousMine.wrapped_by);
+ const oldKey=ownKeyChanged?K[x.conv_id]:null;
+ const i=c.members.findIndex(m=>m.user_id===x.user_id);if(i>-1)c.members[i]=x;
+ if(x.user_id===me.id)c.my=x;
+ if(ownKeyChanged){
+  if(oldKey)KH[x.conv_id]=[oldKey,...(KH[x.conv_id]||[])].filter((k,i,a)=>a.indexOf(k)===i);
+  await unwrap(c);
+  const messages=M[x.conv_id]||[];
+  for(let i=0;i<messages.length;i+=24)await Promise.all(messages.slice(i,i+24).map(dc));
+ }
+ if(cur===x.conv_id)render();else home()}
 function presence(){
  const ping=(force)=>{if(force===true||!document.hidden)sb.from('profiles').update({last_seen:new Date().toISOString()}).eq('id',me.id).then(()=>{})};
  const peers=async()=>{if(document.hidden)return;const ids=Object.keys(P).filter(i=>i!==me.id);if(!ids.length)return;
@@ -886,7 +902,9 @@ async function addMembers(c,users,role='member'){
    }
    const result=await sb.rpc('rotate_group_add_members_key',{p_conv_id:c.id,p_user_ids:users.map(u=>u.id),p_wrapped_keys:wrapped});
    if(result.error)return result;
+   const previous=[...(K[c.id]?[K[c.id]]:[]),...(KH[c.id]||[])];
    K[c.id]=nextKey;
+   KH[c.id]=previous.filter(k=>k!==nextKey).filter((k,i,a)=>a.indexOf(k)===i);
    return {data:null,error:null};
   }catch(error){return {data:null,error}}
  }
