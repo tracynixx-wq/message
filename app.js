@@ -327,9 +327,10 @@ async function onMsg(p){const n=p.new;let affectsOpen=false;
  else{if(!n)return;if(!C[n.conv_id]){await loadAll();return}await dc(n);const a=M[n.conv_id]=M[n.conv_id]||[],i=a.findIndex(x=>x.id===n.id);if(i>-1)a[i]=n;else a.push(n);messageIndex.set(String(n.id),n);affectsOpen=n.conv_id===cur}
  if(cur){if(affectsOpen)render(false);markRead()}else home()}
 function onMem(p){const x=p.new,o=p.old;
- if(p.eventType==='INSERT'){if(x.user_id===me.id||!C[x.conv_id])loadAll();else loadAll();return}
- if(p.eventType==='DELETE'){if(o.user_id===me.id){delete C[o.conv_id];delete K[o.conv_id];(M[o.conv_id]||[]).forEach(m=>messageIndex.delete(String(m.id)));delete M[o.conv_id];if(cur===o.conv_id){cur=null;show('home')}home()}else loadAll();return}
- const c=C[x.conv_id];if(!c)return;const i=c.members.findIndex(m=>m.user_id===x.user_id);if(i>-1)c.members[i]=x;if(x.user_id===me.id)c.my=x;if(cur===x.conv_id)render()}
+ if(p.eventType==='INSERT'){loadAll().catch(e=>console.warn('[members] refresh failed',e));return}
+ if(p.eventType==='DELETE'){if(o.user_id===me.id){delete C[o.conv_id];delete K[o.conv_id];(M[o.conv_id]||[]).forEach(m=>messageIndex.delete(String(m.id)));delete M[o.conv_id];if(cur===o.conv_id){cur=null;show('home')}home()}else loadAll().catch(e=>console.warn('[members] refresh failed',e));return}
+ if(x.user_id===me.id){loadAll().catch(e=>{console.warn('[keys] member key refresh failed',e);toast('Не удалось обновить ключ чата')});return}
+ const c=C[x.conv_id];if(!c)return;const i=c.members.findIndex(m=>m.user_id===x.user_id);if(i>-1)c.members[i]=x;if(cur===x.conv_id)render()}
 function presence(){
  const ping=(force)=>{if(force===true||!document.hidden)sb.from('profiles').update({last_seen:new Date().toISOString()}).eq('id',me.id).then(()=>{})};
  const peers=async()=>{if(document.hidden)return;const ids=Object.keys(P).filter(i=>i!==me.id);if(!ids.length)return;
@@ -723,8 +724,8 @@ function pickChat(cb){const rows=Object.values(C).filter(canPost);
  s=>s.onclick=e=>{const r=e.target.closest('[data-c]');if(r)cb(C[r.dataset.c])})}
 async function forward(ms,t){const sv=reply;reply=null;let n=0;toast('Пересылка…',15000);
  for(const m of [...ms].sort((a,b)=>a.id-b.id)){const p=m.p||{},src=C[m.conv_id],from=p.f||(P[m.sender]?.name||'');
-  try{if(p.k&&p.p){const r=await fetch(sb.storage.from('media').getPublicUrl(p.p).data.publicUrl);if(!r.ok)throw 0;
-    const raw=await CR.openB(K[src.id],src.id,new Uint8Array(await r.arrayBuffer()));
+  try{if(p.k&&p.p){const r=await sb.storage.from('media').download(p.p);if(r.error)throw r.error;
+    const raw=await CR.openB(K[src.id],src.id,new Uint8Array(await r.data.arrayBuffer()));
     if(await upload(t,raw,p.k,p.n,p.y,{f:from,...(p.t?{t:p.t}:{})}))n++}
    else if(await sendPayload(t,{...(p.t?{t:p.t}:{}),f:from}))n++}catch(e){}}
  reply=sv;toast(n?'Переслано: '+n:'Не удалось переслать');
@@ -768,8 +769,8 @@ inp.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&matchMedia('(hover:hover)').m
 /* ---------- файлы ---------- */
 async function loadMedia(el){if(!el||el.dataset.loading==='1')return;const m=messageIndex.get(String(el.dataset.m));if(!m||!m.p||!m.p.p)return;el.dataset.loading='1';const p=m.p,c=C[m.conv_id];if(!c||!K[c.id]){if(el.isConnected)el.textContent='🔒 нет доступа';return}
  try{let url=BLOB[p.p];
-  if(!url){const r=await fetch(sb.storage.from('media').getPublicUrl(p.p).data.publicUrl);if(!r.ok)throw 0;
-   const raw=await CR.openB(K[c.id],c.id,new Uint8Array(await r.arrayBuffer()));url=BLOB[p.p]=URL.createObjectURL(new Blob([raw],{type:p.y||'application/octet-stream'}))}
+  if(!url){const r=await sb.storage.from('media').download(p.p);if(r.error)throw r.error;
+   const raw=await CR.openB(K[c.id],c.id,new Uint8Array(await r.data.arrayBuffer()));url=BLOB[p.p]=URL.createObjectURL(new Blob([raw],{type:p.y||'application/octet-stream'}))}
   if(!el.isConnected)return;
   if(p.k==='img'){el.outerHTML=`<img class="mi" src="${url}" alt="">`;const img=document.querySelector(`#list .b[data-id="${m.id}"] .mi`);if(img?.decode)await img.decode().catch(()=>{})}
   else if(p.k==='vid'){el.outerHTML=`<video src="${url}" controls playsinline preload="metadata"></video>`;const video=document.querySelector(`#list .b[data-id="${m.id}"] video`);if(video&&video.readyState<1)await new Promise(resolve=>{let done=false;const finish=()=>{if(done)return;done=true;resolve()};video.addEventListener('loadedmetadata',finish,{once:true});video.addEventListener('error',finish,{once:true});setTimeout(finish,2000)})}
@@ -950,22 +951,26 @@ function pickUser(cb,exclude=[]){sheet(`<h3>Поиск по @имени или �
  },250)}})}
 async function addMembers(c,users,role='member'){
  if((c.kind==='group'||c.kind==='channel')&&Array.isArray(c.members)&&c.members.length){
+  let added=0;
   try{
-   const nextKey=await CR.newKey(),wrapped={};
-   for(const member of c.members){
-    const user=P[member.user_id];
-    if(!user?.pubkey)throw new Error('Нет открытого ключа участника '+(user?.username||member.user_id));
-    wrapped[member.user_id]=await CR.wrap(ID.priv,user.pubkey,nextKey,c.id);
-   }
    for(const user of users){
-    if(!user?.pubkey)throw new Error('У пользователя нет открытого ключа');
+    if(!user?.id||!user?.pubkey)throw new Error('У пользователя нет открытого ключа');
+    if(c.members.some(m=>m.user_id===user.id))continue;
+    const nextKey=await CR.newKey(),wrapped={};
+    for(const member of c.members){
+     const peer=P[member.user_id];
+     if(!peer?.pubkey)throw new Error('Нет открытого ключа участника '+(peer?.username||member.user_id));
+     wrapped[member.user_id]=await CR.wrap(ID.priv,peer.pubkey,nextKey,c.id);
+    }
     wrapped[user.id]=await CR.wrap(ID.priv,user.pubkey,nextKey,c.id);
+    const result=await sb.rpc('rotate_group_add_member_key',{p_conv_id:c.id,p_user_id:user.id,p_wrapped_keys:wrapped});
+    if(result.error){if(added)await loadAll();return result}
+    K[c.id]=nextKey;
+    c.members.push({conv_id:c.id,user_id:user.id,role,wrapped_by:me.id,wrapped_key:wrapped[user.id]});
+    added++;
    }
-   const result=await sb.rpc('rotate_group_add_members_key',{p_conv_id:c.id,p_user_ids:users.map(u=>u.id),p_wrapped_keys:wrapped});
-   if(result.error)return result;
-   K[c.id]=nextKey;
    return {data:null,error:null};
-  }catch(error){return {data:null,error}}
+  }catch(error){if(added)await loadAll();return {data:null,error}}
  }
  const rows=[];
  for(const u of users)rows.push({conv_id:c.id,user_id:u.id,role,wrapped_by:me.id,wrapped_key:await CR.wrap(ID.priv,u.pubkey,K[c.id],c.id)});
