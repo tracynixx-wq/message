@@ -14,15 +14,44 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+
       - name: Check application JavaScript
-        run: node --check app.js
+        run: |
+          node --check app.js
+          node --check ios.js
+          node --check sw.js
+          node --check electron/main.cjs
+          node --check electron/preload.cjs
+
+      - name: Validate JSON and Android manifest
+        run: |
+          node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); JSON.parse(require('fs').readFileSync('.well-known/assetlinks.json','utf8'));"
+          python -c "import xml.etree.ElementTree as ET; ET.parse('android/app/src/main/AndroidManifest.xml')"
+
+      - name: Verify Android app-link identity
+        run: |
+          APP_ID=$(sed -n "s/.*applicationId '\([^']*\)'.*/\1/p" android/app/build.gradle)
+          LINK_ID=$(node -p "JSON.parse(require('fs').readFileSync('.well-known/assetlinks.json','utf8'))[0].target.package_name")
+          test -n "$APP_ID" && test "$APP_ID" = "$LINK_ID"
+
+      - name: Verify group-key RPC contract
+        run: |
+          grep -q "rpc('rotate_group_add_member_key'" app.js
+          grep -q "create or replace function public.rotate_group_add_member_key" supabase/migrations/20261114120000_harden_messenger_backend.sql
+          ! grep -q "rotate_group_add_members_key" app.js
+
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+
       - name: Check deployed Push Edge Function source
         run: deno check --node-modules-dir=auto --no-lock supabase/functions/bright-endpoint/index.ts
+
       - name: Check app shell assets
         run: |
           grep -q 'href="styles.css"' index.html
+          grep -q 'href="ios.css"' index.html
           grep -q 'src="app.js"' index.html
+          grep -q 'src="ios.js"' index.html
           grep -q "'styles.css','app.js'" sw.js
+          grep -q "'ios.css','ios.js'" sw.js
