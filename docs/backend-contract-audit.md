@@ -73,3 +73,10 @@ The connected live project was inspected read-only on 2026-11-16. Its current sc
 A concrete backend defect remains: the live `rotate_group_add_members_key` function updates the wrapped key for every existing member and inserts new members, but does not first copy the previous wrapped keys into `member_key_history`. The client now retains old keys in memory during the current session, but after an existing member reloads or signs in on another device, old group messages may no longer decrypt. The removal RPC `rotate_group_member_key` does archive the previous wrapped keys. Fixing the add-member path requires a database migration that archives the current `members` rows before updating them. No migration was applied during this review.
 
 The repository migration file is named `20261114184600_atomic_multi_member_add.sql`, while the live migration ledger reports `20261114104812_atomic_multi_member_add`; reconcile migration history before any future `db push`.
+
+
+## Supabase advisor snapshot (read-only, 2026-11-16)
+
+- Security advisor reports 13 authenticated-callable `SECURITY DEFINER` functions. Several are intentional RPCs used by the client or RLS policies; do not blanket-revoke them. Review each function's `auth.uid()` checks, fixed `search_path`, and intended direct API exposure.
+- Leaked-password protection is disabled in Supabase Auth. Enabling it is a project-auth configuration change and was not applied during this review.
+- Performance advisor reports 11 unused indexes. Most listed indexes belong to legacy `chats`, `messages`, and `gifts` tables; review actual workload and migration history before dropping any index.
