@@ -56,3 +56,4 @@ jobs:
           grep -q 'src="ios.js"' index.html
           grep -q "'styles.css','app.js'" sw.js
           grep -q "'ios.css','ios.js'" sw.js
+          grep -q "'icon-192.png','icon-512.png'" sw.js
