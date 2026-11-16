@@ -39,6 +39,7 @@ jobs:
           grep -q "rpc('rotate_group_add_member_key'" app.js
           grep -q "create or replace function public.rotate_group_add_member_key" supabase/migrations/20261114120000_harden_messenger_backend.sql
           ! grep -q "rotate_group_add_members_key" app.js
+          ! grep -q "keybackup').select('data,updated_at'" app.js
 
       - uses: denoland/setup-deno@v2
         with:
