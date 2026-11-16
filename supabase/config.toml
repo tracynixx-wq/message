@@ -1,2 +1,2 @@
-[functions.push-notify]
+[functions.bright-endpoint]
 verify_jwt = false
