@@ -1304,12 +1304,16 @@ async function checkAndroidUpdate(){
  const inAndroidApp=/Android/i.test(navigator.userAgent)&&(!!native||standalone||new URLSearchParams(location.search).has('appVersion'));if(!inAndroidApp)return;
  if(Date.now()-updateCheckAt<300000)return;updateCheckAt=Date.now();
  try{
-  const res=await fetch('https://api.github.com/repos/tracynixx-wq/message/releases/latest',{headers:{Accept:'application/vnd.github+json'},cache:'no-store'});
+  const cmp=(a,b)=>{const x=a.split('.').map(Number),y=b.split('.').map(Number);for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]||0)-(y[i]||0);if(d)return d}return 0};
+  // Android is no longer the GitHub "latest" release; Windows uses latest.yml.
+  const res=await fetch('https://api.github.com/repos/tracynixx-wq/message/releases?per_page=100',{headers:{Accept:'application/vnd.github+json'},cache:'no-store'});
   if(!res.ok)throw new Error('GitHub Releases: HTTP '+res.status);
-  const rel=await res.json(),latest=String(rel.tag_name||'').replace(/^android-v/i,'');
+  const releases=await res.json();
+  const rel=(Array.isArray(releases)?releases:[]).filter(x=>/^android-v\d+(?:\.\d+){1,2}$/i.test(x.tag_name||'')&&(x.assets||[]).some(a=>/\.apk$/i.test(a.name||''))).sort((a,b)=>cmp(String(b.tag_name).replace(/^android-v/i,''),String(a.tag_name).replace(/^android-v/i,'')))[0];
+  if(!rel)return;
+  const latest=String(rel.tag_name).replace(/^android-v/i,'');
   const current=String(native&&typeof native.getVersionName==='function'?native.getVersionName():(new URLSearchParams(location.search).get('appVersion')||'0.0.0'));
   const asset=(rel.assets||[]).find(x=>/\.apk$/i.test(x.name||''));if(!asset||!latest)return;
-  const cmp=(a,b)=>{const x=a.split('.').map(Number),y=b.split('.').map(Number);for(let i=0;i<Math.max(x.length,y.length);i++){const d=(x[i]||0)-(y[i]||0);if(d)return d}return 0};
   if(cmp(latest,current)<=0){const old=$('#appUpdate');if(old)old.hidden=true;return}
   if(sessionStorage.getItem('msg.update.actioned')===latest)return;
   let banner=$('#appUpdate');
